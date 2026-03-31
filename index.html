@@ -1408,10 +1408,6 @@ function mergeSelected() {
   const minY = Math.min(...selected.map(b => b.y));
   const maxX = Math.max(...selected.map(b => b.x + b.w));
   const maxY = Math.max(...selected.map(b => b.y + b.h));
-  const totalArea = selected.reduce((a, b) => a + b.w * b.h, 0);
-  if (Math.abs(totalArea - (maxX - minX) * (maxY - minY)) > 0.1) {
-    alert('Merge failed: selection must form a rectangle.'); return;
-  }
   saveUndo();
   const ids = new Set(selected.map(b => b.id));
   state.groups.forEach(g => { g.boothIds = g.boothIds.filter(id => !ids.has(id)); });
@@ -4269,9 +4265,7 @@ function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
       ectx.strokeStyle = '#FFD600';
       ectx.lineWidth = 2.5 / zoom;
       ectx.strokeRect(b.x, b.y, b.w, b.h);
-      if (showNames && b.companyName) {
-        drawBoothContent(ectx, b, zoom, '#1A1000', false, true);
-      }
+      // discuss 부스는 업체명 표기 안 함 (배정논의 위치 보안)
     } else if (isExcluded) {
       // 배정제외: 매우 연한 회색
       ectx.fillStyle = 'rgba(230,230,230,0.4)';
