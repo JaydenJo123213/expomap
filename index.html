@@ -4280,7 +4280,7 @@ function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
       ectx.strokeStyle = '#AAAAAA';
       ectx.lineWidth = 1 / zoom;
       ectx.strokeRect(b.x, b.y, b.w, b.h);
-      if (showNames && b.companyName) {
+      if (showNames && (b.companyName || b.boothId)) {
         drawBoothContent(ectx, b, zoom, '#333333', false, true);
       }
     }
