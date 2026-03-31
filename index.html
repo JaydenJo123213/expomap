@@ -985,9 +985,9 @@ CREATE POLICY "anon_all" ON expomap_state
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px" id="assignModalInfo"></div>
       <div class="form-row">
         <label>업체명</label>
-        <input type="text" id="assignCompanyName" placeholder="예) (주)대한전자">
+        <input type="text" id="assignCompanyName" placeholder="예) (주)대한전자" oninput="updateAssignFilePreview()">
       </div>
-      <div style="font-size:11px;color:var(--text-dim);margin-top:4px">파일명: ExpoMap_배정안내_{업체명}.pdf</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px" id="assignFileNamePreview">파일명: KIMES BUSAN 2026_Floor Plan_260329_{업체명}.pdf</div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
         <input type="checkbox" id="assignShowNames" style="width:14px;height:14px;cursor:pointer">
         <label for="assignShowNames" style="font-size:12px;color:var(--text);cursor:pointer">부스 업체명 표기</label>
@@ -1091,6 +1091,7 @@ let state = {
   assignMode: false,
   assignModeBooths: new Set(),
   assignModeOrigStatus: {},
+  nextDiscussGroup: 1,
   // viewer mode
   viewerHoverId: null,
   _viewerClickStartX: 0,
@@ -2292,7 +2293,7 @@ function wrapText(text) {
   return text.split('</br>').map(s => s.trim());
 }
 
-function drawBoothContent(c, b, zoom, textColor, isConstruction) {
+function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false) {
   const pad = 2;
   const availW = b.w - pad * 2;
   const availH = b.h - pad * 2;
@@ -2385,7 +2386,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction) {
   }
 
   // 전기내역 원 뱃지
-  drawElecBadges(c, b, zoom);
+  if (!skipElec) drawElecBadges(c, b, zoom);
 
   // 메모 인디케이터 — 좌하단 ✎ (관리자 모드에서만, 메모 있을 때)
   if (!VIEWER_MODE && b.memo) {
@@ -2827,27 +2828,40 @@ function render() {
     ctx.setLineDash([]);
   }
 
-  // ─── discuss 부스 연결선 (배정모드 여부와 무관하게 항상 표시) ───
-  const discussBooths = state.booths.filter(b => b.status === 'discuss');
-  if (discussBooths.length > 1) {
-    const cx = discussBooths.reduce((s, b) => s + b.x + b.w / 2, 0) / discussBooths.length;
-    const cy = discussBooths.reduce((s, b) => s + b.y + b.h / 2, 0) / discussBooths.length;
-    ctx.strokeStyle = 'rgba(255,214,0,0.7)';
+  // ─── discuss 부스 연결선: 그룹별로 따로 그림 ───
+  {
+    const discussBooths = state.booths.filter(b => b.status === 'discuss');
+    // 현재 배정 모드 중인 부스는 임시 그룹 0으로 묶기
+    const grpMap = new Map();
+    discussBooths.forEach(b => {
+      const g = (state.assignMode && state.assignModeBooths.has(b.id))
+        ? 0
+        : (b.discussGroup ?? -b.id); // 그룹 없으면 단독
+      if (!grpMap.has(g)) grpMap.set(g, []);
+      grpMap.get(g).push(b);
+    });
     ctx.lineWidth = 1.5 / state.zoom;
     ctx.setLineDash([5 / state.zoom, 4 / state.zoom]);
-    discussBooths.forEach(b => {
-      const bx = b.x + b.w / 2, by = b.y + b.h / 2;
+    grpMap.forEach((grpBooths) => {
+      if (grpBooths.length < 2) return;
+      const cx = grpBooths.reduce((s, b) => s + b.x + b.w / 2, 0) / grpBooths.length;
+      const cy = grpBooths.reduce((s, b) => s + b.y + b.h / 2, 0) / grpBooths.length;
+      ctx.strokeStyle = 'rgba(255,214,0,0.7)';
+      grpBooths.forEach(b => {
+        const bx = b.x + b.w / 2, by = b.y + b.h / 2;
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.moveTo(bx, by);
-      ctx.lineTo(cx, cy);
-      ctx.stroke();
+      ctx.arc(cx, cy, 4 / state.zoom, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFD600';
+      ctx.fill();
+      ctx.setLineDash([5 / state.zoom, 4 / state.zoom]);
     });
     ctx.setLineDash([]);
-    // centroid 점
-    ctx.beginPath();
-    ctx.arc(cx, cy, 4 / state.zoom, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFD600';
-    ctx.fill();
   }
 
   ctx.restore();
@@ -4164,11 +4178,19 @@ function exitAssignMode(revert = false) {
   render(); updateStats();
 }
 
+function updateAssignFilePreview() {
+  const now = new Date();
+  const ds = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+  const name = document.getElementById('assignCompanyName').value || '{참가업체명}';
+  document.getElementById('assignFileNamePreview').textContent = `파일명: KIMES BUSAN 2026_Floor Plan_${ds}_${name}.pdf`;
+}
+
 function openAssignModal() {
   if (!state.assignModeBooths.size) { alert('선택된 부스가 없습니다.'); return; }
   document.getElementById('assignModalInfo').textContent =
     `선택된 부스 ${state.assignModeBooths.size}개를 배정논의 상태로 저장하고 PDF를 출력합니다.`;
   document.getElementById('assignCompanyName').value = '';
+  updateAssignFilePreview();
   openModal('modalAssignGuide');
 }
 
@@ -4227,49 +4249,69 @@ function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
   // 구조물
   drawStructures(ectx, zoom, false);
 
-  // 부스 — discuss 강조, 나머지는 viewer 상태색상, 이름 없이 사이즈만
+  // 부스 — discuss만 노란 하이라이트, 나머지는 모두 회색 박스
   booths.forEach(b => {
     const isDiscuss = discussIds.has(b.id);
-    const vc = VIEWER_STATUS_COLORS[b.status] || VIEWER_STATUS_COLORS.available;
+    const isExcluded = b.status === 'excluded';
 
     if (isDiscuss) {
+      // 노란 하이라이트
       ectx.fillStyle = 'rgba(255,214,0,0.45)';
       ectx.fillRect(b.x, b.y, b.w, b.h);
       ectx.strokeStyle = '#FFD600';
       ectx.lineWidth = 2.5 / zoom;
       ectx.strokeRect(b.x, b.y, b.w, b.h);
-      const pad = 2;
-      const availW = b.w - pad * 2;
       if (showNames && b.companyName) {
-        // 업체명 표기 모드
-        drawBoothContent(ectx, b, zoom, '#1A1000', false);
-      } else {
-        // 사이즈 레이블: "3m×6m(2 booth)"
-        const wm = pxToM(b.w), hm = pxToM(b.h);
-        const sizeLabel = `${wm}m×${hm}m${totalDiscuss > 1 ? ` (${totalDiscuss} booth)` : ''}`;
-        let fz = Math.min(availW / sizeLabel.length * 1.6, b.h * 0.28, 13);
-        fz = Math.max(2, fz);
-        ectx.fillStyle = '#1A1000';
-        ectx.font = `700 ${fz}px Pretendard, sans-serif`;
-        ectx.textAlign = 'center'; ectx.textBaseline = 'middle';
-        ectx.fillText(sizeLabel, b.x + b.w / 2, b.y + b.h / 2);
+        drawBoothContent(ectx, b, zoom, '#1A1000', false, true);
       }
-    } else if (b.status === 'excluded') {
-      ectx.fillStyle = 'rgba(240,240,240,0.5)';
+    } else if (isExcluded) {
+      // 배정제외: 매우 연한 회색
+      ectx.fillStyle = 'rgba(230,230,230,0.4)';
       ectx.fillRect(b.x, b.y, b.w, b.h);
-      ectx.strokeStyle = '#DDDDDD';
+      ectx.strokeStyle = '#E0E0E0';
       ectx.lineWidth = 0.6 / zoom;
       ectx.strokeRect(b.x, b.y, b.w, b.h);
     } else {
-      ectx.fillStyle = vc.fill;
-      ectx.globalAlpha = 0.82;
+      // 모든 일반 부스: 회색 박스
+      ectx.fillStyle = 'rgba(220,220,220,0.75)';
       ectx.fillRect(b.x, b.y, b.w, b.h);
-      ectx.globalAlpha = 1;
-      ectx.strokeStyle = vc.stroke;
-      ectx.lineWidth = 1.2 / zoom;
+      ectx.strokeStyle = '#AAAAAA';
+      ectx.lineWidth = 1 / zoom;
       ectx.strokeRect(b.x, b.y, b.w, b.h);
+      if (showNames && b.companyName) {
+        drawBoothContent(ectx, b, zoom, '#333333', false, true);
+      }
     }
   });
+
+  // 각 discuss 부스 위에 화살표 (아래 방향)
+  {
+    const db = booths.filter(b => discussIds.has(b.id));
+    const arrowLen = GRID_PX * 1.4;   // 화살표 전체 길이 (세계좌표)
+    const headSize = GRID_PX * 0.55;  // 화살촉 크기
+    ectx.fillStyle = '#E53935';
+    ectx.strokeStyle = '#E53935';
+    ectx.lineWidth = 3.5 / zoom;
+    ectx.lineCap = 'round';
+    db.forEach(b => {
+      const tipX = b.x + b.w / 2;
+      const tipY = b.y - GRID_PX * 0.15;          // 부스 상단 바로 위
+      const tailY = tipY - arrowLen + headSize;
+      // 화살 줄기
+      ectx.beginPath();
+      ectx.moveTo(tipX, tailY);
+      ectx.lineTo(tipX, tipY - headSize);
+      ectx.stroke();
+      // 화살촉 삼각형
+      ectx.beginPath();
+      ectx.moveTo(tipX, tipY);
+      ectx.lineTo(tipX - headSize * 0.55, tipY - headSize);
+      ectx.lineTo(tipX + headSize * 0.55, tipY - headSize);
+      ectx.closePath();
+      ectx.fill();
+    });
+    ectx.lineCap = 'butt';
+  }
 
   // 연결선
   if (discussIds.size > 1) {
@@ -4300,20 +4342,33 @@ function executeAssignExport() {
   if (!companyName) { alert('업체명을 입력해주세요.'); return; }
   const showNames = document.getElementById('assignShowNames').checked;
   const discussIds = new Set(state.assignModeBooths);
-  // A3 landscape: 420×297mm → 3508×2480px @300dpi
-  const offW = 3508, offH = 2480;
+  // discussGroup 부여: 이번 세션 부스에 공통 그룹 ID 할당
+  const grpId = state.nextDiscussGroup;
+  state.assignModeBooths.forEach(id => {
+    const b = state.booths.find(b => b.id === id);
+    if (b) b.discussGroup = grpId;
+  });
+  state.nextDiscussGroup++;
+  // A3 portrait: 297×420mm → 3508×4961px @300dpi
+  const offW = 3508, offH = 4961;
   const off = document.createElement('canvas');
   off.width = offW; off.height = offH;
   const octx = off.getContext('2d');
   renderForAssignExport(octx, offW, offH, discussIds, showNames);
   const imgData = off.toDataURL('image/jpeg', 0.95);
+  // 파일명: KIMES BUSAN 2026_Floor Plan_YYMMDD_업체명
+  const now = new Date();
+  const dateStr = String(now.getFullYear()).slice(2) +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0');
+  const fileName = `KIMES BUSAN 2026_Floor Plan_${dateStr}_${companyName}.pdf`;
   try {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
     doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
-    doc.save(`ExpoMap_배정안내_${companyName}.pdf`);
+    doc.save(fileName);
     closeModal('modalAssignGuide');
     exitAssignMode(false);
     scheduleSave();
