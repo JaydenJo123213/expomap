@@ -2401,7 +2401,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
     // 부스번호/사이즈는 고정 작은 폰트 — 업체명 크기와 독립적으로 결정
-    const noFz  = hasBoothNo ? Math.min(availH * 0.225, 12) : 0;
+    const noFz  = hasBoothNo ? 7 : 0;
     const szFz  = showSize   ? Math.min(availH * 0.12, 7) : 0;
     const topReserve    = hasBoothNo ? noFz + 2 : 0;
     const bottomReserve = showSize   ? szFz + 2 : 0;
