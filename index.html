@@ -1227,6 +1227,7 @@ async function saveToSupabase() {
     nextGroupId: state.nextGroupId,
     nextStructId: state.nextStructId,
     nextLogoId: state.nextLogoId,
+    nextDiscussGroup: state.nextDiscussGroup,
     bg: { x: state.bg.x, y: state.bg.y, w: state.bg.w, h: state.bg.h, natW: state.bg.natW, natH: state.bg.natH, opacity: state.bg.opacity, visible: state.bg.visible, rotation: state.bg.rotation || 0, dataUrl: state.bg.dataUrl || null },
   };
   try {
@@ -1272,6 +1273,13 @@ async function loadFromSupabase() {
       state.nextGroupId = s.nextGroupId || 1;
       state.nextStructId = s.nextStructId || 1;
       state.nextLogoId = s.nextLogoId || 1;
+      // discussGroup: 저장된 값 복원, 없으면 기존 부스에서 max값+1 계산
+      if (s.nextDiscussGroup) {
+        state.nextDiscussGroup = s.nextDiscussGroup;
+      } else {
+        const maxGrp = Math.max(0, ...(s.booths || []).map(b => b.discussGroup || 0));
+        state.nextDiscussGroup = maxGrp + 1;
+      }
       restoreLogos(s.logos || []);
       if (s.bg) {
         state.bg.x = s.bg.x || 0;
