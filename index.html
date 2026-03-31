@@ -213,7 +213,7 @@
 <div class="viewer-bar">
   <div class="viewer-logo">ExpoMap <span>공개도면</span></div>
   <div style="flex:1"></div>
-  <button id="btnViewerAvailable" onclick="toggleViewerAvailable()" style="padding:5px 16px;border:1px solid #E0E0E0;border-radius:6px;background:#F8F9FA;color:#555;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">배정 가능한 위치</button>
+  <button id="btnViewerAvailable" onclick="toggleViewerAvailable()" style="padding:5px 16px;border:1px solid #F9A825;border-radius:6px;background:#FFD600;color:#7A5800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">기본</button>
   <div style="flex:1"></div>
   <button onclick="window.open(location.pathname+'?mode=admin','_blank')" style="padding:5px 16px;border:1px solid #1a73e8;border-radius:6px;background:#fff;color:#1a73e8;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">🔧 배정모드</button>
   <div class="viewer-zoom" id="viewerZoomDisplay">100%</div>
@@ -303,13 +303,13 @@
   <div class="panel-left">
     <div class="panel-section">
       <div class="panel-title">Assignment</div>
-      <div class="status-row"><div class="status-dot" style="background:#555A6E"></div>배정가능<span class="status-count" id="countAvailable">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#FFD600"></div>배정논의<span class="status-count" id="countDiscuss">0</span></div>
+      <div class="status-row"><div class="status-dot" style="background:#555A6E"></div>기본<span class="status-count" id="countAvailable">0</span></div>
       <div class="status-row"><div class="status-dot" style="background:#FF9800"></div>배정가능위치<span class="status-count" id="countSpot">0</span></div>
       <div class="status-row"><div class="status-dot" style="background:#F06292"></div>홀딩<span class="status-count" id="countHold">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#3DAF6E"></div>계약서 접수<span class="status-count" id="countProposing">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
       <div class="status-row"><div class="status-dot" style="background:#29B6F6"></div>온라인신청<span class="status-count" id="countOnline">0</span></div>
+      <div class="status-row"><div class="status-dot" style="background:#3DAF6E"></div>계약서접수<span class="status-count" id="countProposing">0</span></div>
+      <div class="status-row"><div class="status-dot" style="background:#FFD600"></div>배정논의<span class="status-count" id="countDiscuss">0</span></div>
+      <div class="status-row"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
       <div class="status-row"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
       <div class="status-row"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
     </div>
@@ -448,13 +448,13 @@
         <div class="panel-title">Status</div>
         <select class="status-select" id="multiPropStatus">
           <option value="">— 변경 안 함 —</option>
-          <option value="available">배정가능</option>
-          <option value="discuss">배정논의</option>
+          <option value="available">기본</option>
           <option value="spot">배정가능위치</option>
           <option value="hold">홀딩</option>
-          <option value="proposing">계약서 접수</option>
-          <option value="assigned">배정완료</option>
           <option value="online">온라인신청</option>
+          <option value="proposing">계약서접수</option>
+          <option value="discuss">배정논의</option>
+          <option value="assigned">배정완료</option>
           <option value="fake">가짜배정</option>
           <option value="excluded">배정제외</option>
         </select>
@@ -485,13 +485,13 @@
       <div style="margin-top:10px">
         <div class="panel-title">Status</div>
         <select class="status-select" id="propStatus">
-          <option value="available">배정가능</option>
-          <option value="discuss">배정논의</option>
+          <option value="available">기본</option>
           <option value="spot">배정가능위치</option>
           <option value="hold">홀딩</option>
-          <option value="proposing">계약서 접수</option>
-          <option value="assigned">배정완료</option>
           <option value="online">온라인신청</option>
+          <option value="proposing">계약서접수</option>
+          <option value="discuss">배정논의</option>
+          <option value="assigned">배정완료</option>
           <option value="fake">가짜배정</option>
           <option value="excluded">배정제외</option>
         </select>
@@ -1088,7 +1088,7 @@ let state = {
   assignModeOrigStatus: {},
   nextDiscussGroup: 1,
   // viewer mode
-  showViewerAvailable: false,
+  showViewerAvailable: true,
   viewerHoverId: null,
   _viewerClickStartX: 0,
   _viewerClickStartY: 0,
