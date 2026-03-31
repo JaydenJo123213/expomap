@@ -313,6 +313,7 @@
       <div class="status-row"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
       <div class="status-row"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
       <div class="status-row"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
+      <div class="status-row"><div class="status-dot" style="background:#fff;border:1.5px solid #111"></div>기타부대설비<span class="status-count" id="countFacility">0</span></div>
     </div>
 
     <div class="panel-section">
@@ -464,6 +465,7 @@
           <option value="assigned">배정완료</option>
           <option value="fake">가짜배정</option>
           <option value="excluded">배정제외</option>
+          <option value="facility">기타부대설비</option>
         </select>
       </div>
       <div style="margin-top:10px">
@@ -501,6 +503,7 @@
           <option value="assigned">배정완료</option>
           <option value="fake">가짜배정</option>
           <option value="excluded">배정제외</option>
+          <option value="facility">기타부대설비</option>
         </select>
       </div>
       <div style="margin-top:10px">
@@ -1212,6 +1215,7 @@ const STATUS_COLORS = {
   online:    { fill: '#0A2035', stroke: '#29B6F6', text: '#4FC3F7' },   // 온라인신청 — 하늘색
   fake:      { fill: '#3D0A0A', stroke: '#F44336', text: '#EF9A9A' },   // 가짜배정 — 빨강
   excluded:  { fill: '#1A1A1A', stroke: '#444',    text: '#555' },      // 배정제외 (유지)
+  facility:  { fill: '#F5F5F5', stroke: '#111111', text: '#111111' },  // 기타부대설비 — 흰바탕 검정테두리
 };
 const SELECTED_STROKE = '#4F8CFF';
 const GROUP_STROKE = '#4F8CFF';
@@ -1226,6 +1230,7 @@ const VIEWER_STATUS_COLORS = {
   online:    { fill: '#E1F5FE', stroke: '#29B6F6', text: '#0277BD', label: '온라인신청' },     // 하늘색
   fake:      { fill: '#FFEBEE', stroke: '#EF5350', text: '#C62828', label: '가짜배정' },        // 빨강
   excluded:  { fill: '#FAFAFA', stroke: '#EEEEEE', text: '#BDBDBD', label: '배정제외' },
+  facility:  { fill: '#FFFFFF', stroke: '#111111', text: '#111111', label: '기타부대설비' },
 };
 const STRUCT_COLORS = {
   column: { fill: '#5C5C5C', stroke: '#888' },
@@ -4288,13 +4293,13 @@ document.getElementById('sPropStroke').addEventListener('input', e => applyStruc
 
 // ─── Stats ───
 function updateStats() {
-  const counts = { available: 0, discuss: 0, spot: 0, hold: 0, proposing: 0, assigned: 0, online: 0, fake: 0, excluded: 0 };
+  const counts = { available: 0, discuss: 0, spot: 0, hold: 0, proposing: 0, assigned: 0, online: 0, fake: 0, excluded: 0, facility: 0 };
   let totalArea = 0;
   for (const b of state.booths) {
     const area = pxToM(b.w) * pxToM(b.h);
     const units = Math.round(area / 9) || 1;
     counts[b.status] = (counts[b.status] || 0) + units;
-    if (b.status !== 'excluded') totalArea += area;
+    if (b.status !== 'excluded' && b.status !== 'facility') totalArea += area;
   }
   document.getElementById('countAvailable').textContent = counts.available;
   document.getElementById('countDiscuss').textContent = counts.discuss;
@@ -4305,6 +4310,7 @@ function updateStats() {
   document.getElementById('countOnline').textContent = counts.online;
   document.getElementById('countFake').textContent = counts.fake;
   document.getElementById('countExcluded').textContent = counts.excluded;
+  document.getElementById('countFacility').textContent = counts.facility;
   const totalUnits = counts.available + counts.discuss + counts.spot + counts.hold + counts.proposing + counts.assigned + counts.online + counts.fake;
   document.getElementById('totalBooths').textContent = totalUnits;
   document.getElementById('totalArea').textContent = totalArea.toFixed(0);
