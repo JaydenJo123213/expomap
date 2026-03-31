@@ -2915,8 +2915,8 @@ function renderViewer(w, h) {
 
     // 공개도면: 모든 부스 기본 컬러 #f9e5de
     // showViewerAvailable ON → available 부스 노란색 / 클릭된 available 부스도 노란색
-    const isSelected = isHovered && b.status === 'available';
-    const isAvailableHighlight = state.showViewerAvailable && b.status === 'available';
+    const isSelected = isHovered && b.status === 'spot';
+    const isAvailableHighlight = state.showViewerAvailable && b.status === 'spot';
     let fill = '#f9e5de';
     let stroke = '#d4a89a';
     if (isHighlighted) { fill = '#FFF9C4'; stroke = '#F57F17'; }
