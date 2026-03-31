@@ -289,6 +289,7 @@
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
   <button class="tool-btn active" id="btnElecToggle" title="전기 표시 켜기/끄기" onclick="toggleElecDisplay()">부대시설_전기</button>
+  <button class="tool-btn" id="btnOtherToggle" title="기타 부대시설 표시 켜기/끄기" onclick="toggleOtherDisplay()">부대시설_기타</button>
   <button class="tool-btn active" id="btnBoothTypeToggle" title="부스 타입 표시 켜기/끄기" onclick="toggleBoothTypeDisplay()">부스타입</button>
   <div class="topbar-divider"></div>
   <button class="tool-btn" id="btnBgPanel" title="배경 이미지 설정" onclick="toggleBgPanel()">Background</button>
@@ -438,6 +439,12 @@
       <div class="panel-title">전기 범례</div>
       <div id="elecLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
       <button onclick="openCompanyDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 전기 DB 편집...</button>
+      <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
+    </div>
+    <div id="otherLegendSection" style="display:none;margin-bottom:12px">
+      <div class="panel-title">기타 범례</div>
+      <div id="otherLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
+      <button onclick="openCompanyDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 기타 DB 편집...</button>
       <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
     </div>
 
@@ -961,6 +968,13 @@ CREATE POLICY "anon_all" ON expomap_state
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#9575CD;font-weight:600;min-width:60px">3상4선</th>
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#66BB6A;font-weight:600;min-width:60px">24시간</th>
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#FFA726;font-weight:600;min-width:60px">리깅</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#5C6BC0;font-weight:600;min-width:55px">국내전화</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#00ACC1;font-weight:600;min-width:55px">국제전화</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#26A69A;font-weight:600;min-width:55px">인터넷</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#8D6E63;font-weight:600;min-width:60px">기가인터넷</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#78909C;font-weight:600;min-width:55px">공유기</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#29B6F6;font-weight:600;min-width:50px">수도</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#EF5350;font-weight:600;min-width:60px">압축공기</th>
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text-dim);font-weight:600;min-width:40px"></th>
           </tr>
         </thead>
@@ -1082,6 +1096,7 @@ let state = {
   companies: [],
   // 배정 워크플로우
   showElec: true,
+  showOther: false,
   showBoothType: true,
   assignMode: false,
   assignModeBooths: new Set(),
@@ -1112,6 +1127,17 @@ const ELEC_TYPES = [
 ];
 const ELEC_KEYS = ELEC_TYPES.map(t => t.key);
 
+const OTHER_TYPES = [
+  { key: 'other_tela',  label: 'Ta', color: '#5C6BC0', border: '#283593', textColor: '#fff' }, // 국내전화
+  { key: 'other_telb',  label: 'Tb', color: '#00ACC1', border: '#006064', textColor: '#fff' }, // 국제전화
+  { key: 'other_net',   label: 'I',  color: '#26A69A', border: '#004D40', textColor: '#fff' }, // 인터넷
+  { key: 'other_giga',  label: 'G',  color: '#8D6E63', border: '#3E2723', textColor: '#fff' }, // 기가인터넷
+  { key: 'other_wifi',  label: 'wi', color: '#78909C', border: '#263238', textColor: '#fff' }, // 공유기
+  { key: 'other_water', label: 'W',  color: '#29B6F6', border: '#0277BD', textColor: '#fff' }, // 수도
+  { key: 'other_air',   label: 'A',  color: '#EF5350', border: '#B71C1C', textColor: '#fff' }, // 압축공기
+];
+const OTHER_KEYS = OTHER_TYPES.map(t => t.key);
+
 function normalizeElecKey(h) {
   const s = h.toLowerCase().replace(/[\s\-_()\u0028\u0029\uff08\uff09]/g, '');
   // 전기 6종 (더 구체적인 것 먼저)
@@ -1121,6 +1147,14 @@ function normalizeElecKey(h) {
   if ((s.includes('3상') && s.includes('4선')) || s.includes('4선식') || s.includes('380')) return 'elec_3p4w';
   if (s.includes('24시간')) return 'elec_24h';
   if (s.includes('리깅')) return 'elec_rigging';
+  // 기타 7종
+  if (s.includes('국내전화') || s.includes('내선')) return 'other_tela';
+  if (s.includes('국제전화') || s.includes('외선')) return 'other_telb';
+  if (s.includes('기가인터넷') || s.includes('기가넷') || s.includes('gigabit')) return 'other_giga';
+  if (s.includes('인터넷') || s === 'internet' || s === 'net') return 'other_net';
+  if (s.includes('공유기') || s.includes('wifi') || s.includes('wi-fi') || s.includes('router')) return 'other_wifi';
+  if (s.includes('수도') || s === 'water') return 'other_water';
+  if (s.includes('압축공기') || s.includes('에어') || s === 'air') return 'other_air';
   // company_uid: 아이디, id, uid 등
   if (s === '아이디' || s === 'id' || s === 'uid' || s.includes('companyuid') || s === 'company_uid') return 'company_uid';
   // company_name: 회사명, 업체명, 기관명 등
@@ -1994,7 +2028,7 @@ let _importColHeaders = [];
 let _importMapping = {};
 let _importStep = 1;
 
-const TARGET_FIELDS = ['company_uid', 'company_name', 'booth_id', 'booth_type', 'booth_size', 'contact_name', 'contact_phone', 'note', 'elec_lighting', 'elec_power', 'elec_3p3w', 'elec_3p4w', 'elec_24h', 'elec_rigging', '(skip)'];
+const TARGET_FIELDS = ['company_uid', 'company_name', 'booth_id', 'booth_type', 'booth_size', 'contact_name', 'contact_phone', 'note', 'elec_lighting', 'elec_power', 'elec_3p3w', 'elec_3p4w', 'elec_24h', 'elec_rigging', 'other_tela', 'other_telb', 'other_net', 'other_giga', 'other_wifi', 'other_water', 'other_air', '(skip)'];
 
 document.getElementById('excelFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -2105,6 +2139,7 @@ function confirmImport() {
     if (!comp) { comp = {}; state.companies.push(comp); }
     Object.assign(comp, obj);
     ELEC_KEYS.forEach(k => { if (obj[k] !== undefined) comp[k] = parseFloat(obj[k]) || 0; });
+    OTHER_KEYS.forEach(k => { if (obj[k] !== undefined) comp[k] = parseFloat(obj[k]) || 0; });
     if (obj.booth_id) {
       const booth = state.booths.find(b => b.boothId === obj.booth_id);
       if (booth) {
@@ -2293,7 +2328,7 @@ function wrapText(text) {
   return text.split('</br>').map(s => s.trim());
 }
 
-function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false) {
+function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false, skipOther = false) {
   const pad = 2;
   const availW = b.w - pad * 2;
   const availH = b.h - pad * 2;
@@ -2387,6 +2422,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
   // 전기내역 원 뱃지
   if (!skipElec) drawElecBadges(c, b, zoom);
+  // 기타 원 뱃지
+  if (!skipOther) drawOtherBadges(c, b, zoom);
 
   // 메모 인디케이터 — 좌하단 ✎ (관리자 모드에서만, 메모 있을 때)
   if (!VIEWER_MODE && b.memo) {
@@ -2469,6 +2506,48 @@ function drawElecBadges(c, b, zoom) {
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(numStr, cx, cy);
+  });
+}
+
+function drawOtherBadges(c, b, zoom) {
+  if (VIEWER_MODE) return;
+  if (!state.showOther) return;
+  const comp = state.companies.find(co => co.company_uid === b.companyUid);
+  if (!comp) return;
+
+  // 각 타입 값만큼 배지를 반복 생성
+  const badges = [];
+  OTHER_TYPES.forEach(t => {
+    const count = Math.floor(comp[t.key] || 0);
+    for (let i = 0; i < count; i++) badges.push(t);
+  });
+  if (!badges.length) return;
+
+  const r = GRID_PX * 0.24;
+  const gap = r * 2.1;
+  const pad = r + 2;
+  const maxPerRow = Math.max(1, Math.floor((b.w - pad * 2) / gap));
+
+  badges.forEach((t, i) => {
+    const col = i % maxPerRow;
+    const row = Math.floor(i / maxPerRow);
+    const cx = b.x + pad + col * gap;
+    const cy = b.y + b.h - pad - row * gap; // 하단부터 위로
+
+    c.beginPath();
+    c.arc(cx, cy, r, 0, Math.PI * 2);
+    c.fillStyle = t.color;
+    c.fill();
+    c.strokeStyle = t.border;
+    c.lineWidth = 0.8 / zoom;
+    c.stroke();
+
+    const fz = r * 0.85;
+    c.fillStyle = t.textColor;
+    c.font = `700 ${fz}px Pretendard, sans-serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(t.label, cx, cy);
   });
 }
 
@@ -4278,7 +4357,7 @@ function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
       ectx.lineWidth = 1 / zoom;
       ectx.strokeRect(b.x, b.y, b.w, b.h);
       if (showNames && (b.companyName || b.boothId)) {
-        drawBoothContent(ectx, b, zoom, '#333333', false, true);
+        drawBoothContent(ectx, b, zoom, '#333333', false, true, true);
       }
     }
   });
@@ -4482,6 +4561,34 @@ function handleBoothTypeDbEdit(e) {
 }
 
 // ─── 전기 표시 토글 ───
+function toggleOtherDisplay() {
+  state.showOther = !state.showOther;
+  const btn = document.getElementById('btnOtherToggle');
+  if (btn) btn.classList.toggle('active', state.showOther);
+  updateOtherLegend();
+  render();
+}
+
+function updateOtherLegend() {
+  const section = document.getElementById('otherLegendSection');
+  const panel = document.getElementById('panelRight');
+  if (!section || !panel) return;
+  section.style.display = state.showOther ? '' : 'none';
+  if (state.showOther) {
+    panel.classList.add('visible');
+    const list = document.getElementById('otherLegendList');
+    const labels = { other_tela:'국내전화', other_telb:'국제전화', other_net:'인터넷', other_giga:'기가인터넷', other_wifi:'공유기', other_water:'수도', other_air:'압축공기' };
+    list.innerHTML = OTHER_TYPES.map(t =>
+      `<div style="display:flex;align-items:center;gap:6px">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${t.color};border:1.5px solid ${t.border};flex-shrink:0;line-height:14px;text-align:center;font-size:8px;font-weight:700;color:${t.textColor}">${t.label}</span>
+        <span style="color:var(--text)">${labels[t.key]||t.key}</span>
+      </div>`
+    ).join('');
+  } else if (!state.selectedIds.size && !state.selectedStructId && !state.showElec) {
+    panel.classList.remove('visible');
+  }
+}
+
 function toggleElecDisplay() {
   state.showElec = !state.showElec;
   const btn = document.getElementById('btnElecToggle');
@@ -4547,11 +4654,19 @@ function renderCompanyDbTable(filter) {
           class="cdb-input">
        </td>`
     ).join('');
+    const otherCols = OTHER_TYPES.map(t =>
+      `<td style="${cellStyle}text-align:center">
+        <input type="number" min="0" value="${comp[t.key]||0}"
+          data-uid="${comp.company_uid||''}" data-key="${t.key}"
+          style="${inputStyle}text-align:center;width:50px"
+          class="cdb-input">
+       </td>`
+    ).join('');
     return `<tr>
       <td style="${cellStyle}"><input class="cdb-input" data-uid="${comp.company_uid||''}" data-key="company_uid" value="${comp.company_uid||''}" style="${inputStyle}min-width:120px"></td>
       <td style="${cellStyle}"><input class="cdb-input" data-uid="${comp.company_uid||''}" data-key="company_name" value="${comp.company_name||''}" style="${inputStyle}min-width:130px"></td>
       <td style="${cellStyle}text-align:center;color:var(--text-dim);font-size:11px">${booth ? booth.boothId || '—' : '—'}</td>
-      ${elecCols}
+      ${elecCols}${otherCols}
       <td style="${cellStyle}text-align:center">
         <button onclick="deleteCompanyEntry('${(comp.company_uid||'').replace(/'/g,"\\'")}\')"
           style="color:#f87171;background:none;border:none;cursor:pointer;font-size:14px;line-height:1">×</button>
@@ -4571,7 +4686,7 @@ function handleCompanyDbEdit(e) {
   const val = inp.value.trim();
   const comp = state.companies.find(c => c.company_uid === uid);
   if (!comp) return;
-  comp[key] = ELEC_KEYS.includes(key) ? (parseFloat(val) || 0) : val;
+  comp[key] = (ELEC_KEYS.includes(key) || OTHER_KEYS.includes(key)) ? (parseFloat(val) || 0) : val;
   // company_uid 변경 시 부스 참조도 업데이트
   if (key === 'company_uid') {
     state.booths.forEach(b => { if (b.companyUid === uid) b.companyUid = val; });
@@ -4590,6 +4705,7 @@ function deleteCompanyEntry(uid) {
 function addCompanyRow() {
   const newComp = { company_uid: `uid_${Date.now()}`, company_name: '' };
   ELEC_KEYS.forEach(k => { newComp[k] = 0; });
+  OTHER_KEYS.forEach(k => { newComp[k] = 0; });
   state.companies.push(newComp);
   renderCompanyDbTable();
   scheduleSave();
@@ -4597,8 +4713,9 @@ function addCompanyRow() {
 
 // ─── Company DB 이벤트 ───
 document.addEventListener('DOMContentLoaded', () => {
-  // 전기 범례 초기 상태 반영
+  // 전기/기타 범례 초기 상태 반영
   updateElecLegend();
+  updateOtherLegend();
 
   // 부스타입 DB 이벤트
   document.getElementById('boothTypeDbSearch').addEventListener('input', e => {
