@@ -2917,17 +2917,18 @@ function renderViewer(w, h) {
     );
     const isHovered = state.viewerHoverId === b.id;
 
-    // 공개도면: spot·available은 일반 블럭처럼 (흰색/회색, 특수 표기 없음)
-    const isPlain = b.status === 'spot' || b.status === 'available';
-    const baseFill = b.fillColor || (isPlain ? 'rgba(255,255,255,0.75)' : (VIEWER_STATUS_COLORS[b.status]?.fill || 'rgba(255,255,255,0.75)'));
-    const baseStroke = isPlain ? '#BDBDBD' : (VIEWER_STATUS_COLORS[b.status]?.stroke || '#BDBDBD');
-    const baseText = isPlain ? '#333333' : (VIEWER_STATUS_COLORS[b.status]?.text || '#333333');
+    // 공개도면: 모든 부스 기본 컬러 #f9e5de, 클릭된 available 부스만 노란색
+    const isSelected = isHovered && b.status === 'available';
+    let fill = '#f9e5de';
+    let stroke = '#d4a89a';
+    if (isHighlighted) { fill = '#FFF9C4'; stroke = '#F57F17'; }
+    else if (isSelected) { fill = '#FFD600'; stroke = '#F9A825'; }
 
-    ctx.fillStyle = isHighlighted ? '#FFF9C4' : baseFill;
+    ctx.fillStyle = fill;
     ctx.fillRect(b.x, b.y, b.w, b.h);
 
-    ctx.strokeStyle = isHovered ? '#1a73e8' : (isHighlighted ? '#F57F17' : baseStroke);
-    ctx.lineWidth = (isHovered || isHighlighted) ? 2 / state.zoom : 1 / state.zoom;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = (isSelected || isHighlighted) ? 2 / state.zoom : 1 / state.zoom;
     ctx.strokeRect(b.x, b.y, b.w, b.h);
 
     // 부스 타입 오버레이 (viewer에서도 표시)
@@ -2951,7 +2952,8 @@ function renderViewer(w, h) {
 
     const screenSize = Math.min(b.w, b.h) * state.zoom;
     if (screenSize >= 12) {
-      drawBoothContent(ctx, b, state.zoom, isHighlighted ? '#5D4037' : baseText, false);
+      const textColor = isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#7a5045';
+      drawBoothContent(ctx, b, state.zoom, textColor, false);
     }
   }
 
