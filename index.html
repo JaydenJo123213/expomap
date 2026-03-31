@@ -2423,6 +2423,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
 // ─── 전기내역 원 뱃지 렌더 ───
 function drawElecBadges(c, b, zoom) {
+  if (VIEWER_MODE) return;
   if (!state.showElec) return;
   const comp = state.companies.find(co => co.company_uid === b.companyUid);
   if (!comp) return;
