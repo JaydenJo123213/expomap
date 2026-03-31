@@ -4295,7 +4295,7 @@ function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
     ectx.lineCap = 'round';
     db.forEach(b => {
       const tipX = b.x + b.w / 2;
-      const tipY = b.y - GRID_PX * 0.15;          // 부스 상단 바로 위
+      const tipY = b.y - GRID_PX * 0.15;
       const tailY = tipY - arrowLen + headSize;
       // 화살 줄기
       ectx.beginPath();
@@ -4309,6 +4309,21 @@ function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
       ectx.lineTo(tipX + headSize * 0.55, tipY - headSize);
       ectx.closePath();
       ectx.fill();
+      // "Booth Location (부스번호부스)" 라벨
+      const boothLabel = b.boothId ? `Booth Location (${b.boothId}부스)` : 'Booth Location';
+      const fz = Math.max(GRID_PX * 0.45, 5);
+      ectx.font = `700 ${fz}px Pretendard, sans-serif`;
+      ectx.textAlign = 'center';
+      ectx.textBaseline = 'bottom';
+      // 흰 배경
+      const tw = ectx.measureText(boothLabel).width;
+      const pad = fz * 0.3;
+      const lx = tipX - tw / 2 - pad;
+      const ly = tailY - fz * 0.2 - pad * 2;
+      ectx.fillStyle = 'rgba(255,255,255,0.88)';
+      ectx.fillRect(lx, ly, tw + pad * 2, fz + pad * 2);
+      ectx.fillStyle = '#E53935';
+      ectx.fillText(boothLabel, tipX, tailY - fz * 0.2);
     });
     ectx.lineCap = 'butt';
   }
