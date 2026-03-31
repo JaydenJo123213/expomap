@@ -212,13 +212,8 @@
 <!-- ─── Viewer Bar (visible only in ?mode=viewer) ─── -->
 <div class="viewer-bar">
   <div class="viewer-logo">ExpoMap <span>공개도면</span></div>
-  <div class="viewer-search-wrap">
-    <input class="viewer-search" id="viewerSearch" type="text" placeholder="부스번호 또는 업체명 검색...">
-  </div>
-  <button id="btnViewerBgToggle" onclick="toggleViewerBg()" style="padding:5px 12px;border:1px solid #E0E0E0;border-radius:6px;background:#F8F9FA;color:#555;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">🗺 도면 숨기기</button>
-  <div style="width:1px;height:22px;background:#E0E0E0;margin:0 4px"></div>
-  <button id="btnViewerElecToggle" onclick="toggleElecDisplay()" style="padding:5px 12px;border:1px solid #E0E0E0;border-radius:6px;background:#42A5F5;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">부대시설_전기</button>
-  <button id="btnViewerBoothTypeToggle" onclick="toggleBoothTypeDisplay()" style="padding:5px 12px;border:1px solid #E0E0E0;border-radius:6px;background:#66BB6A;color:#fff;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">부스타입</button>
+  <div style="flex:1"></div>
+  <button id="btnViewerAvailable" onclick="toggleViewerAvailable()" style="padding:5px 16px;border:1px solid #E0E0E0;border-radius:6px;background:#F8F9FA;color:#555;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">배정 가능한 위치</button>
   <div style="flex:1"></div>
   <button onclick="window.open(location.pathname+'?mode=admin','_blank')" style="padding:5px 16px;border:1px solid #1a73e8;border-radius:6px;background:#fff;color:#1a73e8;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">🔧 배정모드</button>
   <div class="viewer-zoom" id="viewerZoomDisplay">100%</div>
@@ -1093,6 +1088,7 @@ let state = {
   assignModeOrigStatus: {},
   nextDiscussGroup: 1,
   // viewer mode
+  showViewerAvailable: false,
   viewerHoverId: null,
   _viewerClickStartX: 0,
   _viewerClickStartY: 0,
@@ -2917,12 +2913,14 @@ function renderViewer(w, h) {
     );
     const isHovered = state.viewerHoverId === b.id;
 
-    // 공개도면: 모든 부스 기본 컬러 #f9e5de, 클릭된 available 부스만 노란색
+    // 공개도면: 모든 부스 기본 컬러 #f9e5de
+    // showViewerAvailable ON → available 부스 노란색 / 클릭된 available 부스도 노란색
     const isSelected = isHovered && b.status === 'available';
+    const isAvailableHighlight = state.showViewerAvailable && b.status === 'available';
     let fill = '#f9e5de';
     let stroke = '#d4a89a';
     if (isHighlighted) { fill = '#FFF9C4'; stroke = '#F57F17'; }
-    else if (isSelected) { fill = '#FFD600'; stroke = '#F9A825'; }
+    else if (isSelected || isAvailableHighlight) { fill = '#FFD600'; stroke = '#F9A825'; }
 
     ctx.fillStyle = fill;
     ctx.fillRect(b.x, b.y, b.w, b.h);
@@ -4741,6 +4739,21 @@ function toggleBgPanel() {
   btn.classList.toggle('active', !isOpen);
 }
 
+function toggleViewerAvailable() {
+  state.showViewerAvailable = !state.showViewerAvailable;
+  const btn = document.getElementById('btnViewerAvailable');
+  if (state.showViewerAvailable) {
+    btn.style.background = '#FFD600';
+    btn.style.color = '#7A5800';
+    btn.style.borderColor = '#F9A825';
+  } else {
+    btn.style.background = '#F8F9FA';
+    btn.style.color = '#555';
+    btn.style.borderColor = '#E0E0E0';
+  }
+  render();
+}
+
 function toggleViewerBg() {
   state.bg.visible = !state.bg.visible;
   const btn = document.getElementById('btnViewerBgToggle');
@@ -4758,7 +4771,7 @@ async function init() {
   if (VIEWER_MODE) {
     document.body.classList.add('viewer');
     container.style.cursor = 'default';
-    document.getElementById('viewerSearch').addEventListener('input', () => render());
+    document.getElementById('viewerSearch')?.addEventListener('input', () => render());
   }
   resize();
   state.panX = 50;
