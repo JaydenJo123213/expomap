@@ -444,7 +444,7 @@
     <div id="otherLegendSection" style="display:none;margin-bottom:12px">
       <div class="panel-title">기타 범례</div>
       <div id="otherLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
-      <button onclick="openCompanyDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 기타 DB 편집...</button>
+      <button onclick="openOtherDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 기타 DB 편집...</button>
       <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
     </div>
 
@@ -543,6 +543,16 @@
       <div style="margin-top:10px" id="propElecSideSection">
         <div class="panel-title">전기 위치</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px" id="elecSideBtns">
+          <button data-side="" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit">자동</button>
+          <button data-side="top" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">상</button>
+          <button data-side="bottom" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">하</button>
+          <button data-side="left" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">좌</button>
+          <button data-side="right" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">우</button>
+        </div>
+      </div>
+      <div style="margin-top:10px" id="propOtherSideSection">
+        <div class="panel-title">기타 위치</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px" id="otherSideBtns">
           <button data-side="" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit">자동</button>
           <button data-side="top" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">상</button>
           <button data-side="bottom" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">하</button>
@@ -968,17 +978,45 @@ CREATE POLICY "anon_all" ON expomap_state
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#9575CD;font-weight:600;min-width:60px">3상4선</th>
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#66BB6A;font-weight:600;min-width:60px">24시간</th>
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#FFA726;font-weight:600;min-width:60px">리깅</th>
-            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#5C6BC0;font-weight:600;min-width:55px">국내전화</th>
-            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#00ACC1;font-weight:600;min-width:55px">국제전화</th>
-            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#26A69A;font-weight:600;min-width:55px">인터넷</th>
-            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#8D6E63;font-weight:600;min-width:60px">기가인터넷</th>
-            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#78909C;font-weight:600;min-width:55px">공유기</th>
-            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#29B6F6;font-weight:600;min-width:50px">수도</th>
-            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#EF5350;font-weight:600;min-width:60px">압축공기</th>
             <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text-dim);font-weight:600;min-width:40px"></th>
           </tr>
         </thead>
         <tbody id="companyDbBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOtherDB" style="align-items:flex-start;padding:24px;overflow:auto">
+  <div class="modal" style="width:96vw;max-width:1200px;max-height:88vh;display:flex;flex-direction:column;padding:0">
+    <div class="modal-header" style="padding:14px 16px;flex-shrink:0;display:flex;align-items:center;gap:10px">
+      <span class="modal-title">기타 부대시설 DB</span>
+      <input type="text" id="otherDbSearch" placeholder="검색 (업체명·UID)..." style="flex:1;max-width:240px;padding:5px 10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;font-family:inherit">
+      <button id="btnOtherDbAddRow" style="padding:5px 12px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">+ 행 추가</button>
+      <textarea id="otherDbPasteArea" rows="1"
+        placeholder="엑셀 복사 후 여기 클릭 → Ctrl+V"
+        style="flex:1;max-width:260px;padding:5px 10px;background:var(--bg);border:1px solid var(--accent);border-radius:5px;color:var(--text);font-size:11px;font-family:inherit;resize:none;outline:none;overflow:hidden"></textarea>
+      <span id="otherDbPasteHint" style="font-size:11px;color:var(--text-dim)"></span>
+      <button class="modal-close" onclick="closeModal('modalOtherDB')" style="margin-left:auto">×</button>
+    </div>
+    <div style="overflow:auto;flex:1;padding:0 4px 4px">
+      <table id="otherDbTable" style="border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap">
+        <thead>
+          <tr style="background:var(--surface);position:sticky;top:0;z-index:1">
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text-dim);font-weight:600;min-width:130px">company_uid</th>
+            <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);color:var(--text-dim);font-weight:600;min-width:140px">업체명</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text-dim);font-weight:600;min-width:70px">부스번호</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#5C6BC0;font-weight:600;min-width:55px">국내전화(Ta)</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#00ACC1;font-weight:600;min-width:55px">국제전화(Tb)</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#26A69A;font-weight:600;min-width:55px">인터넷(I)</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#8D6E63;font-weight:600;min-width:60px">기가인터넷(G)</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#78909C;font-weight:600;min-width:55px">공유기(wi)</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#29B6F6;font-weight:600;min-width:50px">수도(W)</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:#EF5350;font-weight:600;min-width:60px">압축공기(A)</th>
+            <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);color:var(--text-dim);font-weight:600;min-width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="otherDbBody"></tbody>
       </table>
     </div>
   </div>
@@ -1096,7 +1134,7 @@ let state = {
   companies: [],
   // 배정 워크플로우
   showElec: true,
-  showOther: false,
+  showOther: true,
   showBoothType: true,
   assignMode: false,
   assignModeBooths: new Set(),
@@ -1404,7 +1442,7 @@ function redo() {
 
 // ─── Booth CRUD ───
 function createBooth(x, y, w, h) {
-  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, locked: false, memo: '', elecSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
   saveUndo();
   state.booths.push(booth);
   return booth;
@@ -1447,7 +1485,7 @@ function mergeSelected() {
   state.groups.forEach(g => { g.boothIds = g.boothIds.filter(id => !ids.has(id)); });
   state.groups = state.groups.filter(g => g.boothIds.length > 0);
   state.booths = state.booths.filter(b => !ids.has(b.id));
-  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
   state.booths.push(merged);
   state.selectedIds.clear();
   state.selectedIds.add(merged.id);
@@ -1469,10 +1507,10 @@ function executeDivide() {
   const newBooths = [];
   if (dir === 'h') {
     const nw = b.w / count;
-    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x + i * nw, y: b.y, w: nw, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: b.groupId, memo: '', elecSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
+    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x + i * nw, y: b.y, w: nw, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: b.groupId, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
   } else {
     const nh = b.h / count;
-    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x, y: b.y + i * nh, w: b.w, h: nh, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: b.groupId, memo: '', elecSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
+    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x, y: b.y + i * nh, w: b.w, h: nh, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: b.groupId, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
   }
   if (b.groupId) {
     const g = state.groups.find(g => g.id === b.groupId);
@@ -1500,7 +1538,7 @@ function executeNumericCopy() {
   const dy = parseFloat(document.getElementById('numCopyDy').value) * PX_PER_METER || 0;
   const selected = state.booths.filter(b => state.selectedIds.has(b.id));
   saveUndo();
-  const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
+  const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
   state.booths.push(...newBooths);
   state.selectedIds.clear();
   newBooths.forEach(nb => state.selectedIds.add(nb.id));
@@ -1514,7 +1552,7 @@ function repeatLastCopy() {
   const { dx, dy } = state.lastCopyOp;
   const selected = state.booths.filter(b => state.selectedIds.has(b.id));
   saveUndo();
-  const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
+  const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
   state.booths.push(...newBooths);
   state.selectedIds.clear();
   newBooths.forEach(nb => state.selectedIds.add(nb.id));
@@ -1538,7 +1576,7 @@ function executeArrayCopy() {
     for (let c = 0; c < cols; c++) {
       if (r === 0 && c === 0) continue;
       selected.forEach(b => {
-        newBooths.push({ id: state.nextId++, x: b.x + c * stepX, y: b.y + r * stepY, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: b.elecSide || '' });
+        newBooths.push({ id: state.nextId++, x: b.x + c * stepX, y: b.y + r * stepY, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: b.elecSide || '', otherSide: b.otherSide || '' });
       });
     }
   }
@@ -2526,29 +2564,71 @@ function drawOtherBadges(c, b, zoom) {
   const r = GRID_PX * 0.24;
   const gap = r * 2.1;
   const pad = r + 2;
-  const maxPerRow = Math.max(1, Math.floor((b.w - pad * 2) / gap));
 
-  badges.forEach((t, i) => {
-    const col = i % maxPerRow;
-    const row = Math.floor(i / maxPerRow);
-    const cx = b.x + pad + col * gap;
-    const cy = b.y + b.h - pad - row * gap; // 하단부터 위로
+  // otherSide: 자동이면 부스 가로/세로 크기로 결정
+  const side = b.otherSide || (b.w <= GRID_PX * 2 ? 'right' : 'bottom');
 
-    c.beginPath();
-    c.arc(cx, cy, r, 0, Math.PI * 2);
-    c.fillStyle = t.color;
-    c.fill();
-    c.strokeStyle = t.border;
-    c.lineWidth = 0.8 / zoom;
-    c.stroke();
-
-    const fz = r * 0.85;
-    c.fillStyle = t.textColor;
-    c.font = `700 ${fz}px Pretendard, sans-serif`;
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText(t.label, cx, cy);
-  });
+  if (side === 'left' || side === 'right') {
+    // 세로 방향 배치 (외부 테두리)
+    badges.forEach((t, i) => {
+      const cx = side === 'right' ? b.x + b.w : b.x;
+      const cy = b.y + pad + i * gap;
+      c.beginPath();
+      c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.fillStyle = t.color;
+      c.fill();
+      c.strokeStyle = t.border;
+      c.lineWidth = 0.8 / zoom;
+      c.stroke();
+      const fz = r * 0.85;
+      c.fillStyle = t.textColor;
+      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(t.label, cx, cy);
+    });
+  } else if (side === 'top') {
+    // 가로 방향 배치 (상단 테두리)
+    badges.forEach((t, i) => {
+      const cx = b.x + pad + i * gap;
+      const cy = b.y;
+      c.beginPath();
+      c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.fillStyle = t.color;
+      c.fill();
+      c.strokeStyle = t.border;
+      c.lineWidth = 0.8 / zoom;
+      c.stroke();
+      const fz = r * 0.85;
+      c.fillStyle = t.textColor;
+      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(t.label, cx, cy);
+    });
+  } else {
+    // bottom (default) — 부스 내부 하단에서 위로 격자 배치
+    const maxPerRow = Math.max(1, Math.floor((b.w - pad * 2) / gap));
+    badges.forEach((t, i) => {
+      const col = i % maxPerRow;
+      const row = Math.floor(i / maxPerRow);
+      const cx = b.x + pad + col * gap;
+      const cy = b.y + b.h - pad - row * gap;
+      c.beginPath();
+      c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.fillStyle = t.color;
+      c.fill();
+      c.strokeStyle = t.border;
+      c.lineWidth = 0.8 / zoom;
+      c.stroke();
+      const fz = r * 0.85;
+      c.fillStyle = t.textColor;
+      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(t.label, cx, cy);
+    });
+  }
 }
 
 // ─── Draw Structures (shared) ───
@@ -3621,7 +3701,7 @@ canvas.addEventListener('mouseup', (e) => {
       saveUndo();
       const newBooths = state.altDragClones.map(b => ({
         id: state.nextId++, x: b.x, y: b.y, w: b.w, h: b.h,
-        boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null
+        boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: ''
       }));
       state.booths.push(...newBooths);
       state.altDragClones = [];
@@ -3955,6 +4035,12 @@ function updateProps() {
       btn.style.background = active ? 'var(--accent)' : 'var(--surface-hover)';
       btn.style.color = active ? '#fff' : 'var(--text)';
     });
+    // 기타 위치 버튼 활성화
+    document.querySelectorAll('#otherSideBtns button').forEach(btn => {
+      const active = (btn.dataset.side === (b.otherSide || ''));
+      btn.style.background = active ? 'var(--accent)' : 'var(--surface-hover)';
+      btn.style.color = active ? '#fff' : 'var(--text)';
+    });
   } else {
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
@@ -4023,6 +4109,17 @@ document.getElementById('elecSideBtns').addEventListener('click', (e) => {
   const b = getSelectedBooth(); if (!b) return;
   saveUndo();
   b.elecSide = btn.dataset.side;
+  scheduleSave();
+  updateProps();
+  render();
+});
+
+document.getElementById('otherSideBtns').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const b = getSelectedBooth(); if (!b) return;
+  saveUndo();
+  b.otherSide = btn.dataset.side;
   scheduleSave();
   updateProps();
   render();
@@ -4628,6 +4725,62 @@ function openCompanyDb() {
   openModal('modalCompanyDB');
 }
 
+// ─── Other DB ───
+function openOtherDb() {
+  renderOtherDbTable();
+  openModal('modalOtherDB');
+}
+
+function renderOtherDbTable(filter) {
+  const tbody = document.getElementById('otherDbBody');
+  const filterStr = filter !== undefined ? filter : (document.getElementById('otherDbSearch')?.value || '');
+  const list = filterStr
+    ? state.companies.filter(c =>
+        (c.company_uid||'').toLowerCase().includes(filterStr.toLowerCase()) ||
+        (c.company_name||'').toLowerCase().includes(filterStr.toLowerCase()))
+    : state.companies;
+
+  const cellStyle = 'padding:6px 10px;border-bottom:1px solid var(--border);outline:none;';
+  const inputStyle = 'background:transparent;border:none;outline:none;width:100%;font-size:12px;color:var(--text);font-family:inherit;';
+
+  tbody.innerHTML = list.map(comp => {
+    const booth = getBoothByUid(comp.company_uid);
+    const otherCols = OTHER_TYPES.map(t =>
+      `<td style="${cellStyle}text-align:center">
+        <input type="number" min="0" value="${comp[t.key]||0}"
+          data-uid="${comp.company_uid||''}" data-key="${t.key}"
+          style="${inputStyle}text-align:center;width:50px"
+          class="odb-input">
+       </td>`
+    ).join('');
+    return `<tr>
+      <td style="${cellStyle}"><input class="odb-input" data-uid="${comp.company_uid||''}" data-key="company_uid" value="${comp.company_uid||''}" style="${inputStyle}min-width:120px" readonly></td>
+      <td style="${cellStyle}"><input class="odb-input" data-uid="${comp.company_uid||''}" data-key="company_name" value="${comp.company_name||''}" style="${inputStyle}min-width:130px" readonly></td>
+      <td style="${cellStyle}text-align:center;color:var(--text-dim);font-size:11px">${booth ? booth.boothId || '—' : '—'}</td>
+      ${otherCols}
+      <td style="${cellStyle}text-align:center">
+        <button onclick="deleteCompanyEntry('${(comp.company_uid||'').replace(/'/g,"\\'")}\')"
+          style="color:#f87171;background:none;border:none;cursor:pointer;font-size:14px;line-height:1">×</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.odb-input').forEach(inp => {
+    inp.addEventListener('change', handleOtherDbEdit);
+  });
+}
+
+function handleOtherDbEdit(e) {
+  const inp = e.target;
+  const uid = inp.dataset.uid;
+  const key = inp.dataset.key;
+  const val = inp.value.trim();
+  const comp = state.companies.find(c => c.company_uid === uid);
+  if (!comp) return;
+  comp[key] = OTHER_KEYS.includes(key) ? (parseFloat(val) || 0) : val;
+  scheduleSave(); render();
+}
+
 function getBoothByUid(uid) {
   return state.booths.find(b => b.companyUid === uid) || null;
 }
@@ -4654,19 +4807,11 @@ function renderCompanyDbTable(filter) {
           class="cdb-input">
        </td>`
     ).join('');
-    const otherCols = OTHER_TYPES.map(t =>
-      `<td style="${cellStyle}text-align:center">
-        <input type="number" min="0" value="${comp[t.key]||0}"
-          data-uid="${comp.company_uid||''}" data-key="${t.key}"
-          style="${inputStyle}text-align:center;width:50px"
-          class="cdb-input">
-       </td>`
-    ).join('');
     return `<tr>
       <td style="${cellStyle}"><input class="cdb-input" data-uid="${comp.company_uid||''}" data-key="company_uid" value="${comp.company_uid||''}" style="${inputStyle}min-width:120px"></td>
       <td style="${cellStyle}"><input class="cdb-input" data-uid="${comp.company_uid||''}" data-key="company_name" value="${comp.company_name||''}" style="${inputStyle}min-width:130px"></td>
       <td style="${cellStyle}text-align:center;color:var(--text-dim);font-size:11px">${booth ? booth.boothId || '—' : '—'}</td>
-      ${elecCols}${otherCols}
+      ${elecCols}
       <td style="${cellStyle}text-align:center">
         <button onclick="deleteCompanyEntry('${(comp.company_uid||'').replace(/'/g,"\\'")}\')"
           style="color:#f87171;background:none;border:none;cursor:pointer;font-size:14px;line-height:1">×</button>
@@ -4699,6 +4844,7 @@ function deleteCompanyEntry(uid) {
   if (!confirm(`'${uid}' 업체를 삭제하시겠습니까?`)) return;
   state.companies = state.companies.filter(c => c.company_uid !== uid);
   renderCompanyDbTable();
+  renderOtherDbTable();
   scheduleSave(); render();
 }
 
@@ -4830,6 +4976,58 @@ document.addEventListener('DOMContentLoaded', () => {
     scheduleSave(); render();
 
     const hint = document.getElementById('companyDbPasteHint');
+    if (hint) {
+      hint.textContent = `완료: ${added}개 추가 / ${updated}개 업데이트`;
+      setTimeout(() => { if (hint) hint.textContent = ''; }, 4000);
+    }
+  });
+
+  // ─── Other DB 이벤트 ───
+  document.getElementById('otherDbSearch').addEventListener('input', e => {
+    renderOtherDbTable(e.target.value);
+  });
+  document.getElementById('btnOtherDbAddRow').addEventListener('click', () => {
+    const newComp = { company_uid: `uid_${Date.now()}`, company_name: '' };
+    ELEC_KEYS.forEach(k => { newComp[k] = 0; });
+    OTHER_KEYS.forEach(k => { newComp[k] = 0; });
+    state.companies.push(newComp);
+    renderOtherDbTable();
+    scheduleSave();
+  });
+  document.getElementById('otherDbPasteArea').addEventListener('paste', e => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text) return;
+    const allRows = text.trim().split(/\r?\n/).map(r => r.split('\t'));
+    if (!allRows.length) return;
+    const firstCell = (allRows[0][0] || '').trim();
+    const isHeader = !firstCell || (isNaN(Number(firstCell)) && !/^\d{4,}/.test(firstCell));
+    const dataRows = isHeader ? allRows.slice(1) : allRows;
+    if (!dataRows.length) return;
+    saveUndo();
+    let added = 0, updated = 0;
+    dataRows.forEach(row => {
+      // 순서: 0=uid, 1=이름, 2=부스, 3~9=other 7종
+      const uid = (row[0] || '').trim();
+      if (!uid) return;
+      let comp = state.companies.find(c => c.company_uid === uid);
+      if (comp) { updated++; } else {
+        comp = { company_uid: uid, company_name: '' };
+        ELEC_KEYS.forEach(k => { comp[k] = 0; });
+        OTHER_KEYS.forEach(k => { comp[k] = 0; });
+        state.companies.push(comp);
+        added++;
+      }
+      comp.company_uid  = uid;
+      comp.company_name = (row[1] || '').trim();
+      OTHER_KEYS.forEach((k, i) => {
+        comp[k] = parseFloat((row[3 + i] || '').trim()) || 0;
+      });
+    });
+    e.target.value = '';
+    renderOtherDbTable();
+    scheduleSave(); render();
+    const hint = document.getElementById('otherDbPasteHint');
     if (hint) {
       hint.textContent = `완료: ${added}개 추가 / ${updated}개 업데이트`;
       setTimeout(() => { if (hint) hint.textContent = ''; }, 4000);
