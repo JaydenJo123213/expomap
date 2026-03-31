@@ -4310,7 +4310,8 @@ function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
       ectx.closePath();
       ectx.fill();
       // "Booth Location (부스번호부스)" 라벨
-      const boothLabel = b.boothId ? `Booth Location (${b.boothId}부스)` : 'Booth Location';
+      const boothCount = Math.round((b.w * b.h) / (GRID_PX * GRID_PX));
+      const boothLabel = `Booth Location (${boothCount}부스)`;
       const fz = Math.max(GRID_PX * 0.45, 5);
       ectx.font = `700 ${fz}px Pretendard, sans-serif`;
       ectx.textAlign = 'center';
