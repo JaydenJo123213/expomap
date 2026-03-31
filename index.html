@@ -2441,19 +2441,15 @@ function drawElecBadges(c, b, zoom) {
     if (side === 'right') {
       cx = b.x + b.w;
       cy = b.y + r + 2 + i * gap;
-      if (cy + r > b.y + b.h) return;
     } else if (side === 'left') {
       cx = b.x;
       cy = b.y + r + 2 + i * gap;
-      if (cy + r > b.y + b.h) return;
     } else if (side === 'top') {
       cx = b.x + r + 2 + i * gap;
       cy = b.y;
-      if (cx + r > b.x + b.w) return;
     } else { // bottom
       cx = b.x + r + 2 + i * gap;
       cy = b.y + b.h;
-      if (cx + r > b.x + b.w) return;
     }
 
     c.beginPath();
