@@ -239,6 +239,7 @@
   <div class="tool-group" id="modeGroup">
     <button class="tool-btn active" data-mode="select">Select <kbd>V</kbd></button>
     <button class="tool-btn" data-mode="draw">Draw <kbd>B</kbd></button>
+    <button class="tool-btn" id="btnLockCanvas" style="font-weight:600">Lock</button>
   </div>
   <div class="topbar-divider"></div>
 
@@ -379,8 +380,7 @@
     <canvas id="canvas"></canvas>
     <div id="assignHint" style="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,214,0,0.95);color:#000;font-size:12px;font-weight:600;padding:7px 16px;border-radius:20px;white-space:nowrap;z-index:50;display:none;align-items:center;gap:6px">
       배정 모드 — 부스를 클릭하여 선택
-      <button id="btnAssignLock" style="margin-left:8px;padding:3px 12px;border:none;border-radius:4px;background:rgba(0,0,0,0.3);color:#333;cursor:pointer;font-size:12px">Lock</button>
-      <button onclick="openAssignModal()" style="padding:3px 12px;border:none;border-radius:4px;background:#000;color:#FFD600;font-weight:700;cursor:pointer;font-size:12px">배정 안내 완료</button>
+      <button onclick="openAssignModal()" style="margin-left:8px;padding:3px 12px;border:none;border-radius:4px;background:#000;color:#FFD600;font-weight:700;cursor:pointer;font-size:12px">배정 안내 완료</button>
       <button onclick="exitAssignMode(true)" style="padding:3px 8px;border:none;border-radius:4px;background:rgba(0,0,0,0.2);color:#333;cursor:pointer;font-size:12px">취소</button>
     </div>
   </div>
@@ -1140,8 +1140,8 @@ let state = {
   showElec: true,
   showOther: true,
   showBoothType: true,
+  locked: false,
   assignMode: false,
-  assignModeLocked: false,
   assignModeBooths: new Set(),
   assignModeOrigStatus: {},
   nextDiscussGroup: 1,
@@ -3525,7 +3525,7 @@ canvas.addEventListener('mousemove', (e) => {
   if (state.dragReady) {
     const ddx = sx - state.dragStartSX, ddy = sy - state.dragStartSY;
     if (Math.abs(ddx) > 3 || Math.abs(ddy) > 3) {
-      if (state.assignModeLocked) return;  // Prevent drag when assign mode is locked
+      if (state.locked) return;  // Prevent drag when locked
       if (!state.isDragging) { state.isDragging = true; saveUndo(); }
       const wdx = ddx / state.zoom, wdy = ddy / state.zoom;
       state.booths.forEach(b => {
@@ -4333,12 +4333,10 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 // ─── 배정 워크플로우 ───
 function enterAssignMode() {
   state.assignMode = true;
-  state.assignModeLocked = false;
   state.assignModeBooths = new Set();
   state.assignModeOrigStatus = {};
   const hint = document.getElementById('assignHint');
   hint.style.display = 'flex';
-  updateAssignLockButton();
   const btn = document.getElementById('btnAssignMode');
   btn.textContent = '배정 모드 진행 중...';
   btn.disabled = true;
@@ -4354,7 +4352,6 @@ function exitAssignMode(revert = false) {
     });
   }
   state.assignMode = false;
-  state.assignModeLocked = false;
   state.assignModeBooths = new Set();
   state.assignModeOrigStatus = {};
   const hint = document.getElementById('assignHint');
@@ -4367,16 +4364,12 @@ function exitAssignMode(revert = false) {
   render(); updateStats();
 }
 
-function updateAssignLockButton() {
-  const btn = document.getElementById('btnAssignLock');
-  if (state.assignModeLocked) {
-    btn.textContent = '🔒 Locked';
-    btn.style.background = '#000';
-    btn.style.color = '#FFD600';
+function updateLockButton() {
+  const btn = document.getElementById('btnLockCanvas');
+  if (state.locked) {
+    btn.classList.add('active');
   } else {
-    btn.textContent = 'Lock';
-    btn.style.background = 'rgba(0,0,0,0.3)';
-    btn.style.color = '#333';
+    btn.classList.remove('active');
   }
 }
 
@@ -5097,9 +5090,9 @@ function toggleViewerBg() {
 
 document.getElementById('btnAssignMode').addEventListener('click', enterAssignMode);
 
-document.getElementById('btnAssignLock').addEventListener('click', () => {
-  state.assignModeLocked = !state.assignModeLocked;
-  updateAssignLockButton();
+document.getElementById('btnLockCanvas').addEventListener('click', () => {
+  state.locked = !state.locked;
+  updateLockButton();
 });
 
 // ─── Init ───
