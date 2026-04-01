@@ -239,6 +239,9 @@
   <div class="tool-group" id="modeGroup">
     <button class="tool-btn active" data-mode="select">Select <kbd>V</kbd></button>
     <button class="tool-btn" data-mode="draw">Draw <kbd>B</kbd></button>
+  </div>
+
+  <div class="tool-group">
     <button class="tool-btn" id="btnLockCanvas" style="font-weight:600">Lock</button>
   </div>
   <div class="topbar-divider"></div>
@@ -5112,6 +5115,7 @@ async function init() {
     const savedBg = localStorage.getItem('expomap_bg_dataurl');
     if (savedBg) restoreBgImage(savedBg);
   }
+  updateLockButton();
   render();
 }
 init();
