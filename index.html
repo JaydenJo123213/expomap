@@ -284,7 +284,6 @@
   <div class="tool-group">
     <button class="tool-btn" id="btnBringFront" title="Bring to front" style="display:none">▲ Front</button>
     <button class="tool-btn" id="btnSendBack" title="Send to back" style="display:none">▼ Back</button>
-    <button class="tool-btn" id="btnLock" title="Lock/Unlock selected">Lock</button>
   </div>
   <div class="topbar-divider"></div>
 
@@ -3915,7 +3914,6 @@ document.getElementById('btnSupaConfig').addEventListener('click', () => {
 // Z-order & Lock buttons
 document.getElementById('btnBringFront').addEventListener('click', bringToFront);
 document.getElementById('btnSendBack').addEventListener('click', sendToBack);
-document.getElementById('btnLock').addEventListener('click', toggleLock);
 
 // Structure buttons
 document.querySelectorAll('#structGroup .tool-btn').forEach(btn => {
