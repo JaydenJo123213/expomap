@@ -1070,6 +1070,22 @@ const PX_PER_METER = 10;
 const GRID_PX = 30;
 const HALF_GRID_PX = 5;
 
+// ─── Presence / Anonymous Cursors ───
+const CURSOR_ADJECTIVES = [
+  '신비한','멋진','용감한','귀여운','씩씩한','빠른','느긋한','영리한',
+  '활발한','조용한','따뜻한','차가운','강인한','부드러운','재빠른','우아한'
+];
+const CURSOR_ANIMALS = [
+  '고양이','여우','늑대','곰','호랑이','토끼','사슴','독수리',
+  '판다','수달','하이에나','고슴도치','미어캣','카피바라','라쿤','기린'
+];
+const CURSOR_COLORS = [
+  '#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#FF922B',
+  '#DA77F2','#20C997','#F06595','#74C0FC','#A9E34B'
+];
+const CURSOR_STALE_MS = 5000;
+const CURSOR_THROTTLE_MS = 50;
+
 // ─── State ───
 let state = {
   mode: 'select',
@@ -1152,6 +1168,8 @@ let state = {
   viewerHoverId: null,
   _viewerClickStartX: 0,
   _viewerClickStartY: 0,
+  // ─── Remote cursors ───
+  remoteCursors: {},
 };
 
 // ─── 부스 타입 ───
@@ -1251,6 +1269,13 @@ let _supaClient = null;
 let _supaProjectId = 'default';
 let _saveTimer = null;
 
+// ─── Presence identity (session-scoped) ───
+let _presenceChannel = null;
+let _myUserId = null;
+let _myName = null;
+let _myColor = null;
+let _cursorBroadcastTimer = null;
+
 function initSupabase() {
   const url = localStorage.getItem('expomap_supa_url') || DEFAULT_SUPA_URL;
   const key = localStorage.getItem('expomap_supa_key') || DEFAULT_SUPA_KEY;
@@ -1282,6 +1307,7 @@ function saveSupaConfig() {
   closeModal('modalSupaConfig');
   if (initSupabase()) {
     loadFromSupabase();
+    initPresenceChannel();
   }
 }
 
@@ -1290,6 +1316,128 @@ function scheduleSave() {
   clearTimeout(_saveTimer);
   updateSaveIndicator('saving');
   _saveTimer = setTimeout(saveToSupabase, 2000);
+}
+
+// ─── Presence Functions ───
+function initPresenceIdentity() {
+  let stored = null;
+  try { stored = JSON.parse(sessionStorage.getItem('expomap_presence')); } catch {}
+  if (stored && stored.userId && stored.name && stored.color) {
+    _myUserId = stored.userId;
+    _myName = stored.name;
+    _myColor = stored.color;
+    return;
+  }
+
+  _myUserId = 'u_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const adj = CURSOR_ADJECTIVES[Math.floor(Math.random() * CURSOR_ADJECTIVES.length)];
+  const animal = CURSOR_ANIMALS[Math.floor(Math.random() * CURSOR_ANIMALS.length)];
+  _myName = adj + ' ' + animal;
+  _myColor = CURSOR_COLORS[Math.floor(Math.random() * CURSOR_COLORS.length)];
+
+  try {
+    sessionStorage.setItem('expomap_presence', JSON.stringify({ userId: _myUserId, name: _myName, color: _myColor }));
+  } catch {}
+}
+
+function initPresenceChannel() {
+  if (!_supaClient || !_myUserId) return;
+  if (_presenceChannel) {
+    _presenceChannel.unsubscribe();
+    _presenceChannel = null;
+  }
+
+  const channelName = `expomap-cursors-${_supaProjectId}`;
+  _presenceChannel = _supaClient.channel(channelName, { config: { broadcast: { self: false } } });
+
+  _presenceChannel
+    .on('broadcast', { event: 'cursor' }, ({ payload }) => {
+      if (!payload || !payload.userId) return;
+      const uid = payload.userId;
+      if (payload.type === 'leave') {
+        delete state.remoteCursors[uid];
+        render();
+        return;
+      }
+      state.remoteCursors[uid] = { name: payload.name, color: payload.color, wx: payload.wx, wy: payload.wy, lastSeen: Date.now() };
+      render();
+    })
+    .subscribe();
+}
+
+function broadcastCursorPosition(wx, wy) {
+  if (!_presenceChannel || !_myUserId) return;
+  clearTimeout(_cursorBroadcastTimer);
+  _cursorBroadcastTimer = setTimeout(() => {
+    _presenceChannel.send({ type: 'broadcast', event: 'cursor', payload: { type: 'move', userId: _myUserId, name: _myName, color: _myColor, wx, wy } });
+  }, CURSOR_THROTTLE_MS);
+}
+
+function broadcastCursorLeave() {
+  if (!_presenceChannel || !_myUserId) return;
+  _presenceChannel.send({ type: 'broadcast', event: 'cursor', payload: { type: 'leave', userId: _myUserId } });
+}
+
+function pruneStaleRemoteCursors() {
+  const now = Date.now();
+  let changed = false;
+  for (const uid in state.remoteCursors) {
+    if (now - state.remoteCursors[uid].lastSeen > CURSOR_STALE_MS) {
+      delete state.remoteCursors[uid];
+      changed = true;
+    }
+  }
+  if (changed) render();
+}
+
+function drawRemoteCursors() {
+  const entries = Object.values(state.remoteCursors);
+  if (!entries.length) return;
+
+  for (const cursor of entries) {
+    const sx = cursor.wx * state.zoom + state.panX;
+    const sy = cursor.wy * state.zoom + state.panY;
+    const color = cursor.color;
+
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    // Triangle cursor
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 14);
+    ctx.lineTo(4, 10);
+    ctx.lineTo(7, 16);
+    ctx.lineTo(9, 15);
+    ctx.lineTo(6, 9);
+    ctx.lineTo(11, 9);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+
+    // Name tag
+    const label = cursor.name;
+    ctx.font = '600 11px Pretendard, sans-serif';
+    const tw = ctx.measureText(label).width;
+    const pad = 4;
+    const tagX = 4;
+    const tagY = 18;
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(tagX, tagY, tw + pad * 2, 18, 4);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(label, tagX + pad, tagY + 3);
+
+    ctx.restore();
+  }
 }
 
 async function saveToSupabase() {
@@ -3030,6 +3178,7 @@ function render() {
   }
 
   ctx.restore();
+  drawRemoteCursors();
   updateStats();
 }
 
@@ -3117,6 +3266,7 @@ function renderViewer(w, h) {
   }
 
   ctx.restore();
+  drawRemoteCursors();
   const vzd = document.getElementById('viewerZoomDisplay');
   if (vzd) vzd.textContent = Math.round(state.zoom * 100) + '%';
 }
@@ -3425,6 +3575,10 @@ canvas.addEventListener('mousedown', (e) => {
 
 canvas.addEventListener('mousemove', (e) => {
   if (VIEWER_MODE) {
+    const rect = container.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    const world = screenToWorld(sx, sy);
+    broadcastCursorPosition(world.x, world.y);
     if (state.isPanning) {
       state.panX = e.clientX - state.panStartX;
       state.panY = e.clientY - state.panStartY;
@@ -3437,6 +3591,7 @@ canvas.addEventListener('mousemove', (e) => {
   const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
   const world = screenToWorld(sx, sy);
   state.mouseX = world.x; state.mouseY = world.y;
+  broadcastCursorPosition(world.x, world.y);
 
   document.getElementById('cursorPos').textContent = `X: ${pxToM(world.x).toFixed(1)}m  Y: ${pxToM(world.y).toFixed(1)}m`;
 
@@ -5113,6 +5268,13 @@ async function init() {
     const savedBg = localStorage.getItem('expomap_bg_dataurl');
     if (savedBg) restoreBgImage(savedBg);
   }
+  // ─── Presence init ───
+  initPresenceIdentity();
+  if (_supaClient) {
+    initPresenceChannel();
+  }
+  setInterval(pruneStaleRemoteCursors, 1000);
+  window.addEventListener('beforeunload', broadcastCursorLeave);
   updateLockButton();
   render();
 }
