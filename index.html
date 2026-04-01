@@ -1367,10 +1367,7 @@ function initPresenceChannel() {
 
 function broadcastCursorPosition(wx, wy) {
   if (!_presenceChannel || !_myUserId) return;
-  clearTimeout(_cursorBroadcastTimer);
-  _cursorBroadcastTimer = setTimeout(() => {
-    _presenceChannel.send({ type: 'broadcast', event: 'cursor', payload: { type: 'move', userId: _myUserId, name: _myName, color: _myColor, wx, wy } });
-  }, CURSOR_THROTTLE_MS);
+  _presenceChannel.send({ type: 'broadcast', event: 'cursor', payload: { type: 'move', userId: _myUserId, name: _myName, color: _myColor, wx, wy } });
 }
 
 function broadcastCursorLeave() {
