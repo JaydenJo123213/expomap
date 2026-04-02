@@ -1365,6 +1365,13 @@ function initPresenceChannel() {
       state.remoteCursors[uid] = { name: payload.name, color: payload.color, wx: payload.wx, wy: payload.wy, lastSeen: Date.now() };
       render();
     })
+    .on('broadcast', { event: 'save' }, async ({ payload }) => {
+      if (payload?.userId === _myUserId) return;  // 내가 저장한 건 무시
+      const prevSelected = new Set(state.selectedIds);
+      await loadFromSupabase();
+      state.selectedIds = prevSelected;
+      render();
+    })
     .subscribe();
 }
 
@@ -1461,6 +1468,9 @@ async function saveToSupabase() {
       .upsert({ id: _supaProjectId, state_json: data, updated_at: new Date().toISOString() });
     if (error) throw error;
     updateSaveIndicator('saved');
+    if (_presenceChannel && _myUserId) {
+      _presenceChannel.send({ type: 'broadcast', event: 'save', payload: { userId: _myUserId } });
+    }
   } catch (e) {
     console.error('Save failed:', e);
     updateSaveIndicator('error');
