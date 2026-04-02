@@ -239,6 +239,7 @@
   <div class="tool-group" id="modeGroup">
     <button class="tool-btn active" data-mode="select">Select <kbd>V</kbd></button>
     <button class="tool-btn" data-mode="draw">Draw <kbd>B</kbd></button>
+    <button class="tool-btn" data-mode="baseNo">BaseNo</button>
   </div>
 
   <div class="tool-group">
@@ -294,6 +295,7 @@
   <button class="tool-btn active" id="btnElecToggle" title="전기 표시 켜기/끄기" onclick="toggleElecDisplay()">부대시설_전기</button>
   <button class="tool-btn" id="btnOtherToggle" title="기타 부대시설 표시 켜기/끄기" onclick="toggleOtherDisplay()">부대시설_기타</button>
   <button class="tool-btn active" id="btnBoothTypeToggle" title="부스 타입 표시 켜기/끄기" onclick="toggleBoothTypeDisplay()">부스타입</button>
+  <button class="tool-btn active" id="btnBaseNoToggle" title="기본부스번호 표시 켜기/끄기" onclick="toggleBaseNoDisplay()">기본부스번호</button>
   <div class="topbar-divider"></div>
   <button class="tool-btn" id="btnBgPanel" title="배경 이미지 설정" onclick="toggleBgPanel()">Background</button>
   <div class="topbar-divider"></div>
@@ -1173,6 +1175,14 @@ let state = {
   _viewerClickStartY: 0,
   // ─── Remote cursors ───
   remoteCursors: {},
+  // ─── Base Number Layer ───
+  baseNumbers: [],
+  nextBaseNoId: 1,
+  showBaseNumbers: true,
+  isBaseDrawing: false,
+  baseDrawStartX: 0, baseDrawStartY: 0,
+  baseDrawCurrentX: 0, baseDrawCurrentY: 0,
+  selectedBaseNoId: null,
 };
 
 // ─── 부스 타입 ───
@@ -1447,6 +1457,61 @@ function drawRemoteCursors() {
   }
 }
 
+// ─── Base Number Layer ───
+function createBaseNumber(x, y, w, h) {
+  saveUndo();
+  const bn = { id: state.nextBaseNoId++, x, y, w, h, baseNo: '' };
+  state.baseNumbers.push(bn);
+  state.selectedBaseNoId = bn.id;
+  scheduleSave(); render(); updateProps();
+  return bn;
+}
+
+function getBaseNoAt(wx, wy) {
+  return state.baseNumbers.find(bn =>
+    wx >= bn.x && wx <= bn.x + bn.w && wy >= bn.y && wy <= bn.y + bn.h
+  );
+}
+
+function deleteBaseNo(id) {
+  saveUndo();
+  state.baseNumbers = state.baseNumbers.filter(bn => bn.id !== id);
+  if (state.selectedBaseNoId === id) state.selectedBaseNoId = null;
+  scheduleSave(); render(); updateProps();
+}
+
+function toggleBaseNoDisplay() {
+  state.showBaseNumbers = !state.showBaseNumbers;
+  document.getElementById('btnBaseNoToggle').classList.toggle('active', state.showBaseNumbers);
+  render();
+}
+
+function drawBaseNumbers(c, zoom) {
+  if (!state.showBaseNumbers) return;
+  state.baseNumbers.forEach(bn => {
+    const covering = state.booths.find(b =>
+      b.x < bn.x + bn.w && b.x + b.w > bn.x &&
+      b.y < bn.y + bn.h && b.y + b.h > bn.y &&
+      (b.companyName || b.companyUid)
+    );
+    if (covering) return;
+
+    c.strokeStyle = 'rgba(150,150,150,0.5)';
+    c.lineWidth = 0.5 / zoom;
+    c.setLineDash([3/zoom, 3/zoom]);
+    c.strokeRect(bn.x, bn.y, bn.w, bn.h);
+    c.setLineDash([]);
+
+    if (!bn.baseNo) return;
+    const fz = Math.min(Math.max(bn.w, bn.h) * 0.25, 12) / zoom;
+    c.font = `500 ${fz}px Pretendard, sans-serif`;
+    c.fillStyle = 'rgba(120,120,120,0.8)';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(bn.baseNo, bn.x + bn.w/2, bn.y + bn.h/2);
+  });
+}
+
 async function saveToSupabase() {
   if (!_supaClient) return;
   const data = {
@@ -1460,6 +1525,8 @@ async function saveToSupabase() {
     nextStructId: state.nextStructId,
     nextLogoId: state.nextLogoId,
     nextDiscussGroup: state.nextDiscussGroup,
+    baseNumbers: state.baseNumbers,
+    nextBaseNoId: state.nextBaseNoId,
     bg: { x: state.bg.x, y: state.bg.y, w: state.bg.w, h: state.bg.h, natW: state.bg.natW, natH: state.bg.natH, opacity: state.bg.opacity, visible: state.bg.visible, rotation: state.bg.rotation || 0, dataUrl: state.bg.dataUrl || null },
   };
   try {
@@ -1515,6 +1582,8 @@ async function loadFromSupabase() {
         const maxGrp = Math.max(0, ...(s.booths || []).map(b => b.discussGroup || 0));
         state.nextDiscussGroup = maxGrp + 1;
       }
+      state.baseNumbers = s.baseNumbers || [];
+      state.nextBaseNoId = s.nextBaseNoId || 1;
       restoreLogos(s.logos || []);
       if (s.bg) {
         state.bg.x = s.bg.x || 0;
@@ -2940,13 +3009,16 @@ function render() {
     }
   }
 
-  // ── 2. Grid
+  // ── 2. Base Numbers
+  drawBaseNumbers(ctx, state.zoom);
+
+  // ── 3. Grid
   drawGrid(w, h);
 
-  // ── 3. Structures
+  // ── 4. Structures
   drawStructures(ctx, state.zoom, false);
 
-  // ── 4. Logos
+  // ── 5. Logos
   drawLogos(ctx, state.zoom);
 
   // Wall/Line/Arrow start point preview
@@ -3114,12 +3186,14 @@ function render() {
     }
   }
 
-  // Draw preview
-  if (state.isDrawing) {
-    const dx = state.drawCurrentX - state.drawStartX;
-    const dy = state.drawCurrentY - state.drawStartY;
-    const rx = dx >= 0 ? state.drawStartX : state.drawCurrentX;
-    const ry = dy >= 0 ? state.drawStartY : state.drawCurrentY;
+  // Draw preview / BaseNo preview
+  if (state.isDrawing || state.isBaseDrawing) {
+    const dx = (state.isDrawing ? state.drawCurrentX : state.baseDrawCurrentX) - (state.isDrawing ? state.drawStartX : state.baseDrawStartX);
+    const dy = (state.isDrawing ? state.drawCurrentY : state.baseDrawCurrentY) - (state.isDrawing ? state.drawStartY : state.baseDrawStartY);
+    const sx = state.isDrawing ? state.drawStartX : state.baseDrawStartX;
+    const sy = state.isDrawing ? state.drawStartY : state.baseDrawStartY;
+    const rx = dx >= 0 ? sx : (state.isDrawing ? state.drawCurrentX : state.baseDrawCurrentX);
+    const ry = dy >= 0 ? sy : (state.isDrawing ? state.drawCurrentY : state.baseDrawCurrentY);
     const rw = Math.abs(dx), rh = Math.abs(dy);
     ctx.fillStyle = 'rgba(79,140,255,0.15)';
     ctx.fillRect(rx, ry, rw, rh);
@@ -3132,7 +3206,8 @@ function render() {
       ctx.font = `600 ${11 / state.zoom}px Pretendard, sans-serif`;
       ctx.fillStyle = '#4F8CFF';
       ctx.textAlign = 'center';
-      ctx.fillText(`${pxToM(rw)}m × ${pxToM(rh)}m`, rx + rw / 2, ry - 8 / state.zoom);
+      const label = state.isDrawing ? `${pxToM(rw)}m × ${pxToM(rh)}m` : 'BaseNo';
+      ctx.fillText(label, rx + rw / 2, ry - 8 / state.zoom);
     }
   }
 
@@ -3442,6 +3517,14 @@ canvas.addEventListener('mousedown', (e) => {
     return;
   }
 
+  if (state.mode === 'baseNo' && e.button === 0) {
+    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    state.isBaseDrawing = true;
+    state.baseDrawStartX = snapped.x; state.baseDrawStartY = snapped.y;
+    state.baseDrawCurrentX = snapped.x; state.baseDrawCurrentY = snapped.y;
+    return;
+  }
+
   // ─── 배정 모드: 부스 클릭 → discuss 토글 ───
   if (state.assignMode && e.button === 0) {
     const booth = getBoothAt(world.x, world.y);
@@ -3521,6 +3604,15 @@ canvas.addEventListener('mousedown', (e) => {
     }
     state.selectedLogoId = null;
     state.selectedStructId = null;
+    state.selectedBaseNoId = null;
+
+    // BaseNo click
+    const baseNo = getBaseNoAt(world.x, world.y);
+    if (baseNo) {
+      state.selectedBaseNoId = baseNo.id;
+      render(); updateProps();
+      return;
+    }
 
     const booth = getBoothAt(world.x, world.y);
     if (booth) {
@@ -3715,6 +3807,14 @@ canvas.addEventListener('mousemove', (e) => {
     render(); return;
   }
 
+  // BaseNo preview
+  if (state.isBaseDrawing) {
+    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    state.baseDrawCurrentX = snapped.x;
+    state.baseDrawCurrentY = snapped.y;
+    render(); return;
+  }
+
   // Marquee selection drag
   if (state.isMarquee) {
     state.marqueeEndX = world.x;
@@ -3905,6 +4005,26 @@ canvas.addEventListener('mouseup', (e) => {
       });
     }
     render(); updateProps();
+  }
+
+  if (state.isBaseDrawing) {
+    state.isBaseDrawing = false;
+    const dx = state.baseDrawCurrentX - state.baseDrawStartX;
+    const dy = state.baseDrawCurrentY - state.baseDrawStartY;
+    const x = dx >= 0 ? state.baseDrawStartX : state.baseDrawCurrentX;
+    const y = dy >= 0 ? state.baseDrawStartY : state.baseDrawCurrentY;
+    const w = Math.abs(dx), h = Math.abs(dy);
+    const minSize = state.snap === 'grid' ? GRID_PX : (state.snap === 'half' ? HALF_GRID_PX : 5);
+    if (w >= minSize && h >= minSize) {
+      const bn = createBaseNumber(x, y, w, h);
+      const newNo = prompt('기본부스번호 입력:', '');
+      if (newNo !== null) {
+        saveUndo();
+        bn.baseNo = newNo.trim();
+        scheduleSave(); render(); updateProps();
+      }
+    }
+    render(); return;
   }
 });
 
