@@ -90,7 +90,7 @@
   .status-select { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; color: var(--text); font-size: 12px; font-family: inherit; width: 100%; cursor: pointer; }
 
   /* ─── Bottom Bar ─── */
-  .bottombar { position: fixed; bottom: 0; left: 220px; right: 0; height: 26px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: var(--text-dim); gap: 14px; z-index: 100; }
+  .bottombar { position: fixed; bottom: 0; left: 0; right: 0; height: 26px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: var(--text-dim); gap: 14px; z-index: 100; }
   .bottombar span { font-variant-numeric: tabular-nums; }
   .repeat-badge { background: rgba(79,140,255,0.2); color: var(--accent); border-radius: 3px; padding: 1px 6px; font-size: 10px; font-weight: 600; }
   .save-indicator { margin-left: auto; font-size: 10px; font-weight: 500; }
@@ -145,6 +145,19 @@
   .badge-new { background: rgba(78,175,80,0.2); color: #3DAF6E; border-radius: 3px; padding: 1px 5px; }
   .badge-update { background: rgba(255,152,0,0.2); color: #F5A623; border-radius: 3px; padding: 1px 5px; }
   .badge-skip { background: rgba(139,143,163,0.2); color: var(--text-dim); border-radius: 3px; padding: 1px 5px; }
+
+  /* ─── Icon Sidebar ─── */
+  .sidebar-icons { width: 44px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; flex-shrink: 0; z-index: 10; }
+  .sidebar-icon-btn { width: 36px; height: 36px; border: none; background: transparent; color: var(--text-dim); font-size: 17px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+  .sidebar-icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .sidebar-icon-btn.active { background: var(--accent); color: #fff; }
+  .sidebar-icon-divider { width: 24px; height: 1px; background: var(--border); margin: 2px 0; }
+  .sidebar-panel { width: 220px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; flex-shrink: 0; padding: 12px; display: none; }
+  .sidebar-panel.visible { display: block; }
+  .sidebar-tab { display: none; }
+  .sidebar-tab.active { display: block; }
+  body.viewer .sidebar-icons,
+  body.viewer .sidebar-panel { display: none !important; }
 
   /* ─── Viewer Mode ─── */
   body.viewer { background: #FFFFFF; }
@@ -300,67 +313,12 @@
 <div class="topbar">
   <div class="topbar-logo">ExpoMap <span>v0.3</span></div>
   <div class="topbar-divider"></div>
-
-  <div class="tool-group" id="modeGroup">
-    <button class="tool-btn active" data-mode="select">Select <kbd>V</kbd></button>
-    <button class="tool-btn" data-mode="draw">Draw <kbd>B</kbd></button>
-    <button class="tool-btn" data-mode="baseNo">BaseNo</button>
-    <button class="tool-btn" data-mode="discuss">배정논의</button>
-  </div>
-
   <div class="tool-group">
     <button class="tool-btn" id="btnLockCanvas" style="font-weight:600">Lock</button>
   </div>
   <div class="topbar-divider"></div>
-
-  <div class="tool-group" id="snapGroup">
-    <button class="tool-btn active" data-snap="grid">Grid <kbd>G</kbd></button>
-    <button class="tool-btn" data-snap="half">Half <kbd>H</kbd></button>
-    <button class="tool-btn" data-snap="free">Free <kbd>F</kbd></button>
-  </div>
-  <div class="topbar-divider"></div>
-
-  <div class="tool-group">
-    <button class="tool-btn" id="btnMerge" title="Merge selected booths (Ctrl+M)">Merge</button>
-    <button class="tool-btn" id="btnDivide" title="Divide selected booth (Ctrl+D)">Divide</button>
-  </div>
-  <div class="topbar-divider"></div>
-
-  <div class="tool-group" style="display:none">
-    <button class="tool-btn" id="btnGroup" title="Group selected (Ctrl+G)">Group</button>
-    <button class="tool-btn" id="btnUngroup" title="Ungroup (Ctrl+Shift+G)">Ungroup</button>
-  </div>
-
-  <div class="tool-group">
-    <button class="tool-btn" id="btnArrayCopy" title="Array copy">Array</button>
-    <button class="tool-btn" id="btnNumCopy" title="Numeric offset copy (Enter)">Copy+</button>
-  </div>
-  <div class="topbar-divider"></div>
-
-  <div class="tool-group" id="structGroup" style="display:none">
-    <button class="tool-btn" data-struct="column" title="Place column">Column</button>
-    <button class="tool-btn" data-struct="wall" title="Draw wall (click 2 points)">Wall</button>
-    <button class="tool-btn" data-struct="door" title="Place door">Door</button>
-    <button class="tool-btn" data-struct="rect" title="Draw rectangle shape">Rect</button>
-    <button class="tool-btn" data-struct="circle" title="Place circle shape">Circle</button>
-    <button class="tool-btn" data-struct="line" title="Draw line (click 2 points)">Line</button>
-    <button class="tool-btn" data-struct="arrow" title="Draw arrow (click 2 points)">Arrow</button>
-    <button class="tool-btn" data-struct="text" title="Place text label">Text</button>
-  </div>
-
-  <div class="tool-group">
-    <button class="tool-btn" id="btnBringFront" title="Bring to front" style="display:none">▲ Front</button>
-    <button class="tool-btn" id="btnSendBack" title="Send to back" style="display:none">▼ Back</button>
-  </div>
-  <div class="topbar-divider"></div>
-
-  <button class="tool-btn" id="btnDelete" title="Delete (Del)" style="color:#f87171">Delete</button>
-
+  <button class="tool-btn danger" id="btnDelete" title="Delete (Del)">Delete</button>
   <div class="zoom-display" id="zoomDisplay">100%</div>
-  <div class="topbar-divider"></div>
-  <div class="tool-group">
-    <button class="tool-btn active" id="btnDiscussToggle" onclick="toggleDiscussLayer()" title="배정논의 오버레이 토글">배정논의레이어</button>
-  </div>
   <div class="topbar-divider"></div>
   <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname, '_blank')">공개도면</button>
 </div>
@@ -368,79 +326,186 @@
 <!-- ─── Main Layout ─── -->
 <div class="main">
 
-  <!-- Left Panel -->
-  <div class="panel-left">
-    <div class="panel-section">
-      <div class="panel-title">Assignment</div>
-      <div class="status-row"><div class="status-dot" style="background:#555A6E"></div>기본<span class="status-count" id="countAvailable">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#FF9800"></div>배정가능위치<span class="status-count" id="countSpot">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#F06292"></div>홀딩<span class="status-count" id="countHold">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#29B6F6"></div>온라인신청<span class="status-count" id="countOnline">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#3DAF6E"></div>계약서접수<span class="status-count" id="countProposing">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#FFD600"></div>배정논의<span class="status-count" id="countDiscuss">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
-      <div class="status-row"><div class="status-dot" style="background:#fff;border:1.5px solid #111"></div>기타부대설비<span class="status-count" id="countFacility">0</span></div>
-    </div>
+  <!-- Icon Sidebar -->
+  <div class="sidebar-icons">
+    <button class="sidebar-icon-btn active" id="sidebarBtn-tool" onclick="selectSidebarTab('tool')" title="도구">✏️</button>
+    <button class="sidebar-icon-btn" id="sidebarBtn-assign" onclick="selectSidebarTab('assign')" title="배정">📊</button>
+    <div class="sidebar-icon-divider"></div>
+    <button class="sidebar-icon-btn" id="sidebarBtn-design" onclick="selectSidebarTab('design')" title="디자인">🏗</button>
+    <div class="sidebar-icon-divider"></div>
+    <button class="sidebar-icon-btn" id="sidebarBtn-setting" onclick="selectSidebarTab('setting')" title="설정">⚙️</button>
+  </div>
 
-    <div class="panel-section">
-      <div class="panel-title">Overview</div>
-      <div class="info-grid">
-        <div class="info-card"><div class="info-card-value" id="totalBooths">0</div><div class="info-card-label">Booths</div></div>
-        <div class="info-card"><div class="info-card-value" id="totalArea">0</div><div class="info-card-label">Total ㎡</div></div>
+  <!-- Sidebar Slide Panel -->
+  <div class="sidebar-panel visible" id="sidebarPanel">
+
+    <!-- 탭: 도구 -->
+    <div class="sidebar-tab active" id="sidebarTab-tool">
+      <div class="panel-section">
+        <div class="panel-title">모드</div>
+        <div class="tool-group" id="modeGroup" style="display:flex;flex-wrap:wrap;gap:2px;background:var(--bg);border-radius:6px;padding:2px;width:100%">
+          <button class="tool-btn active" data-mode="select" style="flex:1;min-width:80px">Select <kbd>V</kbd></button>
+          <button class="tool-btn" data-mode="draw" style="flex:1;min-width:80px">Draw <kbd>B</kbd></button>
+          <button class="tool-btn" data-mode="baseNo" style="flex:1;min-width:80px">BaseNo</button>
+          <button class="tool-btn" data-mode="discuss" style="flex:1;min-width:80px">배정논의</button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">스냅</div>
+        <div class="tool-group" id="snapGroup" style="display:flex;gap:2px;background:var(--bg);border-radius:6px;padding:2px;width:100%">
+          <button class="tool-btn active" data-snap="grid" style="flex:1">Grid <kbd>G</kbd></button>
+          <button class="tool-btn" data-snap="half" style="flex:1">Half <kbd>H</kbd></button>
+          <button class="tool-btn" data-snap="free" style="flex:1">Free <kbd>F</kbd></button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">편집</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          <button class="panel-btn" id="btnMerge" title="Merge selected booths (Ctrl+M)" style="flex:1;margin-bottom:0">Merge</button>
+          <button class="panel-btn" id="btnDivide" title="Divide selected booth (Ctrl+D)" style="flex:1;margin-bottom:0">Divide</button>
+          <button class="panel-btn" id="btnArrayCopy" title="Array copy" style="flex:1;margin-bottom:0;margin-top:4px">Array</button>
+          <button class="panel-btn" id="btnNumCopy" title="Numeric offset copy (Enter)" style="flex:1;margin-bottom:0;margin-top:4px">Copy+</button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">레이어 순서</div>
+        <div style="display:flex;gap:4px">
+          <button class="panel-btn" id="btnBringFront" style="flex:1;margin-bottom:0">▲ Front</button>
+          <button class="panel-btn" id="btnSendBack" style="flex:1;margin-bottom:0">▼ Back</button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">구조물</div>
+        <div class="tool-group" id="structGroup" style="display:flex;flex-wrap:wrap;gap:2px;background:var(--bg);border-radius:6px;padding:2px;width:100%">
+          <button class="tool-btn" data-struct="column" style="flex:1;min-width:55px">Column</button>
+          <button class="tool-btn" data-struct="wall" style="flex:1;min-width:55px">Wall</button>
+          <button class="tool-btn" data-struct="door" style="flex:1;min-width:55px">Door</button>
+          <button class="tool-btn" data-struct="rect" style="flex:1;min-width:55px">Rect</button>
+          <button class="tool-btn" data-struct="circle" style="flex:1;min-width:55px">Circle</button>
+          <button class="tool-btn" data-struct="line" style="flex:1;min-width:55px">Line</button>
+          <button class="tool-btn" data-struct="arrow" style="flex:1;min-width:55px">Arrow</button>
+          <button class="tool-btn" data-struct="text" style="flex:1;min-width:55px">Text</button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">배정논의 레이어</div>
+        <button class="panel-btn active" id="btnDiscussToggle" onclick="toggleDiscussLayer()">배정논의 오버레이</button>
       </div>
     </div>
 
-    <div class="panel-section" style="display:none" id="bgLeftSectionHidden">
-      <!-- Background controls moved to right panel -->
-    </div>
+    <!-- 탭: 배정 -->
+    <div class="sidebar-tab" id="sidebarTab-assign">
+      <div class="panel-section">
+        <div class="panel-title">Assignment</div>
+        <div class="status-row"><div class="status-dot" style="background:#555A6E"></div>기본<span class="status-count" id="countAvailable">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#FF9800"></div>배정가능위치<span class="status-count" id="countSpot">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#F06292"></div>홀딩<span class="status-count" id="countHold">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#29B6F6"></div>온라인신청<span class="status-count" id="countOnline">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#3DAF6E"></div>계약서접수<span class="status-count" id="countProposing">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#FFD600"></div>배정논의<span class="status-count" id="countDiscuss">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
+        <div class="status-row"><div class="status-dot" style="background:#fff;border:1.5px solid #111"></div>기타부대설비<span class="status-count" id="countFacility">0</span></div>
+      </div>
 
-    <div class="panel-section" style="display:none" id="logosLeftSectionHidden">
-      <!-- Logos & Images hidden -->
-    </div>
+      <div class="panel-section">
+        <div class="panel-title">Overview</div>
+        <div class="info-grid">
+          <div class="info-card"><div class="info-card-value" id="totalBooths">0</div><div class="info-card-label">Booths</div></div>
+          <div class="info-card"><div class="info-card-value" id="totalArea">0</div><div class="info-card-label">Total ㎡</div></div>
+        </div>
+      </div>
 
-    <div class="panel-section">
-      <div class="panel-title">Booth Numbering</div>
-      <button class="panel-btn" id="btnAutoNumber">Auto Assign #</button>
-    </div>
+      <div class="panel-section">
+        <div class="panel-title">Booth Numbering</div>
+        <button class="panel-btn" id="btnAutoNumber">Auto Assign #</button>
+      </div>
 
-    <div class="panel-section">
-      <div class="panel-title">BaseNo Numbering</div>
-      <button class="panel-btn" id="btnBaseNoNumber">번호 할당</button>
-    </div>
-
-    <div class="panel-section">
-      <div class="panel-title">Data</div>
-      <button class="panel-btn" id="btnImport">▲ Excel Import</button>
-      <button class="panel-btn" id="btnExport">▼ PDF Export</button>
-      <button class="panel-btn" id="btnAssignGuide">📋 배정안내</button>
-    </div>
-
-    <div class="panel-section">
-      <div class="panel-title">Supabase</div>
-      <button class="panel-btn" id="btnSupaConfig">Settings</button>
-      <button class="panel-btn" id="btnManualSave" style="background:var(--accent);color:#fff;text-align:center">Save Now</button>
-      <div id="supaStatus" style="font-size:10px;color:var(--text-dim);margin-top:2px"></div>
-    </div>
-
-    <div class="panel-section">
-      <div class="panel-title">Quick Guide</div>
-      <div style="font-size:11px;color:var(--text-dim);line-height:1.7">
-        <b>B/V</b> — Draw/Select<br>
-        <b>G/H/F</b> — Grid snap<br>
-        <b>Drag empty</b> — Marquee select<br>
-        <b>Shift+Click</b> — Multi-select<br>
-        <b>Alt+Drag</b> — Snap copy<br>
-        <b>Enter</b> — Offset copy<br>
-        <b>Ctrl+D</b> — Divide / Repeat<br>
-        <b>Ctrl+G/Shift+G</b> — Group<br>
-        <b>Ctrl+M</b> — Merge<br>
-        <b>Ctrl+Z/Shift+Z</b> — Undo/Redo<br>
-        <b>Space+Drag</b> — Pan<br>
-        <b>Scroll</b> — Zoom
+      <div class="panel-section">
+        <div class="panel-title">Data</div>
+        <button class="panel-btn" id="btnImport">▲ Excel Import</button>
+        <button class="panel-btn" id="btnExport">▼ PDF Export</button>
+        <button class="panel-btn" id="btnAssignGuide">📋 배정안내</button>
       </div>
     </div>
+
+    <!-- 탭: 디자인 -->
+    <div class="sidebar-tab" id="sidebarTab-design">
+      <div class="panel-section">
+        <div class="panel-title">BaseNo Numbering</div>
+        <button class="panel-btn" id="btnBaseNoNumber">번호 할당</button>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">Background</div>
+        <label class="panel-btn" style="cursor:pointer">
+          ▲ Upload Image
+          <input type="file" id="bgUpload" accept="image/*" style="display:none">
+        </label>
+        <button class="panel-btn" id="btnCalibrate" title="Click 2 points on background, enter real distance">Calibrate</button>
+        <button class="panel-btn" id="btnBgMove" title="Toggle background move mode">Move BG</button>
+        <div class="opacity-row" style="margin-top:6px">
+          <span>Opacity</span>
+          <input type="range" id="bgOpacity" min="0" max="100" value="50">
+          <span id="bgOpacityVal">50%</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="panel-btn" id="btnBgToggle" style="flex:1;margin-bottom:0">Show</button>
+          <button class="panel-btn" id="btnBgRemove" style="flex:1;margin-bottom:0;color:#f87171">Remove</button>
+        </div>
+        <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px" id="bgFineTune">
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;font-weight:600">Fine Tune</div>
+          <div class="prop-row"><span class="prop-label">X</span><input class="prop-input" id="bgFtX" type="number" step="1" style="width:70px"></div>
+          <div class="prop-row"><span class="prop-label">Y</span><input class="prop-input" id="bgFtY" type="number" step="1" style="width:70px"></div>
+          <div class="prop-row"><span class="prop-label">W</span><input class="prop-input" id="bgFtW" type="number" step="1" style="width:70px"></div>
+          <div class="prop-row"><span class="prop-label">H</span><input class="prop-input" id="bgFtH" type="number" step="1" style="width:70px"></div>
+          <div class="prop-row"><span class="prop-label">Rot°</span><input class="prop-input" id="bgFtRot" type="number" step="0.5" value="0" style="width:70px"></div>
+        </div>
+        <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+          <div class="panel-title" style="margin-bottom:6px">Logos & Images</div>
+          <label class="panel-btn" style="cursor:pointer">
+            ▲ Add Logo / Image
+            <input type="file" id="logoUpload" accept="image/*" style="display:none">
+          </label>
+          <div id="logoList" style="font-size:11px;color:var(--text-dim);margin-top:4px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭: 설정 -->
+    <div class="sidebar-tab" id="sidebarTab-setting">
+      <div class="panel-section">
+        <div class="panel-title">Supabase</div>
+        <button class="panel-btn" id="btnSupaConfig">Settings</button>
+        <button class="panel-btn" id="btnManualSave" style="background:var(--accent);color:#fff;text-align:center">Save Now</button>
+        <div id="supaStatus" style="font-size:10px;color:var(--text-dim);margin-top:2px"></div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">Quick Guide</div>
+        <div style="font-size:11px;color:var(--text-dim);line-height:1.7">
+          <b>B/V</b> — Draw/Select<br>
+          <b>G/H/F</b> — Grid snap<br>
+          <b>Drag empty</b> — Marquee select<br>
+          <b>Shift+Click</b> — Multi-select<br>
+          <b>Alt+Drag</b> — Snap copy<br>
+          <b>Enter</b> — Offset copy<br>
+          <b>Ctrl+D</b> — Divide / Repeat<br>
+          <b>Ctrl+G/Shift+G</b> — Group<br>
+          <b>Ctrl+M</b> — Merge<br>
+          <b>Ctrl+Z/Shift+Z</b> — Undo/Redo<br>
+          <b>Space+Drag</b> — Pan<br>
+          <b>Scroll</b> — Zoom
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Canvas -->
@@ -459,42 +524,6 @@
 
     <!-- Middle: Properties -->
     <div class="panel-right-middle">
-    <!-- Background 설정 패널 -->
-    <div id="bgPanelSection" style="display:none">
-      <div class="panel-title">Background</div>
-      <label class="panel-btn" style="cursor:pointer">
-        ▲ Upload Image
-        <input type="file" id="bgUpload" accept="image/*" style="display:none">
-      </label>
-      <button class="panel-btn" id="btnCalibrate" title="Click 2 points on background, enter real distance">Calibrate</button>
-      <button class="panel-btn" id="btnBgMove" title="Toggle background move mode">Move BG</button>
-      <div class="opacity-row" style="margin-top:6px">
-        <span>Opacity</span>
-        <input type="range" id="bgOpacity" min="0" max="100" value="50">
-        <span id="bgOpacityVal">50%</span>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button class="panel-btn" id="btnBgToggle" style="flex:1;margin-bottom:0">Show</button>
-        <button class="panel-btn" id="btnBgRemove" style="flex:1;margin-bottom:0;color:#f87171">Remove</button>
-      </div>
-      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px" id="bgFineTune">
-        <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;font-weight:600">Fine Tune</div>
-        <div class="prop-row"><span class="prop-label">X</span><input class="prop-input" id="bgFtX" type="number" step="1" style="width:70px"></div>
-        <div class="prop-row"><span class="prop-label">Y</span><input class="prop-input" id="bgFtY" type="number" step="1" style="width:70px"></div>
-        <div class="prop-row"><span class="prop-label">W</span><input class="prop-input" id="bgFtW" type="number" step="1" style="width:70px"></div>
-        <div class="prop-row"><span class="prop-label">H</span><input class="prop-input" id="bgFtH" type="number" step="1" style="width:70px"></div>
-        <div class="prop-row"><span class="prop-label">Rot°</span><input class="prop-input" id="bgFtRot" type="number" step="0.5" value="0" style="width:70px"></div>
-      </div>
-      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-        <div class="panel-title" style="margin-bottom:6px">Logos & Images</div>
-        <label class="panel-btn" style="cursor:pointer">
-          ▲ Add Logo / Image
-          <input type="file" id="logoUpload" accept="image/*" style="display:none">
-        </label>
-        <div id="logoList" style="font-size:11px;color:var(--text-dim);margin-top:4px"></div>
-      </div>
-    </div>
-    <div id="bgPanelSeparator" style="display:none;border-bottom:1px solid var(--border);margin-bottom:12px;padding-bottom:4px"></div>
 
     <!-- 멀티셀렉 일괄 변경 패널 -->
     <div id="multiSelectSection" style="display:none">
@@ -1671,6 +1700,19 @@ function toggleDiscussLayer() {
   state.showDiscussLayer = !state.showDiscussLayer;
   document.getElementById('btnDiscussToggle').classList.toggle('active', state.showDiscussLayer);
   render();
+}
+
+function selectSidebarTab(tabId) {
+  // 아이콘 버튼 active 상태 전환
+  document.querySelectorAll('.sidebar-icon-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById('sidebarBtn-' + tabId);
+  if (activeBtn) activeBtn.classList.add('active');
+  // 탭 내용 전환
+  document.querySelectorAll('.sidebar-tab').forEach(tab => tab.classList.remove('active'));
+  const activeTab = document.getElementById('sidebarTab-' + tabId);
+  if (activeTab) activeTab.classList.add('active');
+  // 패널 표시
+  document.getElementById('sidebarPanel').classList.add('visible');
 }
 
 function cancelAssignGuideMode() {
