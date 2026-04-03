@@ -41,6 +41,10 @@
   .tool-btn.danger { color: #f87171; }
   .tool-btn.danger:hover { background: rgba(248,113,113,0.15); }
   .zoom-display { margin-left: auto; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+  .topbar-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 12px; background: var(--surface-hover); border: 1px solid var(--border); border-radius: 6px; flex-shrink: 0; }
+  .topbar-card-label { font-size: 10px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .topbar-card-value { font-size: 16px; font-weight: 700; color: var(--accent); }
+  .topbar-card-unit { font-size: 9px; color: var(--text-dim); font-weight: 500; }
 
   /* ─── Main Layout ─── */
   .main { display: flex; height: calc(100vh - 48px); }
@@ -317,7 +321,31 @@
   <div class="tool-group">
     <button class="tool-btn" id="btnLockCanvas" style="font-weight:600">Lock</button>
   </div>
-  <div style="flex:1"></div>
+
+  <!-- Booth Count Cards -->
+  <div style="display:flex;gap:8px;margin:0 12px;align-items:center;flex:1;justify-content:center">
+    <div class="topbar-card">
+      <div class="topbar-card-label">전체</div>
+      <div class="topbar-card-value" id="countTotal">0</div>
+      <div class="topbar-card-unit">Booth</div>
+    </div>
+    <div class="topbar-card">
+      <div class="topbar-card-label">배정</div>
+      <div class="topbar-card-value" id="countAssigning">0</div>
+      <div class="topbar-card-unit">Booth</div>
+    </div>
+    <div class="topbar-card">
+      <div class="topbar-card-label">계약</div>
+      <div class="topbar-card-value" id="countContract">0</div>
+      <div class="topbar-card-unit">Booth</div>
+    </div>
+    <div class="topbar-card">
+      <div class="topbar-card-label">미배정</div>
+      <div class="topbar-card-value" id="countUnassigned">0</div>
+      <div class="topbar-card-unit">Booth</div>
+    </div>
+  </div>
+
   <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정도면</button>
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
@@ -441,14 +469,6 @@
         <div class="status-row"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
         <div class="status-row"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
         <div class="status-row"><div class="status-dot" style="background:#fff;border:1.5px solid #111"></div>기타부대설비<span class="status-count" id="countFacility">0</span></div>
-      </div>
-
-      <div class="panel-section">
-        <div class="panel-title">Overview</div>
-        <div class="info-grid">
-          <div class="info-card"><div class="info-card-value" id="totalBooths">0</div><div class="info-card-label">Booths</div></div>
-          <div class="info-card"><div class="info-card-value" id="totalArea">0</div><div class="info-card-label">Total ㎡</div></div>
-        </div>
       </div>
 
       <div class="panel-section">
@@ -5955,9 +5975,21 @@ function updateStats() {
   document.getElementById('countFake').textContent = counts.fake;
   document.getElementById('countExcluded').textContent = counts.excluded;
   document.getElementById('countFacility').textContent = counts.facility;
-  const totalUnits = counts.available + counts.discuss + counts.spot + counts.hold + counts.proposing + counts.assigned + counts.online + counts.fake;
-  document.getElementById('totalBooths').textContent = totalUnits;
-  document.getElementById('totalArea').textContent = totalArea.toFixed(0);
+
+  // 상단 툴바 카드 업데이트
+  // 1. 전체: available + spot + hold + online + proposing + assigned + fake
+  const countTotal = counts.available + counts.spot + counts.hold + counts.online + counts.proposing + counts.assigned + counts.fake;
+  // 2. 배정: hold + online + proposing + assigned
+  const countAssigning = counts.hold + counts.online + counts.proposing + counts.assigned;
+  // 3. 계약: proposing + assigned
+  const countContract = counts.proposing + counts.assigned;
+  // 4. 미배정: spot + fake
+  const countUnassigned = counts.spot + counts.fake;
+
+  document.getElementById('countTotal').textContent = countTotal;
+  document.getElementById('countAssigning').textContent = countAssigning;
+  document.getElementById('countContract').textContent = countContract;
+  document.getElementById('countUnassigned').textContent = countUnassigned;
 }
 function updateRepeatBadge() {
   document.getElementById('repeatBadge').style.display = state.lastCopyOp ? 'inline' : 'none';
