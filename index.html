@@ -319,6 +319,8 @@
   </div>
   <div class="topbar-divider"></div>
   <button class="tool-btn danger" id="btnDelete" title="Delete (Del)">Delete</button>
+  <div style="flex:1"></div>
+  <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정도면</button>
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
   <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname, '_blank')">공개도면</button>
@@ -5224,6 +5226,11 @@ document.getElementById('btnExport').addEventListener('click', () => {
   openModal('modalExport');
 });
 document.getElementById('btnAssignGuide').addEventListener('click', () => {
+  state.assignGuideMode = true;
+  state.selectedDiscussIds.clear();
+  render();
+});
+document.getElementById('btnAssignGuideTopbar').addEventListener('click', () => {
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();
   render();
