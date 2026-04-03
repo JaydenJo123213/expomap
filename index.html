@@ -5308,14 +5308,14 @@ function renderLayers() {
     sidebarLayersList.innerHTML = LAYERS.map(layer => {
       const isVisible = layer.customGetter ? layer.customGetter() : state[layer.stateKey];
       const isLocked = state.layerLocked[layer.id];
-      const eyeColor = isVisible ? 'var(--text)' : 'var(--text-dim)';  // 공개/비공개 색상
-      const lockColor = isLocked ? 'var(--text)' : 'var(--text-dim)';  // 잠금/해제 색상
+      const eyeIcon = isVisible ? '👀' : '😴';  // 뜬 눈 vs 감은 눈
+      const lockIcon = isLocked ? '🔒' : '🔓';  // 잠긴 자물쇠 vs 열린 자물쇠
 
       return `
         <div style="display:grid;grid-template-columns:1fr 40px 40px;gap:6px;padding:4px 6px;background:var(--surface-hover);border-radius:4px;align-items:center;user-select:none;cursor:pointer" onclick="selectLayerProperties('${layer.id}')">
           <span style="color:var(--text);font-size:12px">${layer.label}</span>
-          <button onclick="event.stopPropagation(); toggleLayerVisibility('${layer.id}')" style="background:none;border:none;color:${eyeColor};cursor:pointer;font-size:16px;padding:0;text-align:center;flex-shrink:0;min-width:20px;transition:color 0.15s">👁️</button>
-          <button onclick="event.stopPropagation(); toggleLayerLock('${layer.id}')" style="background:none;border:none;color:${lockColor};cursor:pointer;font-size:16px;padding:0;text-align:center;flex-shrink:0;min-width:20px;transition:color 0.15s">🔒</button>
+          <button onclick="event.stopPropagation(); toggleLayerVisibility('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:16px;padding:0;text-align:center;flex-shrink:0;min-width:20px">${eyeIcon}</button>
+          <button onclick="event.stopPropagation(); toggleLayerLock('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:16px;padding:0;text-align:center;flex-shrink:0;min-width:20px">${lockIcon}</button>
         </div>
       `;
     }).join('');
