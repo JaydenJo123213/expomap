@@ -496,32 +496,6 @@
     </div>
     <div id="bgPanelSeparator" style="display:none;border-bottom:1px solid var(--border);margin-bottom:12px;padding-bottom:4px"></div>
 
-    <!-- Legends moved inside panel-right-middle -->
-    <!-- 부스 타입 범례 패널 -->
-    <div id="boothTypeLegendSection" style="display:none;margin-bottom:12px">
-      <div class="panel-title">부스 타입 범례</div>
-      <div style="display:flex;flex-direction:column;gap:4px;font-size:11px">
-        <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,235,59,0.7);border:1.5px solid #F9A825;flex-shrink:0"></span><span>조립부스</span></div>
-        <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,152,0,0.55);border:1.5px solid #E65100;flex-shrink:0"></span><span>자체시공</span></div>
-        <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:transparent;border:1.5px solid var(--border);flex-shrink:0"></span><span>독립부스</span></div>
-      </div>
-      <button onclick="openBoothTypeDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 부스타입 DB 편집...</button>
-      <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
-    </div>
-
-    <!-- 전기 범례 패널 -->
-    <div id="elecLegendSection" style="display:none;margin-bottom:12px">
-      <div class="panel-title">전기 범례</div>
-      <div id="elecLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
-      <button onclick="openCompanyDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 전기 DB 편집...</button>
-      <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
-    </div>
-    <div id="otherLegendSection" style="display:none;margin-bottom:12px">
-      <div class="panel-title">기타 범례</div>
-      <div id="otherLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
-      <button onclick="openOtherDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 기타 DB 편집...</button>
-      <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
-    </div>
     </div><!-- panel-right-middle 끝 -->
 
     <!-- 멀티셀렉 일괄 변경 패널 -->
@@ -706,11 +680,34 @@
     </div>
     </div>
 
-    <!-- Bottom: Layers (Fixed) -->
+    <!-- Bottom: Legends + Layers (Fixed) -->
     <div class="panel-right-bottom">
+      <!-- 범례 -->
+      <div id="boothTypeLegendSection" style="display:none;margin-bottom:10px">
+        <div class="panel-title">부스 타입 범례</div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:11px">
+          <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,235,59,0.7);border:1.5px solid #F9A825;flex-shrink:0"></span><span>조립부스</span></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,152,0,0.55);border:1.5px solid #E65100;flex-shrink:0"></span><span>자체시공</span></div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:transparent;border:1.5px solid var(--border);flex-shrink:0"></span><span>독립부스</span></div>
+        </div>
+        <button onclick="openBoothTypeDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 부스타입 DB 편집...</button>
+      </div>
+      <div id="elecLegendSection" style="display:none;margin-bottom:10px">
+        <div class="panel-title">전기 범례</div>
+        <div id="elecLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
+        <button onclick="openCompanyDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 전기 DB 편집...</button>
+      </div>
+      <div id="otherLegendSection" style="display:none;margin-bottom:10px">
+        <div class="panel-title">기타 범례</div>
+        <div id="otherLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
+        <button onclick="openOtherDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 기타 DB 편집...</button>
+      </div>
+      <!-- 레이어 -->
+      <div style="border-top:1px solid var(--border);padding-top:8px">
       <div class="panel-title" style="margin-bottom:8px;margin-top:0">레이어</div>
       <div id="layersList" style="display:flex;flex-direction:column;gap:6px;font-size:12px">
         <!-- 레이어 항목들이 여기에 추가됨 -->
+      </div>
       </div>
     </div>
   </div>
