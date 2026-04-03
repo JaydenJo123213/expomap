@@ -54,7 +54,7 @@
   .panel-section { margin-bottom: 16px; }
   .panel-section + .panel-section { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
   .panel-title { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .status-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 4px; font-size: 12px; cursor: default; }
+  .status-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 4px; font-size: 12px; cursor: default; transition: all 0.15s; }
   .status-row:hover { background: var(--surface-hover); }
   .status-dot { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
   .status-count { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--text-dim); }
@@ -459,16 +459,16 @@
     <div class="sidebar-tab" id="sidebarTab-assign">
       <div class="panel-section">
         <div class="panel-title">Assignment</div>
-        <div class="status-row"><div class="status-dot" style="background:#555A6E"></div>기본<span class="status-count" id="countAvailable">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#FF9800"></div>배정가능위치<span class="status-count" id="countSpot">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#F06292"></div>홀딩<span class="status-count" id="countHold">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#29B6F6"></div>온라인신청<span class="status-count" id="countOnline">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#3DAF6E"></div>계약서접수<span class="status-count" id="countProposing">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#FFD600"></div>배정논의<span class="status-count" id="countDiscuss">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
-        <div class="status-row"><div class="status-dot" style="background:#fff;border:1.5px solid #111"></div>기타부대설비<span class="status-count" id="countFacility">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('available')"><div class="status-dot" style="background:#555A6E"></div>기본<span class="status-count" id="countAvailable">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('spot')"><div class="status-dot" style="background:#FF9800"></div>배정가능위치<span class="status-count" id="countSpot">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('hold')"><div class="status-dot" style="background:#F06292"></div>홀딩<span class="status-count" id="countHold">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('online')"><div class="status-dot" style="background:#29B6F6"></div>온라인신청<span class="status-count" id="countOnline">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('proposing')"><div class="status-dot" style="background:#3DAF6E"></div>계약서접수<span class="status-count" id="countProposing">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('discuss')"><div class="status-dot" style="background:#FFD600"></div>배정논의<span class="status-count" id="countDiscuss">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('assigned')"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('fake')"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('excluded')"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('facility')"><div class="status-dot" style="background:#fff;border:1.5px solid #111"></div>기타부대설비<span class="status-count" id="countFacility">0</span></div>
       </div>
 
       <div class="panel-section">
@@ -5993,6 +5993,18 @@ function updateStats() {
 }
 function updateRepeatBadge() {
   document.getElementById('repeatBadge').style.display = state.lastCopyOp ? 'inline' : 'none';
+}
+
+// ─── Status Selection ───
+function selectByStatus(status) {
+  state.selectedIds.clear();
+  for (const booth of state.booths) {
+    if (booth.status === status) {
+      state.selectedIds.add(booth.id);
+    }
+  }
+  render();
+  updateProps();
 }
 
 // ─── Modal Helpers ───
