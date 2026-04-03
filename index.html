@@ -5172,8 +5172,9 @@ document.querySelectorAll('#modeGroup .tool-btn').forEach(btn => btn.addEventLis
 document.querySelectorAll('#snapGroup .tool-btn').forEach(btn => btn.addEventListener('click', () => setSnap(btn.dataset.snap)));
 document.getElementById('btnMerge').addEventListener('click', mergeSelected);
 document.getElementById('btnDivide').addEventListener('click', openDivideDialog);
-document.getElementById('btnGroup').addEventListener('click', groupSelected);
-document.getElementById('btnUngroup').addEventListener('click', ungroupSelected);
+// btnGroup / btnUngroup은 사이드바에 없음 (Ctrl+G/Shift+G 단축키로만 가능)
+// document.getElementById('btnGroup').addEventListener('click', groupSelected);
+// document.getElementById('btnUngroup').addEventListener('click', ungroupSelected);
 document.getElementById('btnNumCopy').addEventListener('click', openNumericCopyDialog);
 document.getElementById('btnArrayCopy').addEventListener('click', () => {
   if (!state.selectedIds.size) { alert('Select booths to array-copy.'); return; }
