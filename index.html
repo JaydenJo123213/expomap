@@ -77,10 +77,11 @@
   .struct-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(156,39,176,0.9); color: #fff; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; pointer-events: none; white-space: nowrap; }
 
   /* ─── Right Panel ─── */
-  .panel-right { width: 240px; background: var(--surface); border-left: 1px solid var(--border); display: none; flex-direction: column; flex-shrink: 0; }
+  .panel-right { width: 240px; background: var(--surface); border-left: 1px solid var(--border); display: none; flex-shrink: 0; display: flex; flex-direction: column; }
   .panel-right.visible { display: flex; }
+  .panel-right-top { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
   .panel-right-middle { flex: 1; overflow-y: auto; padding: 14px; }
-  .panel-right-bottom { border-top: 1px solid var(--border); padding: 14px; max-height: 350px; overflow-y: auto; }
+  .panel-right-bottom { padding: 10px 14px 10px 14px; border-top: 1px solid var(--border); max-height: 350px; overflow-y: auto; margin-top: auto; margin-bottom: 35px; }
   .prop-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 12px; }
   .prop-label { color: var(--text-dim); }
   .prop-value { font-weight: 500; }
@@ -207,6 +208,68 @@
   .paper-select-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 12px; }
   .paper-select-row label { color: var(--text-dim); width: 80px; }
   .paper-select-row select { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 7px; color: var(--text); font-size: 12px; font-family: inherit; }
+
+  /* ─── Mobile Viewer Optimization ─── */
+  @media (max-width: 768px) {
+    body.viewer .viewer-bar {
+      height: 48px;
+      padding: 0 12px;
+      gap: 10px;
+    }
+    body.viewer .main { margin-top: 48px; height: calc(100vh - 48px); }
+
+    .viewer-logo { font-size: 14px; }
+    .viewer-search-wrap { max-width: none; flex: 1; }
+    .viewer-search {
+      max-width: none;
+      height: 32px;
+      font-size: 12px;
+      padding: 0 12px 0 32px;
+    }
+    .viewer-search-wrap::before { font-size: 12px; left: 8px; }
+
+    .viewer-zoom { font-size: 11px; }
+    .viewer-hint { display: none; }
+
+    /* 터치 친화적 팝업 */
+    .viewer-popup {
+      padding: 12px 14px;
+      min-width: 180px;
+      max-width: 280px;
+      font-size: 12px;
+    }
+    .viewer-popup-row { font-size: 11px; }
+    .viewer-popup-badge { font-size: 10px; padding: 2px 8px; }
+  }
+
+  @media (max-width: 480px) {
+    body.viewer .viewer-bar {
+      height: 44px;
+      padding: 0 10px;
+      gap: 8px;
+    }
+    body.viewer .main { margin-top: 44px; height: calc(100vh - 44px); }
+
+    .viewer-logo { font-size: 13px; }
+    .viewer-search {
+      height: 30px;
+      font-size: 11px;
+      padding: 0 10px 0 28px;
+    }
+    .viewer-search-wrap::before { font-size: 11px; left: 6px; }
+
+    .viewer-zoom { font-size: 10px; }
+
+    .viewer-popup {
+      padding: 10px 12px;
+      min-width: 150px;
+      max-width: 240px;
+      font-size: 11px;
+      border-radius: 10px;
+    }
+    .viewer-popup-row { font-size: 10px; gap: 4px; }
+    .viewer-popup-badge { font-size: 9px; padding: 2px 6px; }
+  }
 </style>
 </head>
 <body>
@@ -242,6 +305,7 @@
     <button class="tool-btn active" data-mode="select">Select <kbd>V</kbd></button>
     <button class="tool-btn" data-mode="draw">Draw <kbd>B</kbd></button>
     <button class="tool-btn" data-mode="baseNo">BaseNo</button>
+    <button class="tool-btn" data-mode="discuss">배정논의</button>
   </div>
 
   <div class="tool-group">
@@ -269,7 +333,7 @@
 
   <div class="tool-group">
     <button class="tool-btn" id="btnArrayCopy" title="Array copy">Array</button>
-    <button class="tool-btn" id="btnNumCopy" title="Numeric offset copy (Ctrl+Shift+C)">Copy+</button>
+    <button class="tool-btn" id="btnNumCopy" title="Numeric offset copy (Enter)">Copy+</button>
   </div>
   <div class="topbar-divider"></div>
 
@@ -294,12 +358,9 @@
 
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
-  <button class="tool-btn active" id="btnElecToggle" title="전기 표시 켜기/끄기" onclick="toggleElecDisplay()">부대시설_전기</button>
-  <button class="tool-btn" id="btnOtherToggle" title="기타 부대시설 표시 켜기/끄기" onclick="toggleOtherDisplay()">부대시설_기타</button>
-  <button class="tool-btn active" id="btnBoothTypeToggle" title="부스 타입 표시 켜기/끄기" onclick="toggleBoothTypeDisplay()">부스타입</button>
-  <button class="tool-btn active" id="btnBaseNoToggle" title="기본부스번호 표시 켜기/끄기" onclick="toggleBaseNoDisplay()">기본부스번호</button>
-  <div class="topbar-divider"></div>
-  <button class="tool-btn" id="btnBgPanel" title="배경 이미지 설정" onclick="toggleBgPanel()">Background</button>
+  <div class="tool-group">
+    <button class="tool-btn active" id="btnDiscussToggle" onclick="toggleDiscussLayer()" title="배정논의 오버레이 토글">배정논의레이어</button>
+  </div>
   <div class="topbar-divider"></div>
   <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname, '_blank')">공개도면</button>
 </div>
@@ -345,14 +406,15 @@
     </div>
 
     <div class="panel-section">
-      <div class="panel-title">배정 워크플로우</div>
-      <button class="panel-btn" id="btnAssignMode" style="background:var(--accent);color:#fff;text-align:center;font-weight:600">부스 배정 시작</button>
+      <div class="panel-title">BaseNo Numbering</div>
+      <button class="panel-btn" id="btnBaseNoNumber">번호 할당</button>
     </div>
 
     <div class="panel-section">
       <div class="panel-title">Data</div>
       <button class="panel-btn" id="btnImport">▲ Excel Import</button>
       <button class="panel-btn" id="btnExport">▼ PDF Export</button>
+      <button class="panel-btn" id="btnAssignGuide">📋 배정안내</button>
     </div>
 
     <div class="panel-section">
@@ -370,7 +432,7 @@
         <b>Drag empty</b> — Marquee select<br>
         <b>Shift+Click</b> — Multi-select<br>
         <b>Alt+Drag</b> — Snap copy<br>
-        <b>Ctrl+Shift+C</b> — Offset copy<br>
+        <b>Enter</b> — Offset copy<br>
         <b>Ctrl+D</b> — Divide / Repeat<br>
         <b>Ctrl+G/Shift+G</b> — Group<br>
         <b>Ctrl+M</b> — Merge<br>
@@ -383,17 +445,19 @@
 
   <!-- Canvas -->
   <div class="canvas-container" id="canvasContainer">
-    <canvas id="canvas"></canvas>
-    <div id="assignHint" style="display:none;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,214,0,0.95);color:#000;font-size:12px;font-weight:600;padding:7px 16px;border-radius:20px;white-space:nowrap;z-index:50;display:none;align-items:center;gap:6px">
-      배정 모드 — 부스를 클릭하여 선택
-      <button onclick="openAssignModal()" style="margin-left:8px;padding:3px 12px;border:none;border-radius:4px;background:#000;color:#FFD600;font-weight:700;cursor:pointer;font-size:12px">배정 안내 완료</button>
-      <button onclick="exitAssignMode(true)" style="padding:3px 8px;border:none;border-radius:4px;background:rgba(0,0,0,0.2);color:#333;cursor:pointer;font-size:12px">취소</button>
+    <canvas id="canvas" style="touch-action: none;"></canvas>
+    <!-- AssignGuideMode Confirm Button -->
+    <div id="assignGuideModeHint" style="display:none;position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:#FFD600;color:#000;padding:12px 20px;border-radius:6px;font-size:13px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:50">
+      배정논의 선택 모드 | <button id="btnAssignGuideConfirm" style="background:#4F8CFF;color:white;border:none;padding:6px 16px;border-radius:4px;margin-left:12px;cursor:pointer;font-weight:500">확인</button> <button onclick="cancelAssignGuideMode()" style="background:transparent;color:#000;border:1px solid #000;padding:6px 12px;border-radius:4px;margin-left:6px;cursor:pointer;font-weight:500">취소</button>
     </div>
   </div>
 
   <!-- Right Panel -->
   <div class="panel-right" id="panelRight">
-    <!-- 중간: 스크롤 가능한 속성 영역 -->
+    <!-- Top: Viewer + Zoom -->
+    <div class="panel-right-top" style="display:none"></div>
+
+    <!-- Middle: Properties -->
     <div class="panel-right-middle">
     <!-- Background 설정 패널 -->
     <div id="bgPanelSection" style="display:none">
@@ -432,6 +496,34 @@
     </div>
     <div id="bgPanelSeparator" style="display:none;border-bottom:1px solid var(--border);margin-bottom:12px;padding-bottom:4px"></div>
 
+    <!-- Legends moved inside panel-right-middle -->
+    <!-- 부스 타입 범례 패널 -->
+    <div id="boothTypeLegendSection" style="display:none;margin-bottom:12px">
+      <div class="panel-title">부스 타입 범례</div>
+      <div style="display:flex;flex-direction:column;gap:4px;font-size:11px">
+        <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,235,59,0.7);border:1.5px solid #F9A825;flex-shrink:0"></span><span>조립부스</span></div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,152,0,0.55);border:1.5px solid #E65100;flex-shrink:0"></span><span>자체시공</span></div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:transparent;border:1.5px solid var(--border);flex-shrink:0"></span><span>독립부스</span></div>
+      </div>
+      <button onclick="openBoothTypeDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 부스타입 DB 편집...</button>
+      <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
+    </div>
+
+    <!-- 전기 범례 패널 -->
+    <div id="elecLegendSection" style="display:none;margin-bottom:12px">
+      <div class="panel-title">전기 범례</div>
+      <div id="elecLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
+      <button onclick="openCompanyDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 전기 DB 편집...</button>
+      <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
+    </div>
+    <div id="otherLegendSection" style="display:none;margin-bottom:12px">
+      <div class="panel-title">기타 범례</div>
+      <div id="otherLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
+      <button onclick="openOtherDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 기타 DB 편집...</button>
+      <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
+    </div>
+    </div><!-- panel-right-middle 끝 -->
+
     <!-- 멀티셀렉 일괄 변경 패널 -->
     <div id="multiSelectSection" style="display:none">
       <div class="panel-title">일괄 변경 <span id="multiSelectCount" style="color:var(--accent);font-weight:700"></span></div>
@@ -465,7 +557,7 @@
     </div>
 
     <div id="boothPropsSection">
-      <div class="panel-title">부스 상세</div>
+      <div class="panel-title">Booth Properties</div>
       <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
       <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명"></div>
       <div class="prop-row"><span class="prop-label">UID</span><input class="prop-input" id="propCompany" style="width:120px" placeholder="company_uid"></div>
@@ -551,6 +643,26 @@
         <textarea id="propMemo" rows="3" style="width:100%;resize:vertical;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;padding:5px;box-sizing:border-box;line-height:1.4" placeholder="부스 메모..."></textarea>
       </div>
     </div>
+    <div id="baseNoPropsSection" style="display:none">
+      <div class="panel-title">기본부스번호</div>
+      <div class="prop-row"><span class="prop-label">번호</span><input class="prop-input" id="propBaseNo" placeholder="A-101" style="width:100%"></div>
+      <div class="prop-row"><span class="prop-label">X (m)</span><input class="prop-input" id="propBaseNoX" type="number" step="0.5"></div>
+      <div class="prop-row"><span class="prop-label">Y (m)</span><input class="prop-input" id="propBaseNoY" type="number" step="0.5"></div>
+      <div class="prop-row"><span class="prop-label">W (m)</span><input class="prop-input" id="propBaseNoW" type="number" step="0.5"></div>
+      <div class="prop-row"><span class="prop-label">H (m)</span><input class="prop-input" id="propBaseNoH" type="number" step="0.5"></div>
+      <button class="panel-btn danger" id="btnDeleteBaseNoProp" style="margin-top:10px;width:100%">삭제</button>
+    </div>
+    <div id="discussPropsSection" style="display:none">
+      <div class="panel-title">배정논의 오버레이</div>
+      <div class="prop-row"><span class="prop-label">라벨</span><input class="prop-input" id="propDiscussLabel" placeholder="업체명"></div>
+      <div class="prop-row"><span class="prop-label">X (m)</span><input class="prop-input" id="propDiscussX" type="number" step="0.5"></div>
+      <div class="prop-row"><span class="prop-label">Y (m)</span><input class="prop-input" id="propDiscussY" type="number" step="0.5"></div>
+      <div class="prop-row"><span class="prop-label">W (m)</span><input class="prop-input" id="propDiscussW" type="number" step="0.5"></div>
+      <div class="prop-row"><span class="prop-label">H (m)</span><input class="prop-input" id="propDiscussH" type="number" step="0.5"></div>
+      <div class="prop-row"><span class="prop-label">그룹 ID</span><span id="propDiscussGroupId" style="font-size:12px;color:var(--text-dim)">—</span></div>
+      <button class="panel-btn" id="btnDiscussConnect" style="margin-top:8px;width:100%">선택항목 연결 (그룹)</button>
+      <button class="panel-btn danger" id="btnDiscussDelete" style="margin-top:6px;width:100%">삭제</button>
+    </div>
     <div id="panelStructProps" style="display:none">
       <div class="panel-title" id="structPropTitle">Object</div>
       <!-- position: for rect, door, circle, column, text -->
@@ -592,53 +704,15 @@
         <div class="prop-row"><span class="prop-label">Stroke</span><input type="color" id="sPropStroke" style="width:50px;height:22px;border:none;cursor:pointer;background:none;padding:0"></div>
       </div>
     </div>
-    </div><!-- panel-right-middle 끝 -->
+    </div>
 
-    <!-- 하단: 범례 + 레이어 패널 -->
+    <!-- Bottom: Layers (Fixed) -->
     <div class="panel-right-bottom">
-      <!-- 범례들을 하단으로 재배치 -->
-      <div id="boothTypeLegendSection" style="display:none;margin-bottom:0">
-        <div class="panel-title">부스 타입 범례</div>
-        <div style="display:flex;flex-direction:column;gap:4px;font-size:11px">
-          <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,235,59,0.7);border:1.5px solid #F9A825;flex-shrink:0"></span><span>조립부스</span></div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:rgba(255,152,0,0.55);border:1.5px solid #E65100;flex-shrink:0"></span><span>자체시공</span></div>
-          <div style="display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:14px;height:14px;background:transparent;border:1.5px solid var(--border);flex-shrink:0"></span><span>독립부스</span></div>
-        </div>
-        <button onclick="openBoothTypeDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 부스타입 DB 편집...</button>
-        <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
+      <div class="panel-title" style="margin-bottom:8px;margin-top:0">레이어</div>
+      <div id="layersList" style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+        <!-- 레이어 항목들이 여기에 추가됨 -->
       </div>
-
-      <div id="elecLegendSection" style="display:none;margin-bottom:0">
-        <div class="panel-title">전기 범례</div>
-        <div id="elecLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
-        <button onclick="openCompanyDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 전기 DB 편집...</button>
-        <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
-      </div>
-
-      <div id="otherLegendSection" style="display:none;margin-bottom:0">
-        <div class="panel-title">기타 범례</div>
-        <div id="otherLegendList" style="display:flex;flex-direction:column;gap:4px;font-size:11px"></div>
-        <button onclick="openOtherDb()" style="margin-top:10px;width:100%;padding:6px;background:var(--surface-hover);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">▲ 기타 DB 편집...</button>
-        <div style="border-bottom:1px solid var(--border);margin-top:10px"></div>
-      </div>
-
-      <!-- 레이어 패널 -->
-      <div id="layersPanel">
-        <div class="panel-title" style="margin-bottom:8px">레이어</div>
-        <div style="display:flex;flex-direction:column;gap:4px;font-size:12px">
-          <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
-            <button onclick="toggleElecDisplay()" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;width:18px;text-align:center;flex-shrink:0">◉</button>
-            <button onclick="toggleLayerLock('elec')" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;padding:0;width:18px;text-align:center;flex-shrink:0">🔓</button>
-            <span style="color:var(--text)">부대시설_전기</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
-            <button onclick="toggleBoothTypeDisplay()" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;width:18px;text-align:center;flex-shrink:0">◉</button>
-            <button onclick="toggleLayerLock('boothType')" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;padding:0;width:18px;text-align:center;flex-shrink:0">🔓</button>
-            <span style="color:var(--text)">부대시설_부스타입</span>
-          </div>
-        </div>
-      </div>
-    </div><!-- panel-right-bottom 끝 -->
+    </div>
   </div>
 </div>
 
@@ -790,6 +864,41 @@
   </div>
 </div>
 
+<!-- BaseNo Auto Numbering -->
+<div class="modal-overlay" id="modalBaseNoNum">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">기본부스번호 자동 할당</span>
+      <button class="modal-close" onclick="closeModal('modalBaseNoNum')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>구역 접두사</label>
+        <input type="text" id="baseNoNumZone" value="A" maxlength="3" style="width:60px">
+      </div>
+      <div class="form-row">
+        <label>시작 번호</label>
+        <input type="number" id="baseNoNumStart" value="1" min="1">
+      </div>
+      <div class="form-row">
+        <label>방향</label>
+        <select id="baseNoNumDir">
+          <option value="lr-tb">좌→우, 상→하</option>
+          <option value="lr-bt">좌→우, 하→상</option>
+          <option value="tb-lr">상→하, 좌→우</option>
+          <option value="rl-tb">우→좌, 상→하</option>
+          <option value="rl-bt">우→좌, 하→상</option>
+        </select>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">형식: A-01, A-02… 빈 번호만 할당됩니다.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal('modalBaseNoNum')">취소</button>
+      <button class="btn btn-ok" onclick="executeAutoAssignBaseNo()">할당</button>
+    </div>
+  </div>
+</div>
+
 <!-- Excel Import -->
 <div class="modal-overlay" id="modalImport">
   <div class="modal wide">
@@ -886,6 +995,31 @@
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeModal('modalExport')">Cancel</button>
       <button class="btn btn-ok" onclick="executeExport()">Export PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- 배정안내 PDF -->
+<div class="modal-overlay" id="modalAssignGuide">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">배정안내 PDF 생성</span>
+      <button class="modal-close" onclick="closeModal('modalAssignGuide')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px" id="assignGuideInfo"></div>
+      <div class="form-row">
+        <label>업체명</label>
+        <input type="text" id="assignGuideCompanyName" placeholder="예) (주)대한전자">
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="assignShowNames" style="width:14px;height:14px;cursor:pointer">
+        <label for="assignShowNames" style="font-size:12px;color:var(--text);cursor:pointer">업체명 표기 (모든 부스명)</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal('modalAssignGuide')">Cancel</button>
+      <button class="btn btn-ok" onclick="executeAssignGuideExport()">PDF 생성</button>
     </div>
   </div>
 </div>
@@ -1055,31 +1189,6 @@ CREATE POLICY "anon_all" ON expomap_state
   </div>
 </div>
 
-<div class="modal-overlay" id="modalAssignGuide">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">배정 안내 PDF 저장</span>
-      <button class="modal-close" onclick="closeModal('modalAssignGuide')">×</button>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px" id="assignModalInfo"></div>
-      <div class="form-row">
-        <label>업체명</label>
-        <input type="text" id="assignCompanyName" placeholder="예) (주)대한전자" oninput="updateAssignFilePreview()">
-      </div>
-      <div style="font-size:11px;color:var(--text-dim);margin-top:4px" id="assignFileNamePreview">파일명: KIMES BUSAN 2026_Floor Plan_260329_{업체명}.pdf</div>
-      <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="assignShowNames" style="width:14px;height:14px;cursor:pointer">
-        <label for="assignShowNames" style="font-size:12px;color:var(--text);cursor:pointer">부스 업체명 표기</label>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-cancel" onclick="cancelAssignModal()">취소 (상태 되돌리기)</button>
-      <button class="btn btn-ok" onclick="executeAssignExport()">PDF 저장</button>
-    </div>
-  </div>
-</div>
-
 <script>
 // ════════════════════════════════════════
 //  ExpoMap Prototype v0.3 — Canvas Engine
@@ -1185,15 +1294,11 @@ let state = {
   // companies
   companies: [],
   // 배정 워크플로우
-  showElec: true,
-  showOther: true,
+  showElec: false,
+  showOther: false,
   showBoothType: true,
-  layerLocked: { elec: false, boothType: false },
+  showBooths: true,
   locked: true,
-  assignMode: false,
-  assignModeBooths: new Set(),
-  assignModeOrigStatus: {},
-  nextDiscussGroup: 1,
   // viewer mode
   showViewerAvailable: true,
   viewerHoverId: null,
@@ -1208,8 +1313,59 @@ let state = {
   isBaseDrawing: false,
   baseDrawStartX: 0, baseDrawStartY: 0,
   baseDrawCurrentX: 0, baseDrawCurrentY: 0,
-  selectedBaseNoId: null,
+  selectedBaseNoIds: new Set(),
+  baseNoDragReady: false,
+  baseNoDragStartSX: 0, baseNoDragStartSY: 0,
+  baseNoDragBoothsOrigin: [],
+  baseNoDragging: false,
+  baseNoDragOriginW: 0, baseNoDragOriginH: 0,
+  baseNoResizeHandle: null,
+  // ─── DiscussOverlay Layer (배정논의 레이어) ───
+  discussOverlays: [],
+  nextDiscussOverlayId: 1,
+  nextDiscussGroupId: 1,
+  showDiscussLayer: true,
+  selectedDiscussIds: new Set(),
+  isDiscussDrawing: false,
+  discussDrawStartX: 0, discussDrawStartY: 0,
+  discussDrawCurrentX: 0, discussDrawCurrentY: 0,
+  discussDragReady: false,
+  discussDragStartSX: 0, discussDragStartSY: 0,
+  discussDragOrigins: [],
+  discussDragging: false,
+  discussResizeHandle: null,
+  discussResizeOriginW: 0, discussResizeOriginH: 0,
+  // booth drag/resize
+  boothDragging: false,
+  boothDragStartSX: 0, boothDragStartSY: 0,
+  boothDragOrigins: [],  // [{id, x, y, w, h}]
+  boothResizeHandle: null,  // 'se' or null
+  boothResizeDragStartSX: 0, boothResizeDragStartSY: 0,
+  boothResizeOrigins: [],  // [{id, w, h}] for resized booths
+  // 배정안내 모드
+  assignGuideMode: false,
+  // ─── 레이어 잠금 상태 ───
+  layerLocked: {
+    'other': false,       // 부대시설_기타
+    'elec': false,        // 부대시설_전기
+    'boothType': false,   // 부스타입 (조립부스)
+    'discuss': false,     // 배정안내
+    'booth': false,       // 부스블럭
+    'baseNo': false,      // 기본부스번호
+    'bg': false,          // 도면배경
+  },
 };
+
+// ─── 레이어 정의 ───
+const LAYERS = [
+  { id: 'other', label: '부대시설_기타', stateKey: 'showOther' },
+  { id: 'elec', label: '부대시설_전기', stateKey: 'showElec' },
+  { id: 'boothType', label: '조립부스', stateKey: 'showBoothType' },
+  { id: 'discuss', label: '배정안내', stateKey: 'showDiscussLayer' },
+  { id: 'booth', label: '부스블럭', stateKey: 'showBooths' },
+  { id: 'baseNo', label: '기본부스번호', stateKey: 'showBaseNumbers' },
+  { id: 'bg', label: '도면배경', stateKey: 'bg.visible', customGetter: () => state.bg.visible, customSetter: (v) => state.bg.visible = v },
+];
 
 // ─── 부스 타입 ───
 const BOOTH_TYPE_OPTIONS = [
@@ -1276,7 +1432,7 @@ const STATUS_COLORS = {
   online:    { fill: '#0A2035', stroke: '#29B6F6', text: '#4FC3F7' },   // 온라인신청 — 하늘색
   fake:      { fill: '#3D0A0A', stroke: '#F44336', text: '#EF9A9A' },   // 가짜배정 — 빨강
   excluded:  { fill: '#1A1A1A', stroke: '#444',    text: '#555' },      // 배정제외 (유지)
-  facility:  { fill: '#F5F5F5', stroke: '#111111', text: '#111111' },  // 기타부대설비 — 흰바탕 검정테두리
+  facility:  { fill: '#EFEFEF', stroke: '#111111', text: '#111111' },  // 기타부대설비 — 연한회색
 };
 const SELECTED_STROKE = '#4F8CFF';
 const GROUP_STROKE = '#4F8CFF';
@@ -1291,7 +1447,7 @@ const VIEWER_STATUS_COLORS = {
   online:    { fill: '#E1F5FE', stroke: '#29B6F6', text: '#0277BD', label: '온라인신청' },     // 하늘색
   fake:      { fill: '#FFEBEE', stroke: '#EF5350', text: '#C62828', label: '가짜배정' },        // 빨강
   excluded:  { fill: '#FAFAFA', stroke: '#EEEEEE', text: '#BDBDBD', label: '배정제외' },
-  facility:  { fill: '#FFFFFF', stroke: '#111111', text: '#111111', label: '기타부대설비' },
+  facility:  { fill: '#EFEFEF', stroke: '#111111', text: '#111111', label: '기타부대설비' },
 };
 const STRUCT_COLORS = {
   column: { fill: '#5C5C5C', stroke: '#888' },
@@ -1485,11 +1641,11 @@ function drawRemoteCursors() {
 
 // ─── Base Number Layer ───
 function createBaseNumber(x, y, w, h) {
-  saveUndo();
   const bn = { id: state.nextBaseNoId++, x, y, w, h, baseNo: '' };
   state.baseNumbers.push(bn);
-  state.selectedBaseNoId = bn.id;
-  scheduleSave(); render(); updateProps();
+  state.selectedBaseNoIds.clear();
+  state.selectedBaseNoIds.add(bn.id);
+  render(); updateProps();
   return bn;
 }
 
@@ -1502,7 +1658,7 @@ function getBaseNoAt(wx, wy) {
 function deleteBaseNo(id) {
   saveUndo();
   state.baseNumbers = state.baseNumbers.filter(bn => bn.id !== id);
-  if (state.selectedBaseNoId === id) state.selectedBaseNoId = null;
+  if (state.selectedBaseNoIds.has(id)) state.selectedBaseNoIds.delete(id);
   scheduleSave(); render(); updateProps();
 }
 
@@ -1512,29 +1668,134 @@ function toggleBaseNoDisplay() {
   render();
 }
 
+function toggleDiscussLayer() {
+  state.showDiscussLayer = !state.showDiscussLayer;
+  document.getElementById('btnDiscussToggle').classList.toggle('active', state.showDiscussLayer);
+  render();
+}
+
+function cancelAssignGuideMode() {
+  state.assignGuideMode = false;
+  state.selectedDiscussIds.clear();
+  render();
+}
+
+function toggleBoothsDisplay() {
+  state.showBooths = !state.showBooths;
+  document.getElementById('btnBoothsToggle').classList.toggle('active', state.showBooths);
+  render();
+}
+
+// ─── DiscussOverlay Layer ───
+function drawDiscussOverlays(c, zoom) {
+  if (!state.showDiscussLayer) return;
+
+  // 그룹별 연결선 먼저 그리기
+  const grpMap = {};
+  state.discussOverlays.forEach(ov => {
+    if (!ov.groupId) return;
+    if (!grpMap[ov.groupId]) grpMap[ov.groupId] = [];
+    grpMap[ov.groupId].push(ov);
+  });
+
+  Object.values(grpMap).forEach(group => {
+    if (group.length < 2) return;
+
+    // Centroid 계산
+    const cx = group.reduce((s, ov) => s + ov.x + ov.w / 2, 0) / group.length;
+    const cy = group.reduce((s, ov) => s + ov.y + ov.h / 2, 0) / group.length;
+
+    // 연결선 그리기
+    c.strokeStyle = 'rgba(255,214,0,0.7)';
+    c.lineWidth = 1.5 / zoom;
+    c.setLineDash([5 / zoom, 4 / zoom]);
+    group.forEach(ov => {
+      c.beginPath();
+      c.moveTo(ov.x + ov.w / 2, ov.y + ov.h / 2);
+      c.lineTo(cx, cy);
+      c.stroke();
+    });
+    c.setLineDash([]);
+
+    // 중심점에 노란 원
+    c.fillStyle = '#FFD600';
+    c.beginPath();
+    c.arc(cx, cy, 4 / zoom, 0, Math.PI * 2);
+    c.fill();
+  });
+
+  // 오버레이 박스 그리기
+  state.discussOverlays.forEach(ov => {
+    const isSelected = state.selectedDiscussIds.has(ov.id);
+
+    // 배경 영역
+    c.fillStyle = 'rgba(255,214,0,0.12)';
+    c.fillRect(ov.x, ov.y, ov.w, ov.h);
+
+    // 테두리
+    c.strokeStyle = isSelected ? '#4F8CFF' : '#FFD600';
+    c.lineWidth = isSelected ? 2 / zoom : 1.5 / zoom;
+    c.setLineDash([]);
+    c.strokeRect(ov.x, ov.y, ov.w, ov.h);
+
+    // 리사이즈 핸들 (단일선택)
+    if (isSelected && state.selectedDiscussIds.size === 1) {
+      const hs = 8 / zoom;
+      c.fillStyle = '#4F8CFF';
+      c.fillRect(ov.x + ov.w - hs, ov.y + ov.h - hs, hs, hs);
+    }
+
+    // 라벨 텍스트
+    if (ov.label) {
+      c.font = `500 7px Pretendard, sans-serif`;
+      c.fillStyle = '#FFD600';
+      c.globalAlpha = 0.9;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(ov.label, ov.x + ov.w / 2, ov.y + ov.h / 2);
+      c.globalAlpha = 1;
+    }
+  });
+}
+
 function drawBaseNumbers(c, zoom) {
   if (!state.showBaseNumbers) return;
   state.baseNumbers.forEach(bn => {
+    // 공개모드에서는 테두리만 숨김 (텍스트는 표시)
+    if (!VIEWER_MODE) {
+      const isSelected = state.selectedBaseNoIds.has(bn.id);
+      c.strokeStyle = isSelected ? '#4F8CFF' : 'rgba(150,150,150,0.5)';
+      c.lineWidth = isSelected ? (1.5 / zoom) : (0.5 / zoom);
+      c.setLineDash([3/zoom, 3/zoom]);
+      c.strokeRect(bn.x, bn.y, bn.w, bn.h);
+      c.setLineDash([]);
+
+      // Resize handle (selected only)
+      if (isSelected) {
+        const handleSize = 8 / zoom;
+        c.fillStyle = '#4F8CFF';
+        c.fillRect(bn.x + bn.w - handleSize, bn.y + bn.h - handleSize, handleSize, handleSize);
+      }
+    }
+
+    if (!bn.baseNo) return;
+
+    // Hide text if covered by booth with boothId or companyName
     const covering = state.booths.find(b =>
       b.x < bn.x + bn.w && b.x + b.w > bn.x &&
       b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.companyName || b.companyUid)
+      (b.boothId || b.companyName)
     );
     if (covering) return;
 
-    c.strokeStyle = 'rgba(150,150,150,0.5)';
-    c.lineWidth = 0.5 / zoom;
-    c.setLineDash([3/zoom, 3/zoom]);
-    c.strokeRect(bn.x, bn.y, bn.w, bn.h);
-    c.setLineDash([]);
-
-    if (!bn.baseNo) return;
-    const fz = Math.min(Math.max(bn.w, bn.h) * 0.25, 12) / zoom;
-    c.font = `500 ${fz}px Pretendard, sans-serif`;
-    c.fillStyle = 'rgba(120,120,120,0.8)';
+    // Match booth boothId text style
+    c.font = `500 7px Pretendard, sans-serif`;
+    c.fillStyle = '#8B8FA3';  // Same as booth available state
+    c.globalAlpha = 0.65;     // Same as booth boothId
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    c.fillText(bn.baseNo, bn.x + bn.w/2, bn.y + bn.h/2);
+    c.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
+    c.globalAlpha = 1;
   });
 }
 
@@ -1550,9 +1811,11 @@ async function saveToSupabase() {
     nextGroupId: state.nextGroupId,
     nextStructId: state.nextStructId,
     nextLogoId: state.nextLogoId,
-    nextDiscussGroup: state.nextDiscussGroup,
     baseNumbers: state.baseNumbers,
     nextBaseNoId: state.nextBaseNoId,
+    discussOverlays: state.discussOverlays,
+    nextDiscussOverlayId: state.nextDiscussOverlayId,
+    nextDiscussGroupId: state.nextDiscussGroupId,
     bg: { x: state.bg.x, y: state.bg.y, w: state.bg.w, h: state.bg.h, natW: state.bg.natW, natH: state.bg.natH, opacity: state.bg.opacity, visible: state.bg.visible, rotation: state.bg.rotation || 0, dataUrl: state.bg.dataUrl || null },
   };
   try {
@@ -1601,15 +1864,11 @@ async function loadFromSupabase() {
       state.nextGroupId = s.nextGroupId || 1;
       state.nextStructId = s.nextStructId || 1;
       state.nextLogoId = s.nextLogoId || 1;
-      // discussGroup: 저장된 값 복원, 없으면 기존 부스에서 max값+1 계산
-      if (s.nextDiscussGroup) {
-        state.nextDiscussGroup = s.nextDiscussGroup;
-      } else {
-        const maxGrp = Math.max(0, ...(s.booths || []).map(b => b.discussGroup || 0));
-        state.nextDiscussGroup = maxGrp + 1;
-      }
       state.baseNumbers = s.baseNumbers || [];
       state.nextBaseNoId = s.nextBaseNoId || 1;
+      state.discussOverlays = s.discussOverlays || [];
+      state.nextDiscussOverlayId = s.nextDiscussOverlayId || 1;
+      state.nextDiscussGroupId = s.nextDiscussGroupId || 1;
       restoreLogos(s.logos || []);
       if (s.bg) {
         state.bg.x = s.bg.x || 0;
@@ -1672,32 +1931,46 @@ function mToPx(m) { return m * PX_PER_METER; }
 
 // ─── Undo / Redo ───
 function saveUndo() {
-  state.undoStack.push(JSON.parse(JSON.stringify({ booths: state.booths, groups: state.groups, structures: state.structures, logos: state.logos.map(l => ({id:l.id,x:l.x,y:l.y,w:l.w,h:l.h,dataUrl:l.dataUrl,name:l.name})) })));
+  state.undoStack.push(JSON.parse(JSON.stringify({ booths: state.booths, groups: state.groups, structures: state.structures, logos: state.logos.map(l => ({id:l.id,x:l.x,y:l.y,w:l.w,h:l.h,dataUrl:l.dataUrl,name:l.name})), baseNumbers: state.baseNumbers, nextBaseNoId: state.nextBaseNoId, discussOverlays: state.discussOverlays, nextDiscussOverlayId: state.nextDiscussOverlayId, nextDiscussGroupId: state.nextDiscussGroupId })));
   if (state.undoStack.length > 50) state.undoStack.shift();
   state.redoStack = [];
   scheduleSave();
 }
 function undo() {
   if (!state.undoStack.length) return;
-  state.redoStack.push(JSON.parse(JSON.stringify({ booths: state.booths, groups: state.groups, structures: state.structures, logos: state.logos.map(l => ({id:l.id,x:l.x,y:l.y,w:l.w,h:l.h,dataUrl:l.dataUrl,name:l.name})) })));
+  state.redoStack.push(JSON.parse(JSON.stringify({ booths: state.booths, groups: state.groups, structures: state.structures, logos: state.logos.map(l => ({id:l.id,x:l.x,y:l.y,w:l.w,h:l.h,dataUrl:l.dataUrl,name:l.name})), baseNumbers: state.baseNumbers, nextBaseNoId: state.nextBaseNoId, discussOverlays: state.discussOverlays, nextDiscussOverlayId: state.nextDiscussOverlayId, nextDiscussGroupId: state.nextDiscussGroupId })));
   const snap = state.undoStack.pop();
   state.booths = snap.booths;
   state.groups = snap.groups;
   state.structures = snap.structures || [];
+  state.baseNumbers = snap.baseNumbers || [];
+  state.nextBaseNoId = snap.nextBaseNoId || 1;
+  state.discussOverlays = snap.discussOverlays || [];
+  state.nextDiscussOverlayId = snap.nextDiscussOverlayId || 1;
+  state.nextDiscussGroupId = snap.nextDiscussGroupId || 1;
   restoreLogos(snap.logos || []);
   state.selectedIds.clear();
+  state.selectedBaseNoIds.clear();
+  state.selectedDiscussIds.clear();
   scheduleSave();
   render(); updateProps();
 }
 function redo() {
   if (!state.redoStack.length) return;
-  state.undoStack.push(JSON.parse(JSON.stringify({ booths: state.booths, groups: state.groups, structures: state.structures, logos: state.logos.map(l => ({id:l.id,x:l.x,y:l.y,w:l.w,h:l.h,dataUrl:l.dataUrl,name:l.name})) })));
+  state.undoStack.push(JSON.parse(JSON.stringify({ booths: state.booths, groups: state.groups, structures: state.structures, logos: state.logos.map(l => ({id:l.id,x:l.x,y:l.y,w:l.w,h:l.h,dataUrl:l.dataUrl,name:l.name})), baseNumbers: state.baseNumbers, nextBaseNoId: state.nextBaseNoId, discussOverlays: state.discussOverlays, nextDiscussOverlayId: state.nextDiscussOverlayId, nextDiscussGroupId: state.nextDiscussGroupId })));
   const snap = state.redoStack.pop();
   state.booths = snap.booths;
   state.groups = snap.groups;
   state.structures = snap.structures || [];
+  state.baseNumbers = snap.baseNumbers || [];
+  state.nextBaseNoId = snap.nextBaseNoId || 1;
+  state.discussOverlays = snap.discussOverlays || [];
+  state.nextDiscussOverlayId = snap.nextDiscussOverlayId || 1;
+  state.nextDiscussGroupId = snap.nextDiscussGroupId || 1;
   restoreLogos(snap.logos || []);
   state.selectedIds.clear();
+  state.selectedBaseNoIds.clear();
+  state.selectedDiscussIds.clear();
   scheduleSave();
   render(); updateProps();
 }
@@ -1713,6 +1986,13 @@ function getBoothAt(wx, wy) {
   for (let i = state.booths.length - 1; i >= 0; i--) {
     const b = state.booths[i];
     if (wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h) return b;
+  }
+  return null;
+}
+function getDiscussOverlayAt(wx, wy) {
+  for (let i = state.discussOverlays.length - 1; i >= 0; i--) {
+    const ov = state.discussOverlays[i];
+    if (wx >= ov.x && wx <= ov.x + ov.w && wy >= ov.y && wy <= ov.y + ov.h) return ov;
   }
   return null;
 }
@@ -1791,33 +2071,68 @@ function executeDivide() {
 
 // ─── Copy Operations ───
 function openNumericCopyDialog() {
-  if (!state.selectedIds.size) { alert('Select booths to copy.'); return; }
+  if (!state.selectedIds.size && !state.selectedBaseNoIds.size) { alert('Select booths or BaseNo to copy.'); return; }
   openModal('modalNumCopy');
 }
 function executeNumericCopy() {
-  if (!state.selectedIds.size) return;
+  const hasBooths = state.selectedIds.size > 0;
+  const hasBaseNos = state.selectedBaseNoIds.size > 0;
+  if (!hasBooths && !hasBaseNos) return;
+
   const dx = parseFloat(document.getElementById('numCopyDx').value) * PX_PER_METER || 0;
   const dy = parseFloat(document.getElementById('numCopyDy').value) * PX_PER_METER || 0;
-  const selected = state.booths.filter(b => state.selectedIds.has(b.id));
   saveUndo();
-  const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
-  state.booths.push(...newBooths);
-  state.selectedIds.clear();
-  newBooths.forEach(nb => state.selectedIds.add(nb.id));
+
+  // Copy booths
+  if (hasBooths) {
+    const selected = state.booths.filter(b => state.selectedIds.has(b.id));
+    const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
+    state.booths.push(...newBooths);
+    state.selectedIds.clear();
+    newBooths.forEach(nb => state.selectedIds.add(nb.id));
+  }
+
+  // Copy BaseNos
+  if (hasBaseNos) {
+    const selected = state.baseNumbers.filter(bn => state.selectedBaseNoIds.has(bn.id));
+    const newBaseNos = selected.map(bn => ({ id: state.nextBaseNoId++, x: bn.x + dx, y: bn.y + dy, w: bn.w, h: bn.h, baseNo: bn.baseNo }));
+    state.baseNumbers.push(...newBaseNos);
+    state.selectedBaseNoIds.clear();
+    newBaseNos.forEach(bn => state.selectedBaseNoIds.add(bn.id));
+  }
+
   state.lastCopyOp = { dx, dy };
   updateRepeatBadge();
   closeModal('modalNumCopy');
   render(); updateProps();
 }
 function repeatLastCopy() {
-  if (!state.lastCopyOp || !state.selectedIds.size) return;
+  if (!state.lastCopyOp) return;
+  const hasBooths = state.selectedIds.size > 0;
+  const hasBaseNos = state.selectedBaseNoIds.size > 0;
+  if (!hasBooths && !hasBaseNos) return;
+
   const { dx, dy } = state.lastCopyOp;
-  const selected = state.booths.filter(b => state.selectedIds.has(b.id));
   saveUndo();
-  const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
-  state.booths.push(...newBooths);
-  state.selectedIds.clear();
-  newBooths.forEach(nb => state.selectedIds.add(nb.id));
+
+  // Repeat booth copy
+  if (hasBooths) {
+    const selected = state.booths.filter(b => state.selectedIds.has(b.id));
+    const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
+    state.booths.push(...newBooths);
+    state.selectedIds.clear();
+    newBooths.forEach(nb => state.selectedIds.add(nb.id));
+  }
+
+  // Repeat BaseNo copy
+  if (hasBaseNos) {
+    const selected = state.baseNumbers.filter(bn => state.selectedBaseNoIds.has(bn.id));
+    const newBaseNos = selected.map(bn => ({ id: state.nextBaseNoId++, x: bn.x + dx, y: bn.y + dy, w: bn.w, h: bn.h, baseNo: bn.baseNo }));
+    state.baseNumbers.push(...newBaseNos);
+    state.selectedBaseNoIds.clear();
+    newBaseNos.forEach(bn => state.selectedBaseNoIds.add(bn.id));
+  }
+
   render(); updateProps();
 }
 function executeArrayCopy() {
@@ -2322,6 +2637,34 @@ function executeAutoNumber() {
   render(); updateProps();
 }
 
+// ─── BaseNo Auto Numbering ───
+function executeAutoAssignBaseNo() {
+  const dir = document.getElementById('baseNoNumDir').value || 'lr-tb';
+  // 선택된 BaseNo만 할당 (선택 없으면 모두)
+  let baseNumbers = state.selectedBaseNoIds.size > 0
+    ? state.baseNumbers.filter(bn => state.selectedBaseNoIds.has(bn.id))
+    : [...state.baseNumbers];
+  if (!baseNumbers.length) { alert('할당할 기본부스번호가 없습니다.'); return; }
+  // Sort by direction
+  if      (dir === 'lr-tb') baseNumbers.sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
+  else if (dir === 'lr-bt') baseNumbers.sort((a, b) => a.y !== b.y ? b.y - a.y : a.x - b.x);
+  else if (dir === 'tb-lr') baseNumbers.sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+  else if (dir === 'rl-tb') baseNumbers.sort((a, b) => a.y !== b.y ? a.y - b.y : b.x - a.x);
+  else if (dir === 'rl-bt') baseNumbers.sort((a, b) => a.y !== b.y ? b.y - a.y : b.x - a.x);
+  saveUndo();
+  const zone = document.getElementById('baseNoNumZone').value.trim() || 'A';
+  const start = parseInt(document.getElementById('baseNoNumStart').value) || 1;
+  let n = start;
+  baseNumbers.forEach(bn => {
+    if (!bn.baseNo) {
+      bn.baseNo = zone + '-' + String(n).padStart(2, '0');
+      n++;
+    }
+  });
+  closeModal('modalBaseNoNum');
+  render(); updateProps(); scheduleSave();
+}
+
 // ─── Excel Import ───
 let _importRawData = null;
 let _importColHeaders = [];
@@ -2517,6 +2860,37 @@ function executeExport() {
   }
 }
 
+function executeAssignGuideExport() {
+  const companyName = document.getElementById('assignGuideCompanyName').value.trim();
+  if (!companyName) {
+    alert('업체명을 입력해주세요.');
+    return;
+  }
+  const showNames = document.getElementById('assignShowNames').checked;
+  // A3 portrait: 297×420mm → 3508×4961px @300dpi
+  const offW = 3508, offH = 4961;
+  const off = document.createElement('canvas');
+  off.width = offW; off.height = offH;
+  const octx = off.getContext('2d');
+  renderForAssignGuideExport(octx, offW, offH, showNames);
+  const imgData = off.toDataURL('image/jpeg', 0.95);
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
+    const now = new Date();
+    const dateStr = String(now.getFullYear()).slice(2) +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0');
+    doc.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}_${companyName}.pdf`);
+    closeModal('modalAssignGuide');
+  } catch (e) {
+    alert('PDF 생성 실패: ' + e.message);
+  }
+}
+
 function renderForExport(ectx, W, H, preset) {
   const booths = state.booths;
   let minX, minY, maxX, maxY;
@@ -2611,6 +2985,202 @@ function renderForExport(ectx, W, H, preset) {
   ectx.textAlign = 'right';
   ectx.textBaseline = 'bottom';
   ectx.fillText('ExpoMap', W - 16, H - 12);
+}
+
+// ─── 배정안내 PDF 렌더 ───
+function renderForAssignGuideExport(ectx, W, H, showNames) {
+  const booths = state.booths;
+  const selectedOverlays = state.discussOverlays.filter(ov => state.selectedDiscussIds.has(ov.id));
+
+  // 배경 이미지 전체 기준으로 bounds 계산
+  let minX, minY, maxX, maxY;
+  if (state.bg.img && state.bg.visible) {
+    minX = state.bg.x;
+    minY = state.bg.y;
+    maxX = state.bg.x + state.bg.w;
+    maxY = state.bg.y + state.bg.h;
+  } else if (booths.length) {
+    minX = Math.min(...booths.map(b => b.x)) - GRID_PX;
+    minY = Math.min(...booths.map(b => b.y)) - GRID_PX;
+    maxX = Math.max(...booths.map(b => b.x + b.w)) + GRID_PX;
+    maxY = Math.max(...booths.map(b => b.y + b.h)) + GRID_PX;
+  } else {
+    minX = 0; minY = 0; maxX = 300; maxY = 300;
+  }
+
+  const sceneW = maxX - minX, sceneH = maxY - minY;
+  const zoom = Math.min(W / sceneW, H / sceneH) * 0.97;
+  const panX = (W - sceneW * zoom) / 2 - minX * zoom;
+  const panY = (H - sceneH * zoom) / 2 - minY * zoom;
+
+  // 흰 배경 (공개도면 스타일)
+  ectx.fillStyle = '#fff';
+  ectx.fillRect(0, 0, W, H);
+  ectx.save();
+  ectx.translate(panX, panY);
+  ectx.scale(zoom, zoom);
+
+  // 배경 이미지
+  if (state.bg.img && state.bg.visible) {
+    const rot = (state.bg.rotation || 0) * Math.PI / 180;
+    if (rot !== 0) {
+      const cx = state.bg.x + state.bg.w / 2, cy = state.bg.y + state.bg.h / 2;
+      ectx.save();
+      ectx.translate(cx, cy);
+      ectx.rotate(rot);
+      ectx.globalAlpha = state.bg.opacity;
+      ectx.drawImage(state.bg.img, -state.bg.w/2, -state.bg.h/2, state.bg.w, state.bg.h);
+      ectx.globalAlpha = 1;
+      ectx.restore();
+    } else {
+      ectx.globalAlpha = state.bg.opacity;
+      ectx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+      ectx.globalAlpha = 1;
+    }
+  }
+
+  // 구조물
+  drawStructures(ectx, zoom, false);
+
+  // 부스 (연분홍색 또는 회색 - 기타설비 있는 부스는 회색)
+  booths.forEach(b => {
+    // 기타설비가 있는지 확인
+    const comp = state.companies.find(c => c.company_uid === b.companyUid);
+    const hasOther = comp && OTHER_KEYS.some(k => comp[k]);
+
+    // 배정안내 도면: 기타설비가 없으면 연분홍색, 있으면 회색
+    if (hasOther) {
+      ectx.fillStyle = '#E0E0E0';  // 회색 (기타설비 있음)
+      ectx.strokeStyle = '#9E9E9E';
+    } else {
+      ectx.fillStyle = '#F5D7D5';  // 연분홍색
+      ectx.strokeStyle = '#D4B5B3';
+    }
+    ectx.fillRect(b.x, b.y, b.w, b.h);
+    ectx.lineWidth = 1 / zoom;
+    ectx.strokeRect(b.x, b.y, b.w, b.h);
+
+    // 업체명 표기 여부
+    if (showNames) {
+      drawBoothContent(ectx, b, zoom, '#333333', false);
+
+      // 업체명이 없으면 겹치는 baseNumber의 baseNo를 표시
+      if (!b.companyName) {
+        // 부스 영역과 교차하는 모든 baseNumber 찾기
+        const overlappingBaseNos = state.baseNumbers.filter(bn =>
+          // 두 사각형이 교차하는지 확인
+          !(bn.x + bn.w <= b.x || bn.x >= b.x + b.w ||
+            bn.y + bn.h <= b.y || bn.y >= b.y + b.h)
+        );
+
+        if (overlappingBaseNos.length > 0) {
+          // 첫 번째 baseNumber 사용 (또는 가장 크게 교차하는 것)
+          const baseNo = overlappingBaseNos[0];
+          if (baseNo && baseNo.baseNo) {
+            const pad = 2;
+            const availW = b.w - pad * 2;
+            const availH = b.h - pad * 2;
+            let fz = Math.min((availW / (baseNo.baseNo.length * 6)) * 100, availH * 0.5);
+            fz = fz * 0.8;  // 20% 줄임
+            fz = Math.max(2, Math.min(fz, 14));
+            ectx.font = `600 ${fz}px Pretendard, sans-serif`;
+            ectx.fillStyle = '#333333';
+            ectx.textAlign = 'center';
+            ectx.textBaseline = 'middle';
+            ectx.fillText(baseNo.baseNo, b.x + b.w / 2, b.y + b.h / 2);
+          }
+        }
+      }
+    }
+  });
+
+  // 배정논의 오버레이 (불투명 처리 - 아래 블럭이 안보이게)
+  selectedOverlays.forEach(ov => {
+    ectx.fillStyle = '#FFC700';  // 진한 노란색
+    ectx.fillRect(ov.x, ov.y, ov.w, ov.h);
+    ectx.strokeStyle = '#CC9900';
+    ectx.lineWidth = 2.5 / zoom;
+    ectx.setLineDash([]);
+    ectx.strokeRect(ov.x, ov.y, ov.w, ov.h);
+
+    // 라벨 (검정색)
+    if (ov.label) {
+      ectx.font = `600 ${Math.max(10/zoom, 8)}px Pretendard, sans-serif`;
+      ectx.fillStyle = '#000000';  // 검정색
+      ectx.textAlign = 'center';
+      ectx.textBaseline = 'middle';
+      ectx.fillText(ov.label, ov.x + ov.w / 2, ov.y + ov.h / 2);
+    }
+  });
+
+  // 선택된 오버레이 2개 이상 → 연결선 + 중심원
+  if (selectedOverlays.length >= 2) {
+    const cx = selectedOverlays.reduce((s, ov) => s + ov.x + ov.w / 2, 0) / selectedOverlays.length;
+    const cy = selectedOverlays.reduce((s, ov) => s + ov.y + ov.h / 2, 0) / selectedOverlays.length;
+
+    // 노란 점선 연결
+    ectx.strokeStyle = 'rgba(255,214,0,0.8)';
+    ectx.lineWidth = 1.5 / zoom;
+    ectx.setLineDash([5 / zoom, 4 / zoom]);
+    selectedOverlays.forEach(ov => {
+      ectx.beginPath();
+      ectx.moveTo(ov.x + ov.w / 2, ov.y + ov.h / 2);
+      ectx.lineTo(cx, cy);
+      ectx.stroke();
+    });
+    ectx.setLineDash([]);
+
+    // 중심 노란 원
+    ectx.fillStyle = '#FFD600';
+    ectx.beginPath();
+    ectx.arc(cx, cy, 5 / zoom, 0, Math.PI * 2);
+    ectx.fill();
+  }
+
+  // 각 오버레이 상단에 빨간색 화살표 (모든 선택된 오버레이)
+  if (selectedOverlays.length > 0) {
+    ectx.strokeStyle = '#E53935';
+    ectx.fillStyle = '#E53935';
+    ectx.lineWidth = 5.2 / zoom;  // 50% 더 크게 (3.5 → 5.2)
+    ectx.lineCap = 'round';
+    ectx.lineJoin = 'round';
+
+    selectedOverlays.forEach(ov => {
+      const arrowX = ov.x + ov.w / 2;
+      const arrowStartY = ov.y - GRID_PX * 1.2;  // 50% 더 크게
+      const arrowEndY = ov.y - GRID_PX * 0.3;    // 50% 더 크게
+      const arrowHeadSize = GRID_PX * 0.75;      // 50% 더 크게 (0.5 → 0.75)
+
+      // 화살 줄기
+      ectx.beginPath();
+      ectx.moveTo(arrowX, arrowStartY);
+      ectx.lineTo(arrowX, arrowEndY);
+      ectx.stroke();
+
+      // 화살촉
+      ectx.beginPath();
+      ectx.moveTo(arrowX, arrowEndY);
+      ectx.lineTo(arrowX - arrowHeadSize * 0.6, arrowEndY - arrowHeadSize * 0.8);
+      ectx.lineTo(arrowX + arrowHeadSize * 0.6, arrowEndY - arrowHeadSize * 0.8);
+      ectx.closePath();
+      ectx.fill();
+
+      // 부스 개수 텍스트 (화살표 위)
+      const boothCountX = (ov.w / GRID_PX);
+      const boothCountY = (ov.h / GRID_PX);
+      const boothCount = boothCountX * boothCountY;
+      const boothText = boothCount % 1 === 0 ? String(Math.round(boothCount)) : boothCount.toFixed(2);
+
+      const boothFontSize = Math.max(15/zoom, 12);  // 50% 더 크게 (10 → 15, 8 → 12)
+      ectx.font = `600 ${boothFontSize}px Pretendard, sans-serif`;
+      ectx.fillStyle = '#E53935';
+      ectx.textAlign = 'center';
+      ectx.textBaseline = 'bottom';
+      ectx.fillText(`${boothText} Booth`, arrowX, arrowStartY - 2/zoom);
+    });
+  }
+
+  ectx.restore();
 }
 
 // ─── Booth Content Drawing (shared) ───
@@ -3015,7 +3585,10 @@ function render() {
   ctx.translate(state.panX, state.panY);
   ctx.scale(state.zoom, state.zoom);
 
-  // ── 1. Background image (도면 — 맨 아래)
+  // ── 1. Grid (모눈 — 맨 아래)
+  drawGrid(w, h);
+
+  // ── 2. Background image (도면)
   if (state.bg.img && state.bg.visible) {
     const rot = (state.bg.rotation || 0) * Math.PI / 180;
     if (rot !== 0) {
@@ -3035,17 +3608,17 @@ function render() {
     }
   }
 
-  // ── 2. Base Numbers
+  // ── 3. Base Numbers
   drawBaseNumbers(ctx, state.zoom);
-
-  // ── 3. Grid
-  drawGrid(w, h);
 
   // ── 4. Structures
   drawStructures(ctx, state.zoom, false);
 
   // ── 5. Logos
   drawLogos(ctx, state.zoom);
+
+  // ── 6. Booths
+  if (state.showBooths) {
 
   // Wall/Line/Arrow start point preview
   if ((state.structMode === 'wall' || state.structMode === 'line' || state.structMode === 'arrow') && state.wallStart) {
@@ -3130,6 +3703,16 @@ function render() {
     ctx.lineWidth = isSelected ? 2 / state.zoom : 1 / state.zoom;
     ctx.strokeRect(b.x, b.y, b.w, b.h);
 
+    // Resize handle for selected booths (bottom-right corner)
+    if (isSelected && state.selectedIds.size === 1) {
+      const handleSize = 8 / state.zoom;
+      ctx.fillStyle = '#4F8CFF';
+      ctx.fillRect(b.x + b.w - handleSize, b.y + b.h - handleSize, handleSize, handleSize);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1 / state.zoom;
+      ctx.strokeRect(b.x + b.w - handleSize, b.y + b.h - handleSize, handleSize, handleSize);
+    }
+
     // 부스 타입 오버레이 (조립=노랑, 자체시공=주황)
     if (state.showBoothType && b.boothType) {
       const opt = BOOTH_TYPE_OPTIONS.find(o => o.key === b.boothType);
@@ -3149,11 +3732,8 @@ function render() {
       }
     }
 
-    // text content (only if large enough on screen)
-    const screenSize = Math.min(b.w, b.h) * state.zoom;
-    if (screenSize >= 12) {
-      drawBoothContent(ctx, b, state.zoom, colors.text, false);
-    }
+    // text content (always show)
+    drawBoothContent(ctx, b, state.zoom, colors.text, false);
   }
 
   // Group borders
@@ -3186,6 +3766,7 @@ function render() {
     ctx.strokeRect(b.x, b.y, b.w, b.h);
     ctx.setLineDash([]);
   }
+  } // end if (state.showBooths)
 
   // Calibration points
   if (state.bgCalPoints.length > 0) {
@@ -3212,27 +3793,27 @@ function render() {
     }
   }
 
-  // Draw preview / BaseNo preview
-  if (state.isDrawing || state.isBaseDrawing) {
-    const dx = (state.isDrawing ? state.drawCurrentX : state.baseDrawCurrentX) - (state.isDrawing ? state.drawStartX : state.baseDrawStartX);
-    const dy = (state.isDrawing ? state.drawCurrentY : state.baseDrawCurrentY) - (state.isDrawing ? state.drawStartY : state.baseDrawStartY);
-    const sx = state.isDrawing ? state.drawStartX : state.baseDrawStartX;
-    const sy = state.isDrawing ? state.drawStartY : state.baseDrawStartY;
-    const rx = dx >= 0 ? sx : (state.isDrawing ? state.drawCurrentX : state.baseDrawCurrentX);
-    const ry = dy >= 0 ? sy : (state.isDrawing ? state.drawCurrentY : state.baseDrawCurrentY);
+  // Draw preview / BaseNo preview / Discuss preview
+  if (state.isDrawing || state.isBaseDrawing || state.isDiscussDrawing) {
+    const dx = (state.isDrawing ? state.drawCurrentX : (state.isBaseDrawing ? state.baseDrawCurrentX : state.discussDrawCurrentX)) - (state.isDrawing ? state.drawStartX : (state.isBaseDrawing ? state.baseDrawStartX : state.discussDrawStartX));
+    const dy = (state.isDrawing ? state.drawCurrentY : (state.isBaseDrawing ? state.baseDrawCurrentY : state.discussDrawCurrentY)) - (state.isDrawing ? state.drawStartY : (state.isBaseDrawing ? state.baseDrawStartY : state.discussDrawStartY));
+    const sx = state.isDrawing ? state.drawStartX : (state.isBaseDrawing ? state.baseDrawStartX : state.discussDrawStartX);
+    const sy = state.isDrawing ? state.drawStartY : (state.isBaseDrawing ? state.baseDrawStartY : state.discussDrawStartY);
+    const rx = dx >= 0 ? sx : (state.isDrawing ? state.drawCurrentX : (state.isBaseDrawing ? state.baseDrawCurrentX : state.discussDrawCurrentX));
+    const ry = dy >= 0 ? sy : (state.isDrawing ? state.drawCurrentY : (state.isBaseDrawing ? state.baseDrawCurrentY : state.discussDrawCurrentY));
     const rw = Math.abs(dx), rh = Math.abs(dy);
-    ctx.fillStyle = 'rgba(79,140,255,0.15)';
+    ctx.fillStyle = state.isDiscussDrawing ? 'rgba(255,214,0,0.12)' : 'rgba(79,140,255,0.15)';
     ctx.fillRect(rx, ry, rw, rh);
-    ctx.strokeStyle = '#4F8CFF';
+    ctx.strokeStyle = state.isDiscussDrawing ? '#FFD600' : '#4F8CFF';
     ctx.lineWidth = 1.5 / state.zoom;
     ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
     ctx.strokeRect(rx, ry, rw, rh);
     ctx.setLineDash([]);
     if (rw > 5 && rh > 5) {
       ctx.font = `600 ${11 / state.zoom}px Pretendard, sans-serif`;
-      ctx.fillStyle = '#4F8CFF';
+      ctx.fillStyle = state.isDiscussDrawing ? '#FFD600' : '#4F8CFF';
       ctx.textAlign = 'center';
-      const label = state.isDrawing ? `${pxToM(rw)}m × ${pxToM(rh)}m` : 'BaseNo';
+      const label = state.isDrawing ? `${pxToM(rw)}m × ${pxToM(rh)}m` : (state.isBaseDrawing ? 'BaseNo' : '배정논의');
       ctx.fillText(label, rx + rw / 2, ry - 8 / state.zoom);
     }
   }
@@ -3252,44 +3833,21 @@ function render() {
     ctx.setLineDash([]);
   }
 
-  // ─── discuss 부스 연결선: 그룹별로 따로 그림 ───
-  {
-    const discussBooths = state.booths.filter(b => b.status === 'discuss');
-    // 현재 배정 모드 중인 부스는 임시 그룹 0으로 묶기
-    const grpMap = new Map();
-    discussBooths.forEach(b => {
-      const g = (state.assignMode && state.assignModeBooths.has(b.id))
-        ? 0
-        : (b.discussGroup ?? -b.id); // 그룹 없으면 단독
-      if (!grpMap.has(g)) grpMap.set(g, []);
-      grpMap.get(g).push(b);
-    });
-    ctx.lineWidth = 1.5 / state.zoom;
-    ctx.setLineDash([5 / state.zoom, 4 / state.zoom]);
-    grpMap.forEach((grpBooths) => {
-      if (grpBooths.length < 2) return;
-      const cx = grpBooths.reduce((s, b) => s + b.x + b.w / 2, 0) / grpBooths.length;
-      const cy = grpBooths.reduce((s, b) => s + b.y + b.h / 2, 0) / grpBooths.length;
-      ctx.strokeStyle = 'rgba(255,214,0,0.7)';
-      grpBooths.forEach(b => {
-        const bx = b.x + b.w / 2, by = b.y + b.h / 2;
-        ctx.beginPath();
-        ctx.moveTo(bx, by);
-        ctx.lineTo(cx, cy);
-        ctx.stroke();
-      });
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.arc(cx, cy, 4 / state.zoom, 0, Math.PI * 2);
-      ctx.fillStyle = '#FFD600';
-      ctx.fill();
-      ctx.setLineDash([5 / state.zoom, 4 / state.zoom]);
-    });
-    ctx.setLineDash([]);
-  }
+  // ─── 배정논의 오버레이 레이어 ───
+  drawDiscussOverlays(ctx, state.zoom);
 
   ctx.restore();
+
+  // Show/hide assignGuideMode hint
+  const hintEl = document.getElementById('assignGuideModeHint');
+  if (state.assignGuideMode) {
+    hintEl.style.display = 'block';
+  } else {
+    hintEl.style.display = 'none';
+  }
+
   drawRemoteCursors();
+  renderLayers();
   updateStats();
 }
 
@@ -3336,10 +3894,11 @@ function renderViewer(w, h) {
 
     // 공개도면: 모든 부스 기본 컬러 #f9e5de
     // showViewerAvailable ON → available 부스 노란색 / 클릭된 available 부스도 노란색
+    // facility → 연한회색 #EFEFEF
     const isSelected = isHovered && b.status === 'spot';
     const isAvailableHighlight = state.showViewerAvailable && b.status === 'spot';
-    let fill = '#f9e5de';
-    let stroke = '#d4a89a';
+    let fill = b.status === 'facility' ? '#EFEFEF' : '#f9e5de';
+    let stroke = b.status === 'facility' ? '#111111' : '#d4a89a';
     if (isHighlighted) { fill = '#FFF9C4'; stroke = '#F57F17'; }
     else if (isSelected || isAvailableHighlight) { fill = '#FFD600'; stroke = '#F9A825'; }
 
@@ -3369,12 +3928,13 @@ function renderViewer(w, h) {
       }
     }
 
-    const screenSize = Math.min(b.w, b.h) * state.zoom;
-    if (screenSize >= 12) {
-      const textColor = isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#7a5045';
-      drawBoothContent(ctx, b, state.zoom, textColor, false);
-    }
+    // Use black text if companyName exists, otherwise use brown
+    const textColor = b.companyName ? '#111111' : (isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#7a5045');
+    drawBoothContent(ctx, b, state.zoom, textColor, false);
   }
+
+  // BaseNumbers text only (outline hidden in viewer mode)
+  drawBaseNumbers(ctx, state.zoom);
 
   ctx.restore();
   drawRemoteCursors();
@@ -3551,21 +4111,14 @@ canvas.addEventListener('mousedown', (e) => {
     return;
   }
 
-  // ─── 배정 모드: 부스 클릭 → discuss 토글 ───
-  if (state.assignMode && e.button === 0) {
-    const booth = getBoothAt(world.x, world.y);
-    if (booth) {
-      if (state.assignModeBooths.has(booth.id)) {
-        booth.status = state.assignModeOrigStatus[booth.id] || 'available';
-        state.assignModeBooths.delete(booth.id);
-        delete state.assignModeOrigStatus[booth.id];
-      } else {
-        state.assignModeOrigStatus[booth.id] = booth.status;
-        booth.status = 'discuss';
-        state.assignModeBooths.add(booth.id);
-      }
-      render(); updateStats();
-    }
+  // ─── 배정논의 드로우 모드 ───
+  if (state.mode === 'discuss' && e.button === 0) {
+    // half-grid 강제 적용
+    const sx = Math.round(world.x / HALF_GRID_PX) * HALF_GRID_PX;
+    const sy = Math.round(world.y / HALF_GRID_PX) * HALF_GRID_PX;
+    state.isDiscussDrawing = true;
+    state.discussDrawStartX = sx; state.discussDrawStartY = sy;
+    state.discussDrawCurrentX = sx; state.discussDrawCurrentY = sy;
     return;
   }
 
@@ -3630,18 +4183,73 @@ canvas.addEventListener('mousedown', (e) => {
     }
     state.selectedLogoId = null;
     state.selectedStructId = null;
-    state.selectedBaseNoId = null;
 
-    // BaseNo click
-    const baseNo = getBaseNoAt(world.x, world.y);
-    if (baseNo) {
-      state.selectedBaseNoId = baseNo.id;
+    // 배정논의 오버레이 클릭/드래그 (부스보다 높은 우선순위)
+    const discussOv = getDiscussOverlayAt(world.x, world.y);
+    if (discussOv && !state.layerLocked['discuss']) {
+      // assignGuideMode: auto-select group if the overlay has groupId
+      if (state.assignGuideMode) {
+        state.selectedDiscussIds.clear();
+        if (discussOv.groupId) {
+          // Select all overlays with the same groupId
+          state.discussOverlays.forEach(ov => {
+            if (ov.groupId === discussOv.groupId) {
+              state.selectedDiscussIds.add(ov.id);
+            }
+          });
+        } else {
+          // If no groupId, just select this one
+          state.selectedDiscussIds.add(discussOv.id);
+        }
+        render(); updateProps();
+        return;
+      }
+
+      // Normal mode (not assignGuideMode)
+      if (e.shiftKey) {
+        if (state.selectedDiscussIds.has(discussOv.id)) state.selectedDiscussIds.delete(discussOv.id);
+        else state.selectedDiscussIds.add(discussOv.id);
+      } else {
+        if (!state.selectedDiscussIds.has(discussOv.id)) {
+          state.selectedDiscussIds.clear();
+          state.selectedDiscussIds.add(discussOv.id);
+        }
+      }
+
+      // Check resize handle (bottom-right corner) — 단일선택 시만
+      if (state.selectedDiscussIds.size === 1) {
+        const resizeHandleSize = 8 / state.zoom;
+        const isOnResizeHandle = (
+          world.x >= discussOv.x + discussOv.w - resizeHandleSize &&
+          world.x <= discussOv.x + discussOv.w &&
+          world.y >= discussOv.y + discussOv.h - resizeHandleSize &&
+          world.y <= discussOv.y + discussOv.h
+        );
+        if (isOnResizeHandle) {
+          state.discussResizeHandle = 'se';
+          state.discussResizeDragStartSX = sx;
+          state.discussResizeDragStartSY = sy;
+          state.discussResizeOriginW = discussOv.w;
+          state.discussResizeOriginH = discussOv.h;
+          render(); updateProps();
+          return;
+        }
+      }
+
+      // dragReady 세팅
+      state.discussDragReady = true;
+      state.discussDragStartSX = sx;
+      state.discussDragStartSY = sy;
+      state.discussDragOrigins = state.discussOverlays
+        .filter(ov => state.selectedDiscussIds.has(ov.id))
+        .map(ov => ({ id: ov.id, x: ov.x, y: ov.y }));
       render(); updateProps();
       return;
     }
 
+    // Booth click/drag (priority over BaseNo)
     const booth = getBoothAt(world.x, world.y);
-    if (booth) {
+    if (booth && !state.layerLocked['booth']) {
       // Alt+drag copy
       if (e.altKey) {
         if (!state.selectedIds.has(booth.id)) {
@@ -3677,6 +4285,27 @@ canvas.addEventListener('mousedown', (e) => {
         }
       }
 
+      // Check resize handle (bottom-right corner) — only if single selection
+      if (state.selectedIds.size === 1) {
+        const resizeHandleSize = 8 / state.zoom;
+        const isOnResizeHandle = (
+          world.x >= booth.x + booth.w - resizeHandleSize &&
+          world.x <= booth.x + booth.w &&
+          world.y >= booth.y + booth.h - resizeHandleSize &&
+          world.y <= booth.y + booth.h
+        );
+        if (isOnResizeHandle) {
+          state.boothResizeHandle = 'se';
+          state.boothResizeDragStartSX = sx;
+          state.boothResizeDragStartSY = sy;
+          state.boothResizeOrigins = state.booths
+            .filter(b => state.selectedIds.has(b.id))
+            .map(b => ({ id: b.id, w: b.w, h: b.h }));
+          render(); updateProps();
+          return;
+        }
+      }
+
       // Prepare drag-to-move
       state.dragReady = true;
       state.dragStartSX = sx;
@@ -3684,19 +4313,76 @@ canvas.addEventListener('mousedown', (e) => {
       state.dragBoothsOrigin = state.booths
         .filter(b => state.selectedIds.has(b.id))
         .map(b => ({ id: b.id, x: b.x, y: b.y }));
-    } else {
-      // Clicked empty space → start marquee selection
-      if (state.editingGroupId) { state.editingGroupId = null; }
-      if (!e.shiftKey) state.selectedIds.clear();
-      state.selectedStructId = null;
-      state.selectedLogoId = null;
-      state.dragReady = false;
-      state.isMarquee = true;
-      state.marqueeStartX = world.x;
-      state.marqueeStartY = world.y;
-      state.marqueeEndX = world.x;
-      state.marqueeEndY = world.y;
+      render(); updateProps();
+      return;
     }
+
+    // BaseNo click / drag / resize (only if no booth)
+    const baseNo = getBaseNoAt(world.x, world.y);
+    if (baseNo && !state.layerLocked['baseNo']) {
+      // Shift+클릭 다중선택
+      if (e.shiftKey) {
+        if (state.selectedBaseNoIds.has(baseNo.id)) state.selectedBaseNoIds.delete(baseNo.id);
+        else state.selectedBaseNoIds.add(baseNo.id);
+      } else {
+        // 이미 선택된 블럭을 클릭하면 선택 유지 (드래그용)
+        if (!state.selectedBaseNoIds.has(baseNo.id)) {
+          state.selectedBaseNoIds.clear();
+          state.selectedBaseNoIds.add(baseNo.id);
+        }
+      }
+
+      // Check resize corner (right-bottom) — 단일선택 시만
+      if (state.selectedBaseNoIds.size === 1) {
+        const resizeHandleSize = 8 / state.zoom;
+        const isOnResizeHandle = (
+          world.x >= baseNo.x + baseNo.w - resizeHandleSize &&
+          world.x <= baseNo.x + baseNo.w &&
+          world.y >= baseNo.y + baseNo.h - resizeHandleSize &&
+          world.y <= baseNo.y + baseNo.h
+        );
+        if (isOnResizeHandle) {
+          state.baseNoResizeHandle = 'se';
+          state.baseNoDragStartSX = sx;
+          state.baseNoDragStartSY = sy;
+          state.baseNoDragOriginW = baseNo.w;
+          state.baseNoDragOriginH = baseNo.h;
+        } else {
+          state.baseNoDragReady = true;
+          state.baseNoDragStartSX = sx;
+          state.baseNoDragStartSY = sy;
+          state.baseNoDragBoothsOrigin = state.baseNumbers
+            .filter(bn => state.selectedBaseNoIds.has(bn.id))
+            .map(bn => ({ id: bn.id, x: bn.x, y: bn.y }));
+        }
+      } else {
+        // 다중선택 시 dragReady만
+        state.baseNoDragReady = true;
+        state.baseNoDragStartSX = sx;
+        state.baseNoDragStartSY = sy;
+        state.baseNoDragBoothsOrigin = state.baseNumbers
+          .filter(bn => state.selectedBaseNoIds.has(bn.id))
+          .map(bn => ({ id: bn.id, x: bn.x, y: bn.y }));
+      }
+      render(); updateProps();
+      return;
+    }
+
+    // Clicked empty space → start marquee selection
+    if (state.editingGroupId) { state.editingGroupId = null; }
+    if (!e.shiftKey) {
+      state.selectedIds.clear();
+      state.selectedBaseNoIds.clear();
+      state.selectedDiscussIds.clear();
+    }
+    state.selectedStructId = null;
+    state.selectedLogoId = null;
+    state.dragReady = false;
+    state.isMarquee = true;
+    state.marqueeStartX = world.x;
+    state.marqueeStartY = world.y;
+    state.marqueeEndX = world.x;
+    state.marqueeEndY = world.y;
     render(); updateProps();
   }
 });
@@ -3806,7 +4492,83 @@ canvas.addEventListener('mousemove', (e) => {
     render(); return;
   }
 
+  // BaseNo dragReady → isDragging (3px 임계값)
+  if (state.baseNoDragReady) {
+    const ddx = sx - state.baseNoDragStartSX, ddy = sy - state.baseNoDragStartSY;
+    if (Math.abs(ddx) > 3 || Math.abs(ddy) > 3) {
+      if (!state.baseNoDragging) { state.baseNoDragging = true; saveUndo(); }
+      const wdx = ddx / state.zoom, wdy = ddy / state.zoom;
+      state.baseNumbers.forEach(bn => {
+        if (!state.selectedBaseNoIds.has(bn.id)) return;
+        const orig = state.baseNoDragBoothsOrigin.find(o => o.id === bn.id);
+        if (orig) { bn.x = snapValue(orig.x + wdx); bn.y = snapValue(orig.y + wdy); }
+      });
+      render(); return;
+    }
+  }
+
+  // BaseNo resize handle (단일선택 시)
+  if (state.baseNoResizeHandle) {
+    const bn = state.baseNumbers.find(b => state.selectedBaseNoIds.has(b.id));
+    if (bn) {
+      const wdx = (sx - state.baseNoDragStartSX) / state.zoom;
+      const wdy = (sy - state.baseNoDragStartSY) / state.zoom;
+      bn.w = Math.max(GRID_PX, snapValue(state.baseNoDragOriginW + wdx));
+      bn.h = Math.max(GRID_PX, snapValue(state.baseNoDragOriginH + wdy));
+      render(); return;
+    }
+  }
+
+  // Booth resize
+  if (state.boothResizeHandle === 'se') {
+    const ddx = (sx - state.boothResizeDragStartSX) / state.zoom;
+    const ddy = (sy - state.boothResizeDragStartSY) / state.zoom;
+    state.booths.forEach(b => {
+      if (!state.selectedIds.has(b.id)) return;
+      const orig = state.boothResizeOrigins.find(o => o.id === b.id);
+      if (orig) {
+        b.w = Math.max(GRID_PX, snapValue(orig.w + ddx));
+        b.h = Math.max(GRID_PX, snapValue(orig.h + ddy));
+      }
+    });
+    render(); return;
+  }
+
   // Drag to move
+  // 배정논의 오버레이 드래그 & 리사이즈
+  if (state.discussResizeHandle && state.selectedDiscussIds.size === 1) {
+    const ddx = sx - state.discussResizeDragStartSX;
+    const ddy = sy - state.discussResizeDragStartSY;
+    const ov = state.discussOverlays.find(o => state.selectedDiscussIds.has(o.id));
+    if (ov) {
+      const newW = Math.max(HALF_GRID_PX, state.discussResizeOriginW + ddx / state.zoom);
+      const newH = Math.max(HALF_GRID_PX, state.discussResizeOriginH + ddy / state.zoom);
+      // half-grid snap
+      ov.w = Math.round(newW / HALF_GRID_PX) * HALF_GRID_PX;
+      ov.h = Math.round(newH / HALF_GRID_PX) * HALF_GRID_PX;
+      render(); updateProps();
+    }
+    return;
+  }
+
+  if (state.discussDragReady) {
+    const ddx = sx - state.discussDragStartSX, ddy = sy - state.discussDragStartSY;
+    if (Math.abs(ddx) > 3 || Math.abs(ddy) > 3) {
+      if (!state.discussDragging) { state.discussDragging = true; saveUndo(); }
+      const wdx = ddx / state.zoom, wdy = ddy / state.zoom;
+      state.discussOverlays.forEach(ov => {
+        if (!state.selectedDiscussIds.has(ov.id)) return;
+        const orig = state.discussDragOrigins.find(o => o.id === ov.id);
+        if (orig) {
+          const sx = Math.round((orig.x + wdx) / HALF_GRID_PX) * HALF_GRID_PX;
+          const sy = Math.round((orig.y + wdy) / HALF_GRID_PX) * HALF_GRID_PX;
+          ov.x = sx; ov.y = sy;
+        }
+      });
+      render(); return;
+    }
+  }
+
   if (state.dragReady) {
     const ddx = sx - state.dragStartSX, ddy = sy - state.dragStartSY;
     if (Math.abs(ddx) > 3 || Math.abs(ddy) > 3) {
@@ -3838,6 +4600,15 @@ canvas.addEventListener('mousemove', (e) => {
     const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
     state.baseDrawCurrentX = snapped.x;
     state.baseDrawCurrentY = snapped.y;
+    render(); return;
+  }
+
+  // 배정논의 드로우 프리뷰
+  if (state.isDiscussDrawing) {
+    const sx = Math.round(world.x / HALF_GRID_PX) * HALF_GRID_PX;
+    const sy = Math.round(world.y / HALF_GRID_PX) * HALF_GRID_PX;
+    state.discussDrawCurrentX = sx;
+    state.discussDrawCurrentY = sy;
     render(); return;
   }
 
@@ -3987,6 +4758,44 @@ canvas.addEventListener('mouseup', (e) => {
     }
     render(); updateProps(); return;
   }
+
+  if (state.baseNoResizeHandle) {
+    saveUndo(); scheduleSave();
+    state.baseNoResizeHandle = null;
+    render(); updateProps(); return;
+  }
+  if (state.baseNoDragging) {
+    state.baseNoDragging = false;
+    state.baseNoDragReady = false;
+    scheduleSave();
+    render(); updateProps(); return;
+  }
+  if (state.baseNoDragReady) { state.baseNoDragReady = false; }
+
+  // Booth resize end
+  if (state.boothResizeHandle) {
+    saveUndo(); scheduleSave();
+    state.boothResizeHandle = null;
+    state.boothResizeOrigins = [];
+    render(); updateProps(); return;
+  }
+
+  // 배정논의 리사이즈 끝
+  if (state.discussResizeHandle) {
+    state.discussResizeHandle = null;
+    saveUndo(); scheduleSave();
+    render(); updateProps(); return;
+  }
+
+  // 배정논의 드래그 끝
+  if (state.discussDragging) {
+    state.discussDragging = false;
+    state.discussDragReady = false;
+    saveUndo(); scheduleSave();
+    render(); updateProps(); return;
+  }
+  if (state.discussDragReady) { state.discussDragReady = false; }
+
   if (state.isDragging) {
     state.isDragging = false;
     state.dragReady = false;
@@ -4029,8 +4838,43 @@ canvas.addEventListener('mouseup', (e) => {
           state.selectedIds.add(b.id);
         }
       });
+      // BaseNo marquee selection
+      state.baseNumbers.forEach(bn => {
+        const bx2 = bn.x + bn.w, by2 = bn.y + bn.h;
+        if (bn.x < mx + mw && bx2 > mx && bn.y < my + mh && by2 > my) {
+          state.selectedBaseNoIds.add(bn.id);
+        }
+      });
+      // 배정논의 오버레이 marquee selection
+      state.discussOverlays.forEach(ov => {
+        const ox2 = ov.x + ov.w, oy2 = ov.y + ov.h;
+        if (ov.x < mx + mw && ox2 > mx && ov.y < my + mh && oy2 > my) {
+          state.selectedDiscussIds.add(ov.id);
+        }
+      });
     }
     render(); updateProps();
+  }
+
+  if (state.isDiscussDrawing) {
+    state.isDiscussDrawing = false;
+    const dx = state.discussDrawCurrentX - state.discussDrawStartX;
+    const dy = state.discussDrawCurrentY - state.discussDrawStartY;
+    const x = dx >= 0 ? state.discussDrawStartX : state.discussDrawCurrentX;
+    const y = dy >= 0 ? state.discussDrawStartY : state.discussDrawCurrentY;
+    const w = Math.abs(dx), h = Math.abs(dy);
+    if (w >= HALF_GRID_PX && h >= HALF_GRID_PX) {
+      const label = prompt('배정논의 라벨 (업체명 또는 메모):', '');
+      if (label !== null) {
+        saveUndo();
+        const ov = { id: state.nextDiscussOverlayId++, x, y, w, h, label: label.trim(), groupId: null };
+        state.discussOverlays.push(ov);
+        state.selectedDiscussIds.clear();
+        state.selectedDiscussIds.add(ov.id);
+        scheduleSave(); render(); updateProps();
+      }
+    }
+    render(); return;
   }
 
   if (state.isBaseDrawing) {
@@ -4124,12 +4968,28 @@ document.addEventListener('keydown', (e) => {
       if (state.structMode) { state.structMode = null; state.wallStart = null; state.structDrawStart = null; state.structDrawCurrent = null; clearStructButtons(); hideStructHint(); render(); return; }
       if (state.editingGroupId) { state.editingGroupId = null; render(); return; }
       if (state.lastCopyOp) { state.lastCopyOp = null; updateRepeatBadge(); return; }
-      state.selectedIds.clear(); render(); updateProps();
+      state.selectedIds.clear(); state.selectedBaseNoIds.clear(); render(); updateProps();
     }
   }
 
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if (document.activeElement !== document.body) return;
+    if (state.selectedDiscussIds.size) {
+      saveUndo();
+      const ids = new Set(state.selectedDiscussIds);
+      state.discussOverlays = state.discussOverlays.filter(ov => !ids.has(ov.id));
+      state.selectedDiscussIds.clear();
+      scheduleSave(); render(); updateProps();
+      return;
+    }
+    if (state.selectedBaseNoIds.size) {
+      saveUndo();
+      const ids = new Set(state.selectedBaseNoIds);
+      state.baseNumbers = state.baseNumbers.filter(bn => !ids.has(bn.id));
+      state.selectedBaseNoIds.clear();
+      scheduleSave(); render(); updateProps();
+      return;
+    }
     if (state.selectedStructId) {
       saveUndo();
       state.structures = state.structures.filter(s => s.id !== state.selectedStructId);
@@ -4155,13 +5015,13 @@ document.addEventListener('keydown', (e) => {
 
   if (ctrl && !e.shiftKey && e.key === 'd') {
     e.preventDefault();
-    if (state.selectedIds.size > 0) {
+    if (state.selectedIds.size > 0 || state.selectedBaseNoIds.size > 0) {
       if (state.lastCopyOp) repeatLastCopy();
-      else openDivideDialog();
+      else if (state.selectedIds.size > 0) openDivideDialog();
     }
   }
 
-  if (ctrl && e.shiftKey && e.key.toLowerCase() === 'c') { e.preventDefault(); openNumericCopyDialog(); }
+  if (e.key === 'Enter') { e.preventDefault(); if (state.selectedIds.size > 0 || state.selectedBaseNoIds.size > 0) openNumericCopyDialog(); }
   if (ctrl && !e.shiftKey && e.key === 'g') { e.preventDefault(); groupSelected(); }
   if (ctrl && e.shiftKey && e.key === 'G') { e.preventDefault(); ungroupSelected(); }
   if (ctrl && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); }
@@ -4172,6 +5032,92 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('keyup', (e) => {
   if (e.code === 'Space') { spaceDown = false; container.classList.remove('panning'); }
+});
+
+// ─── Touch Events (Viewer Mode) ───
+let touchStartX = 0, touchStartY = 0;
+let touchStartDistance = 0;
+let isTouchDragging = false;
+
+function getDistance(touch1, touch2) {
+  const dx = touch1.clientX - touch2.clientX;
+  const dy = touch1.clientY - touch2.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getTouchMidpoint(touches) {
+  let x = 0, y = 0;
+  for (let t of touches) { x += t.clientX; y += t.clientY; }
+  return { x: x / touches.length, y: y / touches.length };
+}
+
+canvas.addEventListener('touchstart', (e) => {
+  if (!VIEWER_MODE) return;
+  e.preventDefault();
+
+  if (e.touches.length === 1) {
+    // 한 손가락: 드래그 준비
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    isTouchDragging = false;
+  } else if (e.touches.length === 2) {
+    // 두 손가락: 핀치줌 준비
+    touchStartDistance = getDistance(e.touches[0], e.touches[1]);
+  }
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  if (!VIEWER_MODE) return;
+  e.preventDefault();
+
+  if (e.touches.length === 1) {
+    // 한 손가락: 드래그
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      isTouchDragging = true;
+    }
+
+    if (isTouchDragging) {
+      state.panX += dx;
+      state.panY += dy;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      render();
+    }
+  } else if (e.touches.length === 2) {
+    // 두 손가락: 핀치줌
+    const currentDistance = getDistance(e.touches[0], e.touches[1]);
+    const distanceDelta = currentDistance - touchStartDistance;
+
+    // 핀치줌 민감도 조정 (0.005 = 적당함)
+    const zoomFactor = 1 + distanceDelta * 0.005;
+    const newZoom = Math.max(0.1, Math.min(state.zoom * zoomFactor, 10));
+
+    // 핀치 중심점을 기준으로 줌
+    const midpoint = getTouchMidpoint(e.touches);
+    const rect = canvas.getBoundingClientRect();
+    const canvasMidX = midpoint.x - rect.left;
+    const canvasMidY = midpoint.y - rect.top;
+
+    // 줌 중심 유지
+    const zoomChange = newZoom / state.zoom;
+    state.panX = canvasMidX - (canvasMidX - state.panX) * zoomChange;
+    state.panY = canvasMidY - (canvasMidY - state.panY) * zoomChange;
+
+    state.zoom = newZoom;
+    touchStartDistance = currentDistance;
+    const vzd = document.getElementById('viewerZoomDisplay');
+    if (vzd) vzd.textContent = Math.round(state.zoom * 100) + '%';
+    render();
+  }
+});
+
+canvas.addEventListener('touchend', (e) => {
+  if (!VIEWER_MODE) return;
+  isTouchDragging = false;
+  if (e.touches.length < 2) touchStartDistance = 0;
 });
 
 // ─── Toolbar Buttons ───
@@ -4205,10 +5151,26 @@ document.getElementById('btnDelete').addEventListener('click', () => {
   }
 });
 document.getElementById('btnAutoNumber').addEventListener('click', () => openModal('modalBoothNum'));
+document.getElementById('btnBaseNoNumber').addEventListener('click', () => openModal('modalBaseNoNum'));
 document.getElementById('btnImport').addEventListener('click', () => { _importStep = 1; setImportStep(1); _importRawData = null; document.getElementById('importFileInfo').textContent = ''; document.getElementById('importBtnNext').textContent = 'Next →'; openModal('modalImport'); });
 document.getElementById('btnExport').addEventListener('click', () => {
   selectPreset(document.querySelector('.preset-card[data-preset="sales"]'));
   openModal('modalExport');
+});
+document.getElementById('btnAssignGuide').addEventListener('click', () => {
+  state.assignGuideMode = true;
+  state.selectedDiscussIds.clear();
+  render();
+});
+document.getElementById('btnAssignGuideConfirm').addEventListener('click', () => {
+  if (state.selectedDiscussIds.size === 0) {
+    alert('배정논의 오버레이를 선택해주세요.');
+    return;
+  }
+  state.assignGuideMode = false;
+  document.getElementById('assignGuideModeHint').style.display = 'none';
+  openModal('modalAssignGuide');
+  document.getElementById('assignGuideInfo').textContent = `선택된 배정논의: ${state.selectedDiscussIds.size}개`;
 });
 document.getElementById('btnManualSave').addEventListener('click', () => {
   if (!_supaClient) { alert('Supabase not connected. Set up in Settings first.'); return; }
@@ -4291,31 +5253,221 @@ function fitAll() {
   render();
 }
 
+// ─── 레이어 렌더링 ───
+function renderLayers() {
+  const layersList = document.getElementById('layersList');
+  layersList.innerHTML = LAYERS.map(layer => {
+    const isVisible = layer.customGetter ? layer.customGetter() : state[layer.stateKey];
+    const isLocked = state.layerLocked[layer.id];
+    const eyeIcon = isVisible ? '◉' : '◎';  // 눈 열림/닫힘
+    const lockIcon = isLocked ? '🔒' : '🔓';  // 자물쇠 잠금/해제
+
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 6px;background:var(--surface-hover);border-radius:4px;user-select:none;cursor:pointer" onclick="selectLayerProperties('${layer.id}')">
+        <button onclick="event.stopPropagation(); toggleLayerVisibility('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:12px;padding:0;width:20px;text-align:center;flex-shrink:0">${eyeIcon}</button>
+        <button onclick="event.stopPropagation(); toggleLayerLock('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:12px;padding:0;width:20px;text-align:center;flex-shrink:0">${lockIcon}</button>
+        <span style="flex:1;color:var(--text);font-size:12px">${layer.label}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectLayerProperties(layerId) {
+  // 각 레이어에 따라 해당 properties 표시
+  state.selectedIds.clear();
+  state.selectedBaseNoIds.clear();
+  state.selectedDiscussIds.clear();
+  state.selectedStructId = null;
+  state.selectedLogoId = null;
+
+  const panel = document.getElementById('panelRight');
+  const bgSection = document.getElementById('bgPanelSection');
+  const boothSection = document.getElementById('boothPropsSection');
+  const baseNoSection = document.getElementById('baseNoPropsSection');
+  const discussSection = document.getElementById('discussPropsSection');
+  const multiSection = document.getElementById('multiSelectSection');
+  const boothTypeLegend = document.getElementById('boothTypeLegendSection');
+  const elecLegend = document.getElementById('elecLegendSection');
+  const otherLegend = document.getElementById('otherLegendSection');
+
+  // 모든 섹션 숨기기
+  bgSection.style.display = 'none';
+  boothSection.style.display = 'none';
+  baseNoSection.style.display = 'none';
+  discussSection.style.display = 'none';
+  multiSection.style.display = 'none';
+  boothTypeLegend.style.display = 'none';
+  elecLegend.style.display = 'none';
+  otherLegend.style.display = 'none';
+
+  switch(layerId) {
+    case 'booth':
+      // 첫 번째 부스 선택
+      if (state.booths.length > 0) {
+        state.selectedIds.add(state.booths[0].id);
+      }
+      break;
+    case 'baseNo':
+      // 첫 번째 baseNo 선택
+      if (state.baseNumbers.length > 0) {
+        state.selectedBaseNoIds.add(state.baseNumbers[0].id);
+      }
+      break;
+    case 'discuss':
+      // 첫 번째 discuss overlay 선택
+      if (state.discussOverlays.length > 0) {
+        state.selectedDiscussIds.add(state.discussOverlays[0].id);
+      }
+      break;
+    case 'bg':
+      // 배경 정보 표시
+      panel.classList.add('visible');
+      bgSection.style.display = '';
+      break;
+    case 'elec':
+      panel.classList.add('visible');
+      elecLegend.style.display = '';
+      updateElecLegend();
+      break;
+    case 'other':
+      panel.classList.add('visible');
+      otherLegend.style.display = '';
+      updateOtherLegend();
+      break;
+    case 'boothType':
+      panel.classList.add('visible');
+      boothTypeLegend.style.display = '';
+      break;
+  }
+
+  updateProps();
+  render();
+}
+
+function toggleLayerVisibility(layerId) {
+  const layer = LAYERS.find(l => l.id === layerId);
+  if (!layer) return;
+
+  if (layer.customSetter) {
+    layer.customSetter(!layer.customGetter());
+  } else {
+    state[layer.stateKey] = !state[layer.stateKey];
+  }
+
+  // 부대시설 레이어 토글 시 범례도 함께 표시
+  const isNowVisible = layer.customGetter ? layer.customGetter() : state[layer.stateKey];
+  if (isNowVisible) {
+    const panel = document.getElementById('panelRight');
+    if (layerId === 'elec') {
+      panel.classList.add('visible');
+      document.getElementById('elecLegendSection').style.display = '';
+      updateElecLegend();
+    } else if (layerId === 'other') {
+      panel.classList.add('visible');
+      document.getElementById('otherLegendSection').style.display = '';
+      updateOtherLegend();
+    }
+  }
+
+  renderLayers();
+  render();
+}
+
+function toggleLayerLock(layerId) {
+  state.layerLocked[layerId] = !state.layerLocked[layerId];
+  renderLayers();
+}
+
 // ─── Properties Panel ───
 function updateProps() {
   if (VIEWER_MODE) return;
   const panel = document.getElementById('panelRight');
   const boothSection = document.getElementById('boothPropsSection');
   const structSection = document.getElementById('panelStructProps');
+  const baseNoSection = document.getElementById('baseNoPropsSection');
+  const discussSection = document.getElementById('discussPropsSection');
 
   const multiSection = document.getElementById('multiSelectSection');
 
-  if (state.selectedStructId) {
+  if (state.selectedDiscussIds.size === 1) {
     panel.classList.add('visible');
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
+    structSection.style.display = 'none';
+    baseNoSection.style.display = 'none';
+    discussSection.style.display = 'block';
+    const selectedId = [...state.selectedDiscussIds][0];
+    const ov = state.discussOverlays.find(o => o.id === selectedId);
+    if (!ov) return;
+    document.getElementById('propDiscussLabel').value = ov.label || '';
+    document.getElementById('propDiscussX').value = pxToM(ov.x).toFixed(1);
+    document.getElementById('propDiscussY').value = pxToM(ov.y).toFixed(1);
+    document.getElementById('propDiscussW').value = pxToM(ov.w).toFixed(1);
+    document.getElementById('propDiscussH').value = pxToM(ov.h).toFixed(1);
+    document.getElementById('propDiscussGroupId').textContent = ov.groupId !== null ? ov.groupId : '—';
+  } else if (state.selectedDiscussIds.size > 1) {
+    panel.classList.add('visible');
+    multiSection.style.display = 'none';
+    boothSection.style.display = 'none';
+    baseNoSection.style.display = 'none';
+    structSection.style.display = 'none';
+    discussSection.style.display = 'block';
+    // 다중선택 시: 그룹 연결 버튼만 표시
+    document.getElementById('propDiscussLabel').style.display = 'none';
+    document.getElementById('propDiscussLabel').parentElement.style.display = 'none';
+    document.getElementById('propDiscussX').style.display = 'none';
+    document.getElementById('propDiscussX').parentElement.style.display = 'none';
+    document.getElementById('propDiscussY').style.display = 'none';
+    document.getElementById('propDiscussY').parentElement.style.display = 'none';
+    document.getElementById('propDiscussW').style.display = 'none';
+    document.getElementById('propDiscussW').parentElement.style.display = 'none';
+    document.getElementById('propDiscussH').style.display = 'none';
+    document.getElementById('propDiscussH').parentElement.style.display = 'none';
+    document.getElementById('propDiscussGroupId').style.display = 'none';
+    document.getElementById('propDiscussGroupId').parentElement.style.display = 'none';
+    document.getElementById('btnDiscussDelete').style.display = 'none';
+    document.getElementById('btnDiscussConnect').textContent = state.selectedDiscussIds.size + '개 선택항목 연결 (그룹)';
+    document.getElementById('btnDiscussConnect').style.display = 'block';
+  } else if (state.selectedBaseNoIds.size === 1) {
+    panel.classList.add('visible');
+    multiSection.style.display = 'none';
+    boothSection.style.display = 'none';
+    structSection.style.display = 'none';
+    baseNoSection.style.display = 'block';
+    const selectedId = [...state.selectedBaseNoIds][0];
+    const bn = state.baseNumbers.find(b => b.id === selectedId);
+    if (!bn) return;
+    document.getElementById('propBaseNo').value = bn.baseNo;
+    document.getElementById('propBaseNoX').value = pxToM(bn.x).toFixed(1);
+    document.getElementById('propBaseNoY').value = pxToM(bn.y).toFixed(1);
+    document.getElementById('propBaseNoW').value = pxToM(bn.w).toFixed(1);
+    document.getElementById('propBaseNoH').value = pxToM(bn.h).toFixed(1);
+  } else if (state.selectedBaseNoIds.size > 1) {
+    panel.classList.add('visible');
+    multiSection.style.display = 'block';
+    boothSection.style.display = 'none';
+    baseNoSection.style.display = 'none';
+    structSection.style.display = 'none';
+    document.getElementById('multiSelectCount').textContent = state.selectedBaseNoIds.size + '개 BaseNo 선택';
+  } else if (state.selectedStructId) {
+    panel.classList.add('visible');
+    multiSection.style.display = 'none';
+    boothSection.style.display = 'none';
+    baseNoSection.style.display = 'none';
     structSection.style.display = 'block';
     populateStructProps();
   } else if (state.selectedIds.size > 1) {
     panel.classList.add('visible');
     multiSection.style.display = 'block';
     boothSection.style.display = 'none';
+    baseNoSection.style.display = 'none';
     structSection.style.display = 'none';
     document.getElementById('multiSelectCount').textContent = state.selectedIds.size + '개 선택';
   } else if (state.selectedIds.size === 1) {
     panel.classList.add('visible');
     multiSection.style.display = 'none';
     boothSection.style.display = 'block';
+    baseNoSection.style.display = 'none';
     structSection.style.display = 'none';
     const b = getSelectedBooth();
     if (!b) return;
@@ -4365,6 +5517,23 @@ function updateProps() {
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
     structSection.style.display = 'none';
+    baseNoSection.style.display = 'none';
+    discussSection.style.display = 'none';
+    // Reset discuss section visibility for next use
+    document.getElementById('propDiscussLabel').style.display = '';
+    document.getElementById('propDiscussLabel').parentElement.style.display = '';
+    document.getElementById('propDiscussX').style.display = '';
+    document.getElementById('propDiscussX').parentElement.style.display = '';
+    document.getElementById('propDiscussY').style.display = '';
+    document.getElementById('propDiscussY').parentElement.style.display = '';
+    document.getElementById('propDiscussW').style.display = '';
+    document.getElementById('propDiscussW').parentElement.style.display = '';
+    document.getElementById('propDiscussH').style.display = '';
+    document.getElementById('propDiscussH').parentElement.style.display = '';
+    document.getElementById('propDiscussGroupId').style.display = '';
+    document.getElementById('propDiscussGroupId').parentElement.style.display = '';
+    document.getElementById('btnDiscussDelete').style.display = '';
+    document.getElementById('btnDiscussConnect').textContent = '선택항목 연결 (그룹)';
     // 전기/부스타입 범례가 켜져 있으면 패널 유지, 아니면 숨김
     if (state.showElec || state.showBoothType) {
       panel.classList.add('visible');
@@ -4399,6 +5568,80 @@ document.getElementById('propMemo').addEventListener('change', (e) => {
   const b = getSelectedBooth(); if (!b) return;
   saveUndo(); b.memo = e.target.value; scheduleSave(); render();
 });
+
+// ─── BaseNo Props ───
+['propBaseNo', 'propBaseNoX', 'propBaseNoY', 'propBaseNoW', 'propBaseNoH'].forEach(id => {
+  document.getElementById(id).addEventListener('change', (e) => {
+    if (state.selectedBaseNoIds.size !== 1) return;
+    const selectedId = [...state.selectedBaseNoIds][0];
+    const bn = state.baseNumbers.find(b => b.id === selectedId);
+    if (!bn) return;
+    saveUndo();
+    if (id === 'propBaseNo') bn.baseNo = e.target.value;
+    else if (id === 'propBaseNoX') bn.x = mToPx(parseFloat(e.target.value));
+    else if (id === 'propBaseNoY') bn.y = mToPx(parseFloat(e.target.value));
+    else if (id === 'propBaseNoW') bn.w = mToPx(parseFloat(e.target.value));
+    else if (id === 'propBaseNoH') bn.h = mToPx(parseFloat(e.target.value));
+    scheduleSave(); render();
+  });
+});
+document.getElementById('btnDeleteBaseNoProp').addEventListener('click', () => {
+  if (state.selectedBaseNoIds.size) {
+    saveUndo();
+    const ids = new Set(state.selectedBaseNoIds);
+    state.baseNumbers = state.baseNumbers.filter(bn => !ids.has(bn.id));
+    state.selectedBaseNoIds.clear();
+    scheduleSave(); render(); updateProps();
+  }
+});
+
+// 배정논의 오버레이 속성
+document.getElementById('propDiscussLabel').addEventListener('input', (e) => {
+  if (state.selectedDiscussIds.size !== 1) return;
+  const id = [...state.selectedDiscussIds][0];
+  const ov = state.discussOverlays.find(o => o.id === id);
+  if (ov) {
+    ov.label = e.target.value;
+    scheduleSave(); render();
+  }
+});
+
+['propDiscussX', 'propDiscussY', 'propDiscussW', 'propDiscussH'].forEach(propId => {
+  document.getElementById(propId).addEventListener('input', (e) => {
+    if (state.selectedDiscussIds.size !== 1) return;
+    const id = [...state.selectedDiscussIds][0];
+    const ov = state.discussOverlays.find(o => o.id === id);
+    if (!ov) return;
+    const newVal = mToPx(parseFloat(e.target.value) || 0);
+    const prop = propId.replace('propDiscuss', '').toLowerCase();
+    if (prop === 'x') ov.x = newVal;
+    else if (prop === 'y') ov.y = newVal;
+    else if (prop === 'w') ov.w = newVal;
+    else if (prop === 'h') ov.h = newVal;
+    scheduleSave(); render();
+  });
+});
+
+document.getElementById('btnDiscussConnect').addEventListener('click', () => {
+  if (state.selectedDiscussIds.size < 2) return;
+  saveUndo();
+  const grpId = state.nextDiscussGroupId++;
+  state.discussOverlays.forEach(ov => {
+    if (state.selectedDiscussIds.has(ov.id)) ov.groupId = grpId;
+  });
+  scheduleSave(); render(); updateProps();
+});
+
+document.getElementById('btnDiscussDelete').addEventListener('click', () => {
+  if (state.selectedDiscussIds.size) {
+    saveUndo();
+    const ids = new Set(state.selectedDiscussIds);
+    state.discussOverlays = state.discussOverlays.filter(ov => !ids.has(ov.id));
+    state.selectedDiscussIds.clear();
+    scheduleSave(); render(); updateProps();
+  }
+});
+
 // 부스 타입 버튼
 document.getElementById('boothTypeBtns').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
@@ -4608,6 +5851,11 @@ document.getElementById('sPropStroke').addEventListener('input', e => applyStruc
 
 // ─── Stats ───
 function updateStats() {
+  // 줌 % 업데이트
+  const zoomPercent = Math.round(state.zoom * 100);
+  const zoomEl = document.getElementById('zoomPercent');
+  if (zoomEl) zoomEl.textContent = zoomPercent + '%';
+
   const counts = { available: 0, discuss: 0, spot: 0, hold: 0, proposing: 0, assigned: 0, online: 0, fake: 0, excluded: 0, facility: 0 };
   let totalArea = 0;
   for (const b of state.booths) {
@@ -4642,259 +5890,12 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
 });
 
-// ─── 배정 워크플로우 ───
-function enterAssignMode() {
-  state.assignMode = true;
-  state.assignModeBooths = new Set();
-  state.assignModeOrigStatus = {};
-  const hint = document.getElementById('assignHint');
-  hint.style.display = 'flex';
-  const btn = document.getElementById('btnAssignMode');
-  btn.textContent = '배정 모드 진행 중...';
-  btn.disabled = true;
-  btn.style.background = '#FFD600';
-  btn.style.color = '#000';
-}
-
-function exitAssignMode(revert = false) {
-  if (revert) {
-    state.assignModeBooths.forEach(id => {
-      const b = state.booths.find(b => b.id === id);
-      if (b) b.status = state.assignModeOrigStatus[id] || 'available';
-    });
-  }
-  state.assignMode = false;
-  state.assignModeBooths = new Set();
-  state.assignModeOrigStatus = {};
-  const hint = document.getElementById('assignHint');
-  hint.style.display = 'none';
-  const btn = document.getElementById('btnAssignMode');
-  btn.textContent = '부스 배정 시작';
-  btn.disabled = false;
-  btn.style.background = 'var(--accent)';
-  btn.style.color = '#fff';
-  render(); updateStats();
-}
-
 function updateLockButton() {
   const btn = document.getElementById('btnLockCanvas');
   if (state.locked) {
     btn.classList.add('active');
   } else {
     btn.classList.remove('active');
-  }
-}
-
-function updateAssignFilePreview() {
-  const now = new Date();
-  const ds = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
-  const name = document.getElementById('assignCompanyName').value || '{참가업체명}';
-  document.getElementById('assignFileNamePreview').textContent = `파일명: KIMES BUSAN 2026_Floor Plan_${ds}_${name}.pdf`;
-}
-
-function openAssignModal() {
-  if (!state.assignModeBooths.size) { alert('선택된 부스가 없습니다.'); return; }
-  document.getElementById('assignModalInfo').textContent =
-    `선택된 부스 ${state.assignModeBooths.size}개를 배정논의 상태로 저장하고 PDF를 출력합니다.`;
-  document.getElementById('assignCompanyName').value = '';
-  updateAssignFilePreview();
-  openModal('modalAssignGuide');
-}
-
-function cancelAssignModal() {
-  closeModal('modalAssignGuide');
-  exitAssignMode(true);
-}
-
-function renderForAssignExport(ectx, W, H, discussIds, showNames = false) {
-  const booths = state.booths;
-  const totalDiscuss = discussIds.size;
-
-  // 전체 도면이 보이도록 배경 이미지 기준으로 bounds 계산
-  let minX, minY, maxX, maxY;
-  if (state.exportRegion) {
-    minX = state.exportRegion.x; minY = state.exportRegion.y;
-    maxX = state.exportRegion.x + state.exportRegion.w;
-    maxY = state.exportRegion.y + state.exportRegion.h;
-  } else if (state.bg.img) {
-    const pad = GRID_PX * 2;
-    minX = state.bg.x - pad; minY = state.bg.y - pad;
-    maxX = state.bg.x + state.bg.w + pad;
-    maxY = state.bg.y + state.bg.h + pad;
-  } else if (booths.length) {
-    minX = Math.min(...booths.map(b => b.x)) - GRID_PX;
-    minY = Math.min(...booths.map(b => b.y)) - GRID_PX;
-    maxX = Math.max(...booths.map(b => b.x + b.w)) + GRID_PX;
-    maxY = Math.max(...booths.map(b => b.y + b.h)) + GRID_PX;
-  } else { minX = 0; minY = 0; maxX = 300; maxY = 300; }
-
-  const sceneW = maxX - minX, sceneH = maxY - minY;
-  const zoom = Math.min(W / sceneW, H / sceneH) * 0.97;
-  const panX = (W - sceneW * zoom) / 2 - minX * zoom;
-  const panY = (H - sceneH * zoom) / 2 - minY * zoom;
-
-  // 흰 배경
-  ectx.fillStyle = '#FFFFFF';
-  ectx.fillRect(0, 0, W, H);
-  ectx.save();
-  ectx.translate(panX, panY);
-  ectx.scale(zoom, zoom);
-
-  // 도면 이미지 — 불투명
-  if (state.bg.img) {
-    const rot = (state.bg.rotation || 0) * Math.PI / 180;
-    if (rot !== 0) {
-      const cx = state.bg.x + state.bg.w / 2, cy = state.bg.y + state.bg.h / 2;
-      ectx.save(); ectx.translate(cx, cy); ectx.rotate(rot);
-      ectx.drawImage(state.bg.img, -state.bg.w/2, -state.bg.h/2, state.bg.w, state.bg.h);
-      ectx.restore();
-    } else {
-      ectx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
-    }
-  }
-
-  // 구조물
-  drawStructures(ectx, zoom, false);
-
-  // 부스 — discuss만 노란 하이라이트, 나머지는 모두 회색 박스
-  booths.forEach(b => {
-    const isDiscuss = discussIds.has(b.id);
-    const isExcluded = b.status === 'excluded';
-
-    if (isDiscuss) {
-      // 노란 하이라이트
-      ectx.fillStyle = 'rgba(255,214,0,0.45)';
-      ectx.fillRect(b.x, b.y, b.w, b.h);
-      ectx.strokeStyle = '#FFD600';
-      ectx.lineWidth = 2.5 / zoom;
-      ectx.strokeRect(b.x, b.y, b.w, b.h);
-      // discuss 부스는 업체명 표기 안 함 (배정논의 위치 보안)
-    } else if (isExcluded) {
-      // 배정제외: 매우 연한 회색
-      ectx.fillStyle = 'rgba(230,230,230,0.4)';
-      ectx.fillRect(b.x, b.y, b.w, b.h);
-      ectx.strokeStyle = '#E0E0E0';
-      ectx.lineWidth = 0.6 / zoom;
-      ectx.strokeRect(b.x, b.y, b.w, b.h);
-    } else {
-      // 모든 일반 부스: 회색 박스
-      ectx.fillStyle = 'rgba(220,220,220,0.75)';
-      ectx.fillRect(b.x, b.y, b.w, b.h);
-      ectx.strokeStyle = '#AAAAAA';
-      ectx.lineWidth = 1 / zoom;
-      ectx.strokeRect(b.x, b.y, b.w, b.h);
-      if (showNames && (b.companyName || b.boothId)) {
-        drawBoothContent(ectx, b, zoom, '#333333', false, true, true);
-      }
-    }
-  });
-
-  // 각 discuss 부스 위에 화살표 (아래 방향)
-  {
-    const db = booths.filter(b => discussIds.has(b.id));
-    const arrowLen = GRID_PX * 1.4;   // 화살표 전체 길이 (세계좌표)
-    const headSize = GRID_PX * 0.55;  // 화살촉 크기
-    ectx.fillStyle = '#E53935';
-    ectx.strokeStyle = '#E53935';
-    ectx.lineWidth = 3.5 / zoom;
-    ectx.lineCap = 'round';
-    db.forEach(b => {
-      const tipX = b.x + b.w / 2;
-      const tipY = b.y - GRID_PX * 0.15;
-      const tailY = tipY - arrowLen + headSize;
-      // 화살 줄기
-      ectx.beginPath();
-      ectx.moveTo(tipX, tailY);
-      ectx.lineTo(tipX, tipY - headSize);
-      ectx.stroke();
-      // 화살촉 삼각형
-      ectx.beginPath();
-      ectx.moveTo(tipX, tipY);
-      ectx.lineTo(tipX - headSize * 0.55, tipY - headSize);
-      ectx.lineTo(tipX + headSize * 0.55, tipY - headSize);
-      ectx.closePath();
-      ectx.fill();
-      // "Booth Location (부스번호부스)" 라벨
-      const boothCount = Math.round((b.w * b.h) / (GRID_PX * GRID_PX));
-      const boothLabel = `Booth Location (${boothCount}부스)`;
-      const fz = Math.max(GRID_PX * 0.45, 5);
-      ectx.font = `700 ${fz}px Pretendard, sans-serif`;
-      ectx.textAlign = 'center';
-      ectx.textBaseline = 'bottom';
-      // 흰 배경
-      const tw = ectx.measureText(boothLabel).width;
-      const pad = fz * 0.3;
-      const lx = tipX - tw / 2 - pad;
-      const ly = tailY - fz * 0.2 - pad * 2;
-      ectx.fillStyle = 'rgba(255,255,255,0.88)';
-      ectx.fillRect(lx, ly, tw + pad * 2, fz + pad * 2);
-      ectx.fillStyle = '#E53935';
-      ectx.fillText(boothLabel, tipX, tailY - fz * 0.2);
-    });
-    ectx.lineCap = 'butt';
-  }
-
-  // 연결선
-  if (discussIds.size > 1) {
-    const db = booths.filter(b => discussIds.has(b.id));
-    const cx = db.reduce((s, b) => s + b.x + b.w/2, 0) / db.length;
-    const cy = db.reduce((s, b) => s + b.y + b.h/2, 0) / db.length;
-    ectx.strokeStyle = 'rgba(255,180,0,0.9)';
-    ectx.lineWidth = 1.5 / zoom;
-    ectx.setLineDash([5/zoom, 4/zoom]);
-    db.forEach(b => {
-      ectx.beginPath();
-      ectx.moveTo(b.x + b.w/2, b.y + b.h/2);
-      ectx.lineTo(cx, cy);
-      ectx.stroke();
-    });
-    ectx.setLineDash([]);
-    ectx.beginPath();
-    ectx.arc(cx, cy, 5/zoom, 0, Math.PI * 2);
-    ectx.fillStyle = '#FFD600';
-    ectx.fill();
-  }
-
-  ectx.restore();
-}
-
-function executeAssignExport() {
-  const companyName = document.getElementById('assignCompanyName').value.trim();
-  if (!companyName) { alert('업체명을 입력해주세요.'); return; }
-  const showNames = document.getElementById('assignShowNames').checked;
-  const discussIds = new Set(state.assignModeBooths);
-  // discussGroup 부여: 이번 세션 부스에 공통 그룹 ID 할당
-  const grpId = state.nextDiscussGroup;
-  state.assignModeBooths.forEach(id => {
-    const b = state.booths.find(b => b.id === id);
-    if (b) b.discussGroup = grpId;
-  });
-  state.nextDiscussGroup++;
-  // A3 portrait: 297×420mm → 3508×4961px @300dpi
-  const offW = 3508, offH = 4961;
-  const off = document.createElement('canvas');
-  off.width = offW; off.height = offH;
-  const octx = off.getContext('2d');
-  renderForAssignExport(octx, offW, offH, discussIds, showNames);
-  const imgData = off.toDataURL('image/jpeg', 0.95);
-  // 파일명: KIMES BUSAN 2026_Floor Plan_YYMMDD_업체명
-  const now = new Date();
-  const dateStr = String(now.getFullYear()).slice(2) +
-    String(now.getMonth() + 1).padStart(2, '0') +
-    String(now.getDate()).padStart(2, '0');
-  const fileName = `KIMES BUSAN 2026_Floor Plan_${dateStr}_${companyName}.pdf`;
-  try {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
-    doc.save(fileName);
-    closeModal('modalAssignGuide');
-    exitAssignMode(false);
-    scheduleSave();
-  } catch (e) {
-    alert('PDF 저장 실패: ' + e.message);
   }
 }
 
@@ -5047,20 +6048,6 @@ function updateElecLegend() {
       panel.classList.remove('visible');
     }
   }
-}
-
-function toggleLayerLock(layerId) {
-  if (!state.layerLocked) state.layerLocked = {};
-  state.layerLocked[layerId] = !state.layerLocked[layerId];
-  // UI 업데이트 (자물쇠 아이콘)
-  const buttons = document.querySelectorAll('button[onclick*="toggleLayerLock"]');
-  buttons.forEach(btn => {
-    const btnLayerId = btn.getAttribute('onclick').match(/'([^']+)'/)?.[1];
-    if (btnLayerId === layerId) {
-      btn.textContent = state.layerLocked[layerId] ? '🔒' : '🔓';
-    }
-  });
-  scheduleSave();
 }
 
 // ─── Company DB ───
@@ -5413,8 +6400,6 @@ function toggleViewerBg() {
   btn.style.borderColor = state.bg.visible ? '#E0E0E0' : '#1a73e8';
   render();
 }
-
-document.getElementById('btnAssignMode').addEventListener('click', enterAssignMode);
 
 document.getElementById('btnLockCanvas').addEventListener('click', () => {
   state.locked = !state.locked;
