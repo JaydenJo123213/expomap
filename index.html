@@ -530,6 +530,8 @@
 
     <div id="boothPropsSection">
       <div class="panel-title">부스 상세</div>
+      <div id="boothPropsEmpty" style="font-size:12px;color:var(--text-dim);padding:8px 0">부스를 선택해주세요</div>
+      <div id="boothPropsContent">
       <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
       <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명"></div>
       <div class="prop-row"><span class="prop-label">UID</span><input class="prop-input" id="propCompany" style="width:120px" placeholder="company_uid"></div>
@@ -614,6 +616,7 @@
         <div class="panel-title">메모</div>
         <textarea id="propMemo" rows="3" style="width:100%;resize:vertical;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;padding:5px;box-sizing:border-box;line-height:1.4" placeholder="부스 메모..."></textarea>
       </div>
+    </div><!-- boothPropsContent 끝 -->
     </div>
     <div id="baseNoPropsSection" style="display:none">
       <div class="panel-title">기본부스번호</div>
@@ -5463,6 +5466,8 @@ function updateProps() {
     panel.classList.add('visible');
     multiSection.style.display = 'none';
     boothSection.style.display = 'block';
+    document.getElementById('boothPropsEmpty').style.display = 'none';
+    document.getElementById('boothPropsContent').style.display = 'block';
     baseNoSection.style.display = 'none';
     structSection.style.display = 'none';
     const b = getSelectedBooth();
@@ -5511,7 +5516,9 @@ function updateProps() {
     });
   } else {
     multiSection.style.display = 'none';
-    boothSection.style.display = 'none';
+    boothSection.style.display = 'block';
+    document.getElementById('boothPropsEmpty').style.display = 'block';
+    document.getElementById('boothPropsContent').style.display = 'none';
     structSection.style.display = 'none';
     baseNoSection.style.display = 'none';
     discussSection.style.display = 'none';
