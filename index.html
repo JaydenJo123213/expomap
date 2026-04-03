@@ -5328,7 +5328,7 @@ function selectLayerProperties(layerId) {
   state.selectedLogoId = null;
 
   const panel = document.getElementById('panelRight');
-  const bgSection = document.getElementById('bgPanelSection');
+  const bgSection = document.getElementById('bgPanelSection') || { style: {} };
   const boothSection = document.getElementById('boothPropsSection');
   const baseNoSection = document.getElementById('baseNoPropsSection');
   const discussSection = document.getElementById('discussPropsSection');
@@ -5338,7 +5338,7 @@ function selectLayerProperties(layerId) {
   const otherLegend = document.getElementById('otherLegendSection');
 
   // 모든 섹션 숨기기
-  bgSection.style.display = 'none';
+  if (bgSection && bgSection.style) bgSection.style.display = 'none';
   boothSection.style.display = 'none';
   baseNoSection.style.display = 'none';
   discussSection.style.display = 'none';
@@ -5369,7 +5369,7 @@ function selectLayerProperties(layerId) {
     case 'bg':
       // 배경 정보 표시
       panel.classList.add('visible');
-      bgSection.style.display = '';
+      if (bgSection && bgSection.style) bgSection.style.display = '';
       break;
     case 'elec':
       panel.classList.add('visible');
@@ -6421,6 +6421,7 @@ function toggleBgPanel() {
   const panel = document.getElementById('bgPanelSection');
   const sep = document.getElementById('bgPanelSeparator');
   const btn = document.getElementById('btnBgPanel');
+  if (!panel || !sep || !btn) return;
   const isOpen = panel.style.display !== 'none';
   panel.style.display = isOpen ? 'none' : '';
   sep.style.display = isOpen ? 'none' : '';
