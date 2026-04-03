@@ -1379,7 +1379,7 @@ let state = {
     'boothType': false,   // 부스타입 (조립부스)
     'discuss': false,     // 배정안내
     'booth': false,       // 부스블럭
-    'baseNo': false,      // 기본부스번호
+    'baseNo': true,       // 기본부스번호 (기본 잠금)
     'bg': false,          // 도면배경
   },
 };
@@ -5308,14 +5308,14 @@ function renderLayers() {
     sidebarLayersList.innerHTML = LAYERS.map(layer => {
       const isVisible = layer.customGetter ? layer.customGetter() : state[layer.stateKey];
       const isLocked = state.layerLocked[layer.id];
-      const eyeIcon = isVisible ? '◉' : '◎';  // 눈 열림/닫힘
-      const lockIcon = isLocked ? '🔒' : '🔓';  // 자물쇠 잠금/해제
+      const eyeIcon = isVisible ? '👁️' : '';  // 공개일 때만 눈 표시
+      const lockIcon = isLocked ? '🔒' : '';  // 잠금일 때만 자물쇠 표시
 
       return `
         <div style="display:grid;grid-template-columns:1fr 40px 40px;gap:6px;padding:4px 6px;background:var(--surface-hover);border-radius:4px;align-items:center;user-select:none;cursor:pointer" onclick="selectLayerProperties('${layer.id}')">
           <span style="color:var(--text);font-size:12px">${layer.label}</span>
-          <button onclick="event.stopPropagation(); toggleLayerVisibility('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;text-align:center;flex-shrink:0">${eyeIcon}</button>
-          <button onclick="event.stopPropagation(); toggleLayerLock('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;text-align:center;flex-shrink:0">${lockIcon}</button>
+          <button onclick="event.stopPropagation(); toggleLayerVisibility('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;text-align:center;flex-shrink:0;min-width:20px">${eyeIcon}</button>
+          <button onclick="event.stopPropagation(); toggleLayerLock('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;text-align:center;flex-shrink:0;min-width:20px">${lockIcon}</button>
         </div>
       `;
     }).join('');
