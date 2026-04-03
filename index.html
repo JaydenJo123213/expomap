@@ -5198,24 +5198,28 @@ document.getElementById('btnArrayCopy').addEventListener('click', () => {
   if (!state.selectedIds.size) { alert('Select booths to array-copy.'); return; }
   openModal('modalArrayCopy');
 });
-document.getElementById('btnDelete').addEventListener('click', () => {
-  if (state.selectedIds.size) {
-    saveUndo();
-    const ids = new Set(state.selectedIds);
-    state.booths = state.booths.filter(b => !ids.has(b.id));
-    state.groups.forEach(g => { g.boothIds = g.boothIds.filter(id => !ids.has(id)); });
-    state.groups = state.groups.filter(g => g.boothIds.length > 0);
-    state.selectedIds.clear(); render(); updateProps();
-  } else if (state.selectedStructId) {
-    saveUndo();
-    state.structures = state.structures.filter(s => s.id !== state.selectedStructId);
-    state.selectedStructId = null; render();
-  } else if (state.selectedLogoId) {
-    saveUndo();
-    state.logos = state.logos.filter(l => l.id !== state.selectedLogoId);
-    state.selectedLogoId = null; render();
-  }
-});
+// Delete 버튼 (HTML에서 제거됨 - Del/Backspace 키로 동작)
+const btnDelete = document.getElementById('btnDelete');
+if (btnDelete) {
+  btnDelete.addEventListener('click', () => {
+    if (state.selectedIds.size) {
+      saveUndo();
+      const ids = new Set(state.selectedIds);
+      state.booths = state.booths.filter(b => !ids.has(b.id));
+      state.groups.forEach(g => { g.boothIds = g.boothIds.filter(id => !ids.has(id)); });
+      state.groups = state.groups.filter(g => g.boothIds.length > 0);
+      state.selectedIds.clear(); render(); updateProps();
+    } else if (state.selectedStructId) {
+      saveUndo();
+      state.structures = state.structures.filter(s => s.id !== state.selectedStructId);
+      state.selectedStructId = null; render();
+    } else if (state.selectedLogoId) {
+      saveUndo();
+      state.logos = state.logos.filter(l => l.id !== state.selectedLogoId);
+      state.selectedLogoId = null; render();
+    }
+  });
+}
 document.getElementById('btnAutoNumber').addEventListener('click', () => openModal('modalBoothNum'));
 document.getElementById('btnBaseNoNumber').addEventListener('click', () => openModal('modalBaseNoNum'));
 document.getElementById('btnImport').addEventListener('click', () => { _importStep = 1; setImportStep(1); _importRawData = null; document.getElementById('importFileInfo').textContent = ''; document.getElementById('importBtnNext').textContent = 'Next →'; openModal('modalImport'); });
