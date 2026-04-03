@@ -80,8 +80,8 @@
   .panel-right { width: 240px; background: var(--surface); border-left: 1px solid var(--border); display: none; flex-shrink: 0; display: flex; flex-direction: column; }
   .panel-right.visible { display: flex; }
   .panel-right-top { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
-  .panel-right-middle { flex: 1; overflow-y: auto; padding: 14px; }
-  .panel-right-bottom { padding: 10px 14px 10px 14px; border-top: 1px solid var(--border); max-height: 350px; overflow-y: auto; margin-top: auto; margin-bottom: 35px; }
+  .panel-right-middle { flex: 1; overflow-y: auto; padding: 4px 16px 14px; }
+  .panel-right-bottom { padding: 10px 16px 10px 16px; border-top: 1px solid var(--border); max-height: 350px; overflow-y: auto; margin-top: auto; margin-bottom: 35px; }
   .prop-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 12px; }
   .prop-label { color: var(--text-dim); }
   .prop-value { font-weight: 500; }
@@ -499,7 +499,7 @@
     </div><!-- panel-right-middle 끝 -->
 
     <!-- 멀티셀렉 일괄 변경 패널 -->
-    <div id="multiSelectSection" style="display:none">
+    <div id="multiSelectSection" style="display:none;padding:4px 16px 14px">
       <div class="panel-title">일괄 변경 <span id="multiSelectCount" style="color:var(--accent);font-weight:700"></span></div>
       <div style="margin-top:8px">
         <div class="panel-title">Status</div>
@@ -530,8 +530,8 @@
       <button id="btnMultiApply" style="width:100%;margin-top:14px;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">적용</button>
     </div>
 
-    <div id="boothPropsSection">
-      <div class="panel-title">Booth Properties</div>
+    <div id="boothPropsSection" style="padding:4px 16px 14px">
+      <div class="panel-title">부스 상세</div>
       <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
       <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명"></div>
       <div class="prop-row"><span class="prop-label">UID</span><input class="prop-input" id="propCompany" style="width:120px" placeholder="company_uid"></div>
@@ -617,7 +617,7 @@
         <textarea id="propMemo" rows="3" style="width:100%;resize:vertical;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;padding:5px;box-sizing:border-box;line-height:1.4" placeholder="부스 메모..."></textarea>
       </div>
     </div>
-    <div id="baseNoPropsSection" style="display:none">
+    <div id="baseNoPropsSection" style="display:none;padding:4px 16px 14px">
       <div class="panel-title">기본부스번호</div>
       <div class="prop-row"><span class="prop-label">번호</span><input class="prop-input" id="propBaseNo" placeholder="A-101" style="width:100%"></div>
       <div class="prop-row"><span class="prop-label">X (m)</span><input class="prop-input" id="propBaseNoX" type="number" step="0.5"></div>
@@ -626,7 +626,7 @@
       <div class="prop-row"><span class="prop-label">H (m)</span><input class="prop-input" id="propBaseNoH" type="number" step="0.5"></div>
       <button class="panel-btn danger" id="btnDeleteBaseNoProp" style="margin-top:10px;width:100%">삭제</button>
     </div>
-    <div id="discussPropsSection" style="display:none">
+    <div id="discussPropsSection" style="display:none;padding:4px 16px 14px">
       <div class="panel-title">배정논의 오버레이</div>
       <div class="prop-row"><span class="prop-label">라벨</span><input class="prop-input" id="propDiscussLabel" placeholder="업체명"></div>
       <div class="prop-row"><span class="prop-label">X (m)</span><input class="prop-input" id="propDiscussX" type="number" step="0.5"></div>
@@ -637,7 +637,7 @@
       <button class="panel-btn" id="btnDiscussConnect" style="margin-top:8px;width:100%">선택항목 연결 (그룹)</button>
       <button class="panel-btn danger" id="btnDiscussDelete" style="margin-top:6px;width:100%">삭제</button>
     </div>
-    <div id="panelStructProps" style="display:none">
+    <div id="panelStructProps" style="display:none;padding:4px 16px 14px">
       <div class="panel-title" id="structPropTitle">Object</div>
       <!-- position: for rect, door, circle, column, text -->
       <div id="sRowXY">
