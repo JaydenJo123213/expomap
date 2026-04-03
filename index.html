@@ -393,8 +393,12 @@
       </div>
 
       <div class="panel-section">
-        <div class="panel-title">배정논의 레이어</div>
-        <button class="panel-btn active" id="btnDiscussToggle" onclick="toggleDiscussLayer()">배정논의 오버레이</button>
+        <div class="panel-title">레이어</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--surface-hover);border-radius:4px;user-select:none;cursor:pointer" onclick="selectLayerProperties('discuss')">
+          <button id="eyeDiscuss" onclick="event.stopPropagation(); toggleLayerVisibility('discuss')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:12px;padding:0;width:20px;text-align:center;flex-shrink:0">◉</button>
+          <button id="lockDiscuss" onclick="event.stopPropagation(); toggleLayerLock('discuss')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:12px;padding:0;width:20px;text-align:center;flex-shrink:0">🔓</button>
+          <span style="flex:1;color:var(--text);font-size:12px">배정논의 오버레이</span>
+        </div>
       </div>
     </div>
 
@@ -736,7 +740,14 @@
       <!-- 레이어 -->
       <div style="border-top:1px solid var(--border);padding-top:8px">
       <div class="panel-title" style="margin-bottom:8px;margin-top:0">레이어</div>
-      <div id="layersList" style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+      <!-- 헤더 -->
+      <div style="display:grid;grid-template-columns:1fr 40px 40px;gap:6px;padding:4px 6px;border-bottom:1px solid var(--border);margin-bottom:6px;font-size:11px;font-weight:600;color:var(--text-dim)">
+        <div>종류</div>
+        <div style="text-align:center">공개</div>
+        <div style="text-align:center">잠금</div>
+      </div>
+      <!-- 레이어 목록 -->
+      <div id="layersList" style="display:flex;flex-direction:column;gap:4px;font-size:12px">
         <!-- 레이어 항목들이 여기에 추가됨 -->
       </div>
       </div>
@@ -5311,10 +5322,10 @@ function renderLayers() {
     const lockIcon = isLocked ? '🔒' : '🔓';  // 자물쇠 잠금/해제
 
     return `
-      <div style="display:flex;align-items:center;gap:8px;padding:4px 6px;background:var(--surface-hover);border-radius:4px;user-select:none;cursor:pointer" onclick="selectLayerProperties('${layer.id}')">
-        <button onclick="event.stopPropagation(); toggleLayerVisibility('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:12px;padding:0;width:20px;text-align:center;flex-shrink:0">${eyeIcon}</button>
-        <button onclick="event.stopPropagation(); toggleLayerLock('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:12px;padding:0;width:20px;text-align:center;flex-shrink:0">${lockIcon}</button>
-        <span style="flex:1;color:var(--text);font-size:12px">${layer.label}</span>
+      <div style="display:grid;grid-template-columns:1fr 40px 40px;gap:6px;padding:4px 6px;background:var(--surface-hover);border-radius:4px;align-items:center;user-select:none;cursor:pointer" onclick="selectLayerProperties('${layer.id}')">
+        <span style="color:var(--text);font-size:12px">${layer.label}</span>
+        <button onclick="event.stopPropagation(); toggleLayerVisibility('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;text-align:center;flex-shrink:0">${eyeIcon}</button>
+        <button onclick="event.stopPropagation(); toggleLayerLock('${layer.id}')" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:13px;padding:0;text-align:center;flex-shrink:0">${lockIcon}</button>
       </div>
     `;
   }).join('');
