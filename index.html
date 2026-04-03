@@ -78,10 +78,10 @@
   .struct-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(156,39,176,0.9); color: #fff; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; pointer-events: none; white-space: nowrap; }
 
   /* ─── Right Panel ─── */
-  .panel-right { width: 240px; background: var(--surface); border-left: 1px solid var(--border); display: none; flex-shrink: 0; display: flex; flex-direction: column; }
+  .panel-right { width: 240px; background: var(--surface); border-left: 1px solid var(--border); display: none; flex-shrink: 0; display: flex; flex-direction: column; margin-right: 0; }
   .panel-right.visible { display: flex; }
-  .panel-right-top { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
-  .panel-right-middle { flex: 1; overflow-y: auto; padding: 4px 16px 14px; }
+  .panel-right-top { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .panel-right-middle { flex: 1; overflow-y: auto; padding: 12px 14px 14px; }
   .panel-right-bottom { padding: 10px 16px 10px 16px; border-top: 1px solid var(--border); max-height: 350px; overflow-y: auto; margin-top: auto; margin-bottom: 35px; }
   .prop-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 12px; }
   .prop-label { color: var(--text-dim); }
@@ -590,15 +590,8 @@
       <div class="panel-title">부스 상세</div>
       <div id="boothPropsEmpty" style="font-size:12px;color:var(--text-dim);padding:8px 0">부스를 선택해주세요</div>
       <div id="boothPropsContent">
-      <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
-      <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명"></div>
-      <div class="prop-row"><span class="prop-label">UID</span><input class="prop-input" id="propCompany" style="width:120px" placeholder="company_uid"></div>
-      <div class="prop-row"><span class="prop-label">X (m)</span><input class="prop-input" id="propX" type="number"></div>
-      <div class="prop-row"><span class="prop-label">Y (m)</span><input class="prop-input" id="propY" type="number"></div>
-      <div class="prop-row"><span class="prop-label">W (m)</span><input class="prop-input" id="propW" type="number" step="0.5"></div>
-      <div class="prop-row"><span class="prop-label">H (m)</span><input class="prop-input" id="propH" type="number" step="0.5"></div>
-      <div class="prop-row"><span class="prop-label">Area</span><span class="prop-value" id="propArea">—</span></div>
-      <div style="margin-top:10px">
+      <!-- STATUS -->
+      <div style="margin-bottom:10px">
         <div class="panel-title">Status</div>
         <select class="status-select" id="propStatus">
           <option value="available">기본</option>
@@ -613,19 +606,33 @@
           <option value="facility">기타부대설비</option>
         </select>
       </div>
-      <div style="margin-top:10px">
-        <div class="panel-title">Fill Color</div>
+      <!-- Booth No. -->
+      <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
+      <!-- Company -->
+      <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명"></div>
+      <!-- UID -->
+      <div class="prop-row"><span class="prop-label">UID</span><input class="prop-input" id="propCompany" style="width:120px" placeholder="company_uid"></div>
+      <!-- X -->
+      <div class="prop-row"><span class="prop-label">X (m)</span><input class="prop-input" id="propX" type="number"></div>
+      <!-- Y -->
+      <div class="prop-row"><span class="prop-label">Y (m)</span><input class="prop-input" id="propY" type="number"></div>
+      <!-- W -->
+      <div class="prop-row"><span class="prop-label">W (m)</span><input class="prop-input" id="propW" type="number" step="0.5"></div>
+      <!-- H -->
+      <div class="prop-row"><span class="prop-label">H (m)</span><input class="prop-input" id="propH" type="number" step="0.5"></div>
+      <!-- Area -->
+      <div class="prop-row"><span class="prop-label">Area</span><span class="prop-value" id="propArea">—</span></div>
+      <!-- Fill Color -->
+      <div style="margin-top:10px;margin-bottom:10px">
+        <div class="panel-title">Fill</div>
         <div class="prop-row">
           <input type="color" id="propFillColor" style="width:36px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none;padding:2px">
           <button id="btnFillColorDefault" style="flex:1;margin-left:6px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);font-size:11px;cursor:pointer;font-family:inherit">Default</button>
         </div>
       </div>
-      <div style="margin-top:10px" id="propGroupSection">
-        <div class="panel-title">Group</div>
-        <span class="prop-value" id="propGroupLabel" style="font-size:12px">—</span>
-      </div>
-      <div style="margin-top:10px">
-        <div class="panel-title">부스 타입</div>
+      <!-- 부스 타입 -->
+      <div style="margin-bottom:10px">
+        <div class="panel-title">부스타입</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px" id="boothTypeBtns">
           <button data-btype="" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit">—</button>
           <button data-btype="조립" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">조립</button>
@@ -650,8 +657,9 @@
           </div>
         </div>
       </div>
-      <div style="margin-top:10px" id="propElecSideSection">
-        <div class="panel-title">전기 위치</div>
+      <!-- 전기 위치 -->
+      <div style="margin-bottom:10px" id="propElecSideSection">
+        <div class="panel-title">전기위치</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px" id="elecSideBtns">
           <button data-side="" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit">자동</button>
           <button data-side="top" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">상</button>
@@ -660,8 +668,9 @@
           <button data-side="right" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">우</button>
         </div>
       </div>
-      <div style="margin-top:10px" id="propOtherSideSection">
-        <div class="panel-title">기타 위치</div>
+      <!-- 기타 위치 -->
+      <div style="margin-bottom:10px" id="propOtherSideSection">
+        <div class="panel-title">기타위치</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px" id="otherSideBtns">
           <button data-side="" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--accent);color:#fff;cursor:pointer;font-family:inherit">자동</button>
           <button data-side="top" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">상</button>
@@ -670,9 +679,15 @@
           <button data-side="right" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">우</button>
         </div>
       </div>
-      <div style="margin-top:10px">
+      <!-- 메모 -->
+      <div style="margin-bottom:10px">
         <div class="panel-title">메모</div>
         <textarea id="propMemo" rows="3" style="width:100%;resize:vertical;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:inherit;padding:5px;box-sizing:border-box;line-height:1.4" placeholder="부스 메모..."></textarea>
+      </div>
+      <!-- Group (숨김) -->
+      <div style="display:none" id="propGroupSection">
+        <div class="panel-title">Group</div>
+        <span class="prop-value" id="propGroupLabel" style="font-size:12px">—</span>
       </div>
     </div><!-- boothPropsContent 끝 -->
     </div>
