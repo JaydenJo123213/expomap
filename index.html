@@ -4830,27 +4830,33 @@ canvas.addEventListener('mouseup', (e) => {
     const mw = Math.abs(state.marqueeEndX - state.marqueeStartX);
     const mh = Math.abs(state.marqueeEndY - state.marqueeStartY);
     if (mw > 2 || mh > 2) {
-      state.booths.forEach(b => {
-        // select if booth overlaps with marquee rectangle
-        const bx2 = b.x + b.w, by2 = b.y + b.h;
-        if (b.x < mx + mw && bx2 > mx && b.y < my + mh && by2 > my) {
-          state.selectedIds.add(b.id);
-        }
-      });
-      // BaseNo marquee selection
-      state.baseNumbers.forEach(bn => {
-        const bx2 = bn.x + bn.w, by2 = bn.y + bn.h;
-        if (bn.x < mx + mw && bx2 > mx && bn.y < my + mh && by2 > my) {
-          state.selectedBaseNoIds.add(bn.id);
-        }
-      });
-      // 배정논의 오버레이 marquee selection
-      state.discussOverlays.forEach(ov => {
-        const ox2 = ov.x + ov.w, oy2 = ov.y + ov.h;
-        if (ov.x < mx + mw && ox2 > mx && ov.y < my + mh && oy2 > my) {
-          state.selectedDiscussIds.add(ov.id);
-        }
-      });
+      // booth marquee selection (booth 레이어가 잠겨있으면 제외)
+      if (!state.layerLocked['booth']) {
+        state.booths.forEach(b => {
+          const bx2 = b.x + b.w, by2 = b.y + b.h;
+          if (b.x < mx + mw && bx2 > mx && b.y < my + mh && by2 > my) {
+            state.selectedIds.add(b.id);
+          }
+        });
+      }
+      // BaseNo marquee selection (baseNo 레이어가 잠겨있으면 제외)
+      if (!state.layerLocked['baseNo']) {
+        state.baseNumbers.forEach(bn => {
+          const bx2 = bn.x + bn.w, by2 = bn.y + bn.h;
+          if (bn.x < mx + mw && bx2 > mx && bn.y < my + mh && by2 > my) {
+            state.selectedBaseNoIds.add(bn.id);
+          }
+        });
+      }
+      // 배정논의 오버레이 marquee selection (discuss 레이어가 잠겨있으면 제외)
+      if (!state.layerLocked['discuss']) {
+        state.discussOverlays.forEach(ov => {
+          const ox2 = ov.x + ov.w, oy2 = ov.y + ov.h;
+          if (ov.x < mx + mw && ox2 > mx && ov.y < my + mh && oy2 > my) {
+            state.selectedDiscussIds.add(ov.id);
+          }
+        });
+      }
     }
     render(); updateProps();
   }
