@@ -5998,13 +5998,90 @@ function updateRepeatBadge() {
 // ─── Status Selection ───
 function selectByStatus(status) {
   state.selectedIds.clear();
+  const selected = [];
   for (const booth of state.booths) {
     if (booth.status === status) {
       state.selectedIds.add(booth.id);
+      selected.push({
+        id: booth.id,
+        x: pxToM(booth.x).toFixed(1),
+        y: pxToM(booth.y).toFixed(1),
+        w: pxToM(booth.w).toFixed(1),
+        h: pxToM(booth.h).toFixed(1),
+        company: booth.companyUid || '—'
+      });
     }
   }
   render();
   updateProps();
+
+  // 선택된 부스 좌표 표시
+  if (selected.length > 0) {
+    showBoothCoordinates(status, selected);
+  }
+}
+
+function showBoothCoordinates(status, booths) {
+  const statusLabel = {
+    'available': '기본',
+    'spot': '배정가능위치',
+    'hold': '홀딩',
+    'online': '온라인신청',
+    'proposing': '계약서접수',
+    'discuss': '배정논의',
+    'assigned': '배정완료',
+    'fake': '가짜배정',
+    'excluded': '배정제외',
+    'facility': '기타부대설비'
+  }[status] || status;
+
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead>
+      <tr style="background:var(--bg);border-bottom:1px solid var(--border)">
+        <th style="padding:6px;text-align:left;color:var(--text-dim)">부스ID</th>
+        <th style="padding:6px;text-align:right;color:var(--text-dim)">X (m)</th>
+        <th style="padding:6px;text-align:right;color:var(--text-dim)">Y (m)</th>
+        <th style="padding:6px;text-align:right;color:var(--text-dim)">W (m)</th>
+        <th style="padding:6px;text-align:right;color:var(--text-dim)">H (m)</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  for (const b of booths) {
+    html += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px">${b.id}</td>
+      <td style="padding:6px;text-align:right">${b.x}</td>
+      <td style="padding:6px;text-align:right">${b.y}</td>
+      <td style="padding:6px;text-align:right">${b.w}</td>
+      <td style="padding:6px;text-align:right">${b.h}</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table>`;
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay open';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:3000';
+
+  modal.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;min-width:500px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.6)">
+      <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:15px;font-weight:600">${statusLabel} - ${booths.length}개 부스</span>
+        <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:0 4px">×</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px 20px">
+        ${html}
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="this.closest('.modal-overlay').remove()" style="padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">닫기</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }
 
 // ─── Modal Helpers ───
