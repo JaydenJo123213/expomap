@@ -2684,92 +2684,50 @@ function deleteLogo(id) {
 // ─── Company Logo Caching & Upload ───
 function getLogoImage(booth, logoCache) {
   if (!booth.companyLogoUrl) return null;
-  const company = state.companies.find(c => c.company_uid === booth.companyUid);
-  if (!company) return null;
+  const cacheKey = booth.companyUid || booth.id;
 
-  if (logoCache.has(company.company_uid)) {
-    return logoCache.get(company.company_uid);
+  if (logoCache.has(cacheKey)) {
+    return logoCache.get(cacheKey);
   }
 
   const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.src = booth.companyLogoUrl;
+  img.src = booth.companyLogoUrl;  // base64 dataUrl 또는 URL
   img.onload = () => {
-    logoCache.set(company.company_uid, img);
+    logoCache.set(cacheKey, img);
     render();
   };
   img.onerror = () => {
-    console.warn(`Failed to load logo: ${booth.companyLogoUrl}`);
+    console.warn('Failed to load logo for booth:', booth.id);
   };
-  return null;
+  return null;  // 로딩 중엔 null, onload 시 재렌더
 }
 
-async function uploadCompanyLogo(companyUid, file) {
-  if (!_supaClient) {
-    alert('Supabase가 연결되지 않았습니다. 설정에서 연결해주세요.');
-    return null;
-  }
-
-  if (!file.type.startsWith('image/')) {
-    alert('이미지 파일만 업로드 가능합니다.');
-    return null;
-  }
-
-  try {
-    document.getElementById('propLogoUploadProgress').style.display = 'block';
-    document.getElementById('propLogoUploadProgress').textContent = '업로드 중...';
-
-    const timestamp = Date.now();
-    const fileName = `${companyUid}_${timestamp}.${file.type.split('/')[1]}`;
-    const { data, error } = await _supaClient.storage
-      .from('company-logos')
-      .upload(fileName, file, { upsert: true });
-
-    if (error) {
-      console.error('Supabase upload error:', error);
-      alert('업로드 실패: ' + error.message);
-      document.getElementById('propLogoUploadProgress').style.display = 'none';
-      return null;
+function uploadCompanyLogo(file) {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다 (PNG/JPEG).');
+      resolve(null);
+      return;
     }
 
-    // public URL 생성
-    const { data: publicUrlData } = _supaClient.storage
-      .from('company-logos')
-      .getPublicUrl(fileName);
-    const logoUrl = publicUrlData.publicUrl;
+    const progress = document.getElementById('propLogoUploadProgress');
+    progress.style.display = 'block';
+    progress.textContent = '변환 중...';
 
-    // company 객체에 logo_url 업데이트
-    const company = state.companies.find(c => c.company_uid === companyUid);
-    if (company) {
-      company.logo_url = logoUrl;
-      // Supabase에 저장
-      const { error: updateError } = await _supaClient
-        .from('companies')
-        .upsert({ company_uid: companyUid, logo_url: logoUrl }, { onConflict: 'company_uid' });
-
-      if (updateError) {
-        console.error('DB update error:', updateError);
-      }
-    }
-
-    // 캐시 초기화
-    state.logoCache.delete(companyUid);
-
-    document.getElementById('propLogoUploadProgress').textContent = '완료';
-    setTimeout(() => {
-      document.getElementById('propLogoUploadProgress').style.display = 'none';
-    }, 1500);
-
-    scheduleSave();
-    render();
-    updateProps();
-    return logoUrl;
-  } catch (err) {
-    console.error('Logo upload error:', err);
-    alert('업로드 중 오류 발생: ' + err.message);
-    document.getElementById('propLogoUploadProgress').style.display = 'none';
-    return null;
-  }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;  // base64 data URL
+      progress.textContent = '완료';
+      setTimeout(() => { progress.style.display = 'none'; }, 1500);
+      resolve(dataUrl);
+    };
+    reader.onerror = () => {
+      alert('파일 읽기 실패');
+      progress.style.display = 'none';
+      resolve(null);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function drawLogos(c, zoom) {
@@ -5870,32 +5828,35 @@ document.getElementById('propLogoUploadInput').addEventListener('change', async 
   const file = e.target.files[0];
   if (!file) return;
 
-  const logoUrl = await uploadCompanyLogo(b.companyUid, file);
-  if (logoUrl) {
-    b.companyLogoUrl = logoUrl;
-    saveUndo(); scheduleSave();
+  const dataUrl = await uploadCompanyLogo(file);
+  if (dataUrl) {
+    saveUndo();
+    b.companyLogoUrl = dataUrl;
+    // company 객체에도 저장
+    const company = state.companies.find(c => c.company_uid === b.companyUid);
+    if (company) {
+      company.logo_url = dataUrl;
+      state.logoCache.delete(b.companyUid);
+    }
+    scheduleSave();
+    render();
     updateProps();
   }
   e.target.value = '';
 });
 
-document.getElementById('propLogoDeleteBtn').addEventListener('click', async () => {
+document.getElementById('propLogoDeleteBtn').addEventListener('click', () => {
   const b = getSelectedBooth(); if (!b) return;
   if (!confirm('로고를 삭제하시겠습니까?')) return;
 
-  if (_supaClient) {
-    const company = state.companies.find(c => c.company_uid === b.companyUid);
-    if (company) {
-      await _supaClient
-        .from('companies')
-        .update({ logo_url: null })
-        .eq('company_uid', b.companyUid);
-      company.logo_url = null;
-      state.logoCache.delete(b.companyUid);
-    }
+  saveUndo();
+  const company = state.companies.find(c => c.company_uid === b.companyUid);
+  if (company) {
+    company.logo_url = null;
+    state.logoCache.delete(b.companyUid);
   }
   b.companyLogoUrl = null;
-  saveUndo(); scheduleSave();
+  scheduleSave();
   render(); updateProps();
 });
 
