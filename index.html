@@ -373,7 +373,7 @@
           <button class="tool-btn active" data-mode="select" style="flex:1;min-width:80px">Select <kbd>V</kbd></button>
           <button class="tool-btn" data-mode="draw" style="flex:1;min-width:80px">Draw <kbd>B</kbd></button>
           <button class="tool-btn" data-mode="baseNo" style="flex:1;min-width:80px">BaseNo</button>
-          <button class="tool-btn" data-mode="discuss" style="flex:1;min-width:80px">배정논의</button>
+          <button class="tool-btn" data-mode="discuss" style="flex:1;min-width:80px">배정안내 <kbd>N</kbd></button>
         </div>
       </div>
 
@@ -5040,6 +5040,7 @@ document.addEventListener('keydown', (e) => {
   if (!ctrl && !e.altKey) {
     if (e.key === 'v' || e.key === 'V') setMode('select');
     if (e.key === 'b' || e.key === 'B') setMode('draw');
+    if (e.key === 'n' || e.key === 'N') setMode('discuss');
     if (e.key === 'g' && !ctrl) setSnap('grid');
     if (e.key === 'h' && !ctrl) setSnap('half');
     if (e.key === 'f' && !ctrl) setSnap('free');
