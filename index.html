@@ -41,10 +41,10 @@
   .tool-btn.danger { color: #f87171; }
   .tool-btn.danger:hover { background: rgba(248,113,113,0.15); }
   .zoom-display { margin-left: auto; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
-  .topbar-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 12px; background: var(--surface-hover); border: 1px solid var(--border); border-radius: 6px; flex-shrink: 0; }
-  .topbar-card-label { font-size: 10px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-  .topbar-card-value { font-size: 16px; font-weight: 700; color: var(--accent); }
-  .topbar-card-unit { font-size: 9px; color: var(--text-dim); font-weight: 500; }
+  .topbar-card-compact { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--surface-hover); border: 1px solid var(--border); border-radius: 6px; flex-shrink: 0; font-size: 12px; white-space: nowrap; }
+  .topbar-card-label { color: var(--text-dim); font-weight: 600; }
+  .topbar-card-value { font-weight: 700; color: var(--accent); }
+  .topbar-card-unit { color: var(--text-dim); font-weight: 500; font-size: 11px; }
 
   /* ─── Main Layout ─── */
   .main { display: flex; height: calc(100vh - 48px); }
@@ -323,26 +323,26 @@
   </div>
 
   <!-- Booth Count Cards -->
-  <div style="display:flex;gap:8px;margin:0 12px;align-items:center;flex:1;justify-content:center">
-    <div class="topbar-card">
-      <div class="topbar-card-label">전체</div>
-      <div class="topbar-card-value" id="countTotal">0</div>
-      <div class="topbar-card-unit">Booth</div>
+  <div style="display:flex;gap:12px;margin:0 12px;align-items:center;flex:1;justify-content:center">
+    <div class="topbar-card-compact">
+      <span class="topbar-card-label">전체:</span>
+      <span class="topbar-card-value" id="countTotal">0</span>
+      <span class="topbar-card-unit">Booth</span>
     </div>
-    <div class="topbar-card">
-      <div class="topbar-card-label">배정</div>
-      <div class="topbar-card-value" id="countAssigning">0</div>
-      <div class="topbar-card-unit">Booth</div>
+    <div class="topbar-card-compact">
+      <span class="topbar-card-label">배정:</span>
+      <span class="topbar-card-value" id="countAssigning">0</span>
+      <span class="topbar-card-unit">Booth</span>
     </div>
-    <div class="topbar-card">
-      <div class="topbar-card-label">계약</div>
-      <div class="topbar-card-value" id="countContract">0</div>
-      <div class="topbar-card-unit">Booth</div>
+    <div class="topbar-card-compact">
+      <span class="topbar-card-label">계약:</span>
+      <span class="topbar-card-value" id="countContract">0</span>
+      <span class="topbar-card-unit">Booth</span>
     </div>
-    <div class="topbar-card">
-      <div class="topbar-card-label">미배정</div>
-      <div class="topbar-card-value" id="countUnassigned">0</div>
-      <div class="topbar-card-unit">Booth</div>
+    <div class="topbar-card-compact">
+      <span class="topbar-card-label">미배정:</span>
+      <span class="topbar-card-value" id="countUnassigned">0</span>
+      <span class="topbar-card-unit">Booth</span>
     </div>
   </div>
 
