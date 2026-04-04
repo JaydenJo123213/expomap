@@ -6221,6 +6221,7 @@ function exportFloorplanPDF() {
   }
 
   // A3 세로형 (297 × 420mm)
+  const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
   const pageWidth = pdf.internal.pageSize.getWidth();    // 297mm
   const pageHeight = pdf.internal.pageSize.getHeight();   // 420mm
@@ -6262,13 +6263,27 @@ function exportFloorplanPDF() {
   ctx.scale(scale, scale);
 
   // 배경 렌더링
-  if (state.showBg && state.bgImage) {
-    ctx.globalAlpha = (state.bgOpacity || 100) / 100;
-    ctx.drawImage(state.bgImage, state.bgX || 0, state.bgY || 0, state.bgW || 1200, state.bgH || 800);
+  if (state.bg.visible && state.bg.img) {
+    ctx.globalAlpha = state.bg.opacity || 0.5;
+    ctx.save();
+    if (state.bg.rotation) {
+      const cx = state.bg.x + state.bg.w / 2;
+      const cy = state.bg.y + state.bg.h / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(state.bg.rotation * Math.PI / 180);
+      ctx.translate(-cx, -cy);
+    }
+    ctx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+    ctx.restore();
     ctx.globalAlpha = 1;
   }
 
-  // 부스 렌더링 (업체명 포함)
+  // 구조물 렌더링
+  for (const s of state.structures) {
+    drawStructure(ctx, s, scale);
+  }
+
+  // 부스 렌더링 (drawBoothContent 재활용)
   for (const booth of state.booths) {
     const fillColor = booth.fillColor || getBoothFillColor(booth);
     ctx.fillStyle = fillColor;
@@ -6277,35 +6292,21 @@ function exportFloorplanPDF() {
     ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
     ctx.strokeRect(booth.x, booth.y, booth.w, booth.h);
 
-    // 부스 번호 표시
-    if (booth.boothId) {
-      ctx.fillStyle = '#000';
-      ctx.font = 'bold 10px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(booth.boothId, booth.x + booth.w / 2, booth.y + booth.h / 2 - 8);
-    }
-
-    // 업체명 표시
-    const company = state.companies.find(c => c.company_uid === booth.companyUid);
-    if (company && company.company_name) {
-      ctx.fillStyle = '#000';
-      ctx.font = '8px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(company.company_name, booth.x + booth.w / 2, booth.y + booth.h / 2 + 4);
-    }
+    // 텍스트 색상
+    const textColor = getContrastTextColor(fillColor);
+    drawBoothContent(ctx, booth, scale, textColor, false);
   }
 
-  // 로고 렌더링
-  if (state.showLogos && state.logos && state.logos.length > 0) {
-    for (const logo of state.logos) {
-      if (logo.image && logo.show !== false) {
-        ctx.globalAlpha = (logo.opacity || 100) / 100;
-        ctx.drawImage(logo.image, logo.x || 0, logo.y || 0, logo.w || 100, logo.h || 100);
-        ctx.globalAlpha = 1;
-      }
-    }
+  // 기본부스번호 렌더링
+  for (const bn of state.baseNumbers) {
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(bn.x, bn.y, bn.w, bn.h);
+    ctx.fillStyle = '#333';
+    const bnFz = Math.min(bn.w, bn.h) * 0.35;
+    ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
 
   ctx.restore();
