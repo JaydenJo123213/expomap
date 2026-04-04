@@ -3354,11 +3354,11 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   if (shouldDrawLogo && !isConstruction) {
     const logoImg = getLogoImage(b, state.logoCache);
     if (logoImg) {
-      // 로고 영역: 상단 54% (패딩 포함)
+      // 로고 영역: 상단 58% (패딩 포함, 텍스트와 간격 축소)
       const logoPad = b.w * 0.08;  // 좌우 패딩
-      const logoTopPad = b.h * 0.08;
-      const logoBottomPad = b.h * 0.08;
-      const logoAreaH = b.h * 0.54;
+      const logoTopPad = b.h * 0.06;
+      const logoBottomPad = b.h * 0.04;
+      const logoAreaH = b.h * 0.58;
       const logoW = b.w - logoPad * 2;
       const logoH = logoAreaH - logoTopPad - logoBottomPad;
 
@@ -3381,9 +3381,9 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       c.globalAlpha = 1;
       c.restore();
 
-      // 텍스트 영역: 하단 27%
-      const textAreaY = b.y + b.h * 0.65;
-      const textAreaH = b.h * 0.27;
+      // 텍스트 영역: 하단 (로고 바로 아래)
+      const textAreaY = b.y + b.h * 0.60;
+      const textAreaH = b.h * 0.32;
       const lines = wrapText(b.companyName);
       const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
