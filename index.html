@@ -696,6 +696,19 @@
           <button data-side="right" style="flex:1;padding:4px 0;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface-hover);color:var(--text);cursor:pointer;font-family:inherit">우</button>
         </div>
       </div>
+      <!-- 회사 로고 -->
+      <div style="margin-bottom:10px;display:none" id="propLogoSection">
+        <div class="panel-title">회사 로고 (4부스 이상)</div>
+        <div id="propLogoPreview" style="width:100%;height:80px;background:var(--bg);border:1px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;overflow:hidden">
+          <span style="color:var(--text-dim);font-size:12px">로고 없음</span>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button id="propLogoUploadBtn" style="flex:1;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit">📎 PNG/JPEG 업로드</button>
+          <button id="propLogoDeleteBtn" style="padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);font-size:12px;cursor:pointer;font-family:inherit">✕</button>
+        </div>
+        <input type="file" id="propLogoUploadInput" accept="image/png,image/jpeg" style="display:none">
+        <div id="propLogoUploadProgress" style="font-size:11px;color:var(--text-dim);margin-top:4px;text-align:center;display:none">업로드 중...</div>
+      </div>
       <!-- 메모 -->
       <div style="margin-bottom:10px">
         <div class="panel-title">메모</div>
@@ -1356,6 +1369,7 @@ let state = {
   logoResizeCorner: null,
   // companies
   companies: [],
+  logoCache: new Map(),  // company_uid → HTMLImageElement (캐시)
   // 배정 워크플로우
   showElec: false,
   showOther: false,
@@ -2053,7 +2067,7 @@ function redo() {
 
 // ─── Booth CRUD ───
 function createBooth(x, y, w, h) {
-  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', companyLogoUrl: '', groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
   saveUndo();
   state.booths.push(booth);
   return booth;
@@ -2665,6 +2679,97 @@ function deleteLogo(id) {
   if (state.selectedLogoId === id) state.selectedLogoId = null;
   updateLogoList();
   render();
+}
+
+// ─── Company Logo Caching & Upload ───
+function getLogoImage(booth, logoCache) {
+  if (!booth.companyLogoUrl) return null;
+  const company = state.companies.find(c => c.company_uid === booth.companyUid);
+  if (!company) return null;
+
+  if (logoCache.has(company.company_uid)) {
+    return logoCache.get(company.company_uid);
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = booth.companyLogoUrl;
+  img.onload = () => {
+    logoCache.set(company.company_uid, img);
+    render();
+  };
+  img.onerror = () => {
+    console.warn(`Failed to load logo: ${booth.companyLogoUrl}`);
+  };
+  return null;
+}
+
+async function uploadCompanyLogo(companyUid, file) {
+  if (!_supaClient) {
+    alert('Supabase가 연결되지 않았습니다. 설정에서 연결해주세요.');
+    return null;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    alert('이미지 파일만 업로드 가능합니다.');
+    return null;
+  }
+
+  try {
+    document.getElementById('propLogoUploadProgress').style.display = 'block';
+    document.getElementById('propLogoUploadProgress').textContent = '업로드 중...';
+
+    const timestamp = Date.now();
+    const fileName = `${companyUid}_${timestamp}.${file.type.split('/')[1]}`;
+    const { data, error } = await _supaClient.storage
+      .from('company-logos')
+      .upload(fileName, file, { upsert: true });
+
+    if (error) {
+      console.error('Supabase upload error:', error);
+      alert('업로드 실패: ' + error.message);
+      document.getElementById('propLogoUploadProgress').style.display = 'none';
+      return null;
+    }
+
+    // public URL 생성
+    const { data: publicUrlData } = _supaClient.storage
+      .from('company-logos')
+      .getPublicUrl(fileName);
+    const logoUrl = publicUrlData.publicUrl;
+
+    // company 객체에 logo_url 업데이트
+    const company = state.companies.find(c => c.company_uid === companyUid);
+    if (company) {
+      company.logo_url = logoUrl;
+      // Supabase에 저장
+      const { error: updateError } = await _supaClient
+        .from('companies')
+        .upsert({ company_uid: companyUid, logo_url: logoUrl }, { onConflict: 'company_uid' });
+
+      if (updateError) {
+        console.error('DB update error:', updateError);
+      }
+    }
+
+    // 캐시 초기화
+    state.logoCache.delete(companyUid);
+
+    document.getElementById('propLogoUploadProgress').textContent = '완료';
+    setTimeout(() => {
+      document.getElementById('propLogoUploadProgress').style.display = 'none';
+    }, 1500);
+
+    scheduleSave();
+    render();
+    updateProps();
+    return logoUrl;
+  } catch (err) {
+    console.error('Logo upload error:', err);
+    alert('업로드 중 오류 발생: ' + err.message);
+    document.getElementById('propLogoUploadProgress').style.display = 'none';
+    return null;
+  }
 }
 
 function drawLogos(c, zoom) {
@@ -3279,11 +3384,66 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   const availW = b.w - pad * 2;
   const availH = b.h - pad * 2;
   const wm = pxToM(b.w), hm = pxToM(b.h);
+  const area = wm * hm;
   const hasCompany = !!b.companyName;
   const hasBoothNo = !!b.boothId;
   const showSize = wm >= 6 && hm >= 6;
 
   c.fillStyle = textColor;
+
+  // 로고 렌더링 (4부스 이상 & 로고 URL 있을 때)
+  const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
+  if (shouldDrawLogo && !isConstruction) {
+    const logoImg = getLogoImage(b, state.logoCache);
+    if (logoImg) {
+      // 로고 영역: 상단 54% (패딩 포함)
+      const logoPad = b.w * 0.08;  // 좌우 패딩
+      const logoTopPad = b.h * 0.08;
+      const logoBottomPad = b.h * 0.08;
+      const logoAreaH = b.h * 0.54;
+      const logoW = b.w - logoPad * 2;
+      const logoH = logoAreaH - logoTopPad - logoBottomPad;
+
+      c.save();
+      c.globalAlpha = 0.9;
+      // 비율 유지하며 로고 그리기
+      const imgAspect = logoImg.width / logoImg.height;
+      const areaAspect = logoW / logoH;
+      let drawW, drawH;
+      if (imgAspect > areaAspect) {
+        drawW = logoW;
+        drawH = logoW / imgAspect;
+      } else {
+        drawH = logoH;
+        drawW = logoH * imgAspect;
+      }
+      const logoX = b.x + (b.w - drawW) / 2;
+      const logoY = b.y + logoTopPad + (logoH - drawH) / 2;
+      c.drawImage(logoImg, logoX, logoY, drawW, drawH);
+      c.globalAlpha = 1;
+      c.restore();
+
+      // 텍스트 영역: 하단 27%
+      const textAreaY = b.y + b.h * 0.65;
+      const textAreaH = b.h * 0.27;
+      const lines = wrapText(b.companyName);
+      const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
+
+      let fz = calcFontSize(c, longestLine || 'A', availW * 0.85);
+      if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
+      fz = Math.max(1.5, Math.min(fz, 12));
+
+      const lineH = fz * 1.25;
+      const blockH = lines.length * lineH;
+      const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
+
+      c.fillStyle = textColor;
+      c.font = `600 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      lines.forEach((line, i) => c.fillText(line, b.x + b.w / 2, startY + i * lineH));
+      return;
+    }
+  }
 
   if (isConstruction) {
     if (hasBoothNo) {
@@ -5613,6 +5773,35 @@ function updateProps() {
       btn.style.background = active ? 'var(--accent)' : 'var(--surface-hover)';
       btn.style.color = active ? '#fff' : 'var(--text)';
     });
+    // 로고 섹션: 4부스 이상일 때만 표시
+    const area = pxToM(b.w) * pxToM(b.h);
+    const logoSection = document.getElementById('propLogoSection');
+    if (area >= 36) {
+      logoSection.style.display = 'block';
+      // 로고 미리보기 업데이트
+      const preview = document.getElementById('propLogoPreview');
+      if (b.companyLogoUrl) {
+        const img = new Image();
+        img.src = b.companyLogoUrl;
+        img.onload = () => {
+          preview.innerHTML = '';
+          preview.style.background = 'var(--bg)';
+          const container = document.createElement('div');
+          container.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%';
+          img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain';
+          container.appendChild(img);
+          preview.appendChild(container);
+        };
+        img.onerror = () => {
+          preview.innerHTML = '<span style="color:var(--text-dim);font-size:12px">로고 로드 실패</span>';
+        };
+      } else {
+        preview.innerHTML = '<span style="color:var(--text-dim);font-size:12px">로고 없음</span>';
+        preview.style.background = 'var(--bg)';
+      }
+    } else {
+      logoSection.style.display = 'none';
+    }
   } else {
     multiSection.style.display = 'none';
     boothSection.style.display = 'block';
@@ -5669,6 +5858,45 @@ document.getElementById('btnFillColorDefault').addEventListener('click', () => {
 document.getElementById('propMemo').addEventListener('change', (e) => {
   const b = getSelectedBooth(); if (!b) return;
   saveUndo(); b.memo = e.target.value; scheduleSave(); render();
+});
+
+// ─── Logo Upload ───
+document.getElementById('propLogoUploadBtn').addEventListener('click', () => {
+  document.getElementById('propLogoUploadInput').click();
+});
+
+document.getElementById('propLogoUploadInput').addEventListener('change', async (e) => {
+  const b = getSelectedBooth(); if (!b) return;
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const logoUrl = await uploadCompanyLogo(b.companyUid, file);
+  if (logoUrl) {
+    b.companyLogoUrl = logoUrl;
+    saveUndo(); scheduleSave();
+    updateProps();
+  }
+  e.target.value = '';
+});
+
+document.getElementById('propLogoDeleteBtn').addEventListener('click', async () => {
+  const b = getSelectedBooth(); if (!b) return;
+  if (!confirm('로고를 삭제하시겠습니까?')) return;
+
+  if (_supaClient) {
+    const company = state.companies.find(c => c.company_uid === b.companyUid);
+    if (company) {
+      await _supaClient
+        .from('companies')
+        .update({ logo_url: null })
+        .eq('company_uid', b.companyUid);
+      company.logo_url = null;
+      state.logoCache.delete(b.companyUid);
+    }
+  }
+  b.companyLogoUrl = null;
+  saveUndo(); scheduleSave();
+  render(); updateProps();
 });
 
 // ─── BaseNo Props ───
@@ -5812,8 +6040,36 @@ document.getElementById('btnMultiFillDefault').addEventListener('click', () => {
   state.booths.forEach(b => { if (ids.has(b.id)) b.fillColor = null; });
   scheduleSave(); render();
 });
-document.getElementById('propCompany').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.companyUid = e.target.value; render(); } });
-document.getElementById('propCompanyName').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.companyName = e.target.value; render(); } });
+document.getElementById('propCompany').addEventListener('change', (e) => {
+  const b = getSelectedBooth();
+  if (b) {
+    saveUndo();
+    b.companyUid = e.target.value;
+    // 선택된 회사의 logo_url을 가져와서 세팅
+    const company = state.companies.find(c => c.company_uid === e.target.value);
+    if (company && company.logo_url) {
+      b.companyLogoUrl = company.logo_url;
+    } else {
+      b.companyLogoUrl = '';
+    }
+    render();
+  }
+});
+document.getElementById('propCompanyName').addEventListener('change', (e) => {
+  const b = getSelectedBooth();
+  if (b) {
+    saveUndo();
+    b.companyName = e.target.value;
+    // 같은 회사명을 가진 company 객체에서 logo_url을 가져와서 세팅
+    if (b.companyUid) {
+      const company = state.companies.find(c => c.company_uid === b.companyUid);
+      if (company && company.logo_url) {
+        b.companyLogoUrl = company.logo_url;
+      }
+    }
+    render();
+  }
+});
 document.getElementById('propX').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.x = mToPx(parseFloat(e.target.value) || 0); render(); } });
 document.getElementById('propY').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.y = mToPx(parseFloat(e.target.value) || 0); render(); } });
 document.getElementById('propW').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.w = mToPx(Math.max(0.5, parseFloat(e.target.value) || 3)); render(); updateProps(); } });
