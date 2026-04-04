@@ -342,7 +342,8 @@
     </div>
   </div>
 
-  <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정도면</button>
+  <button class="tool-btn" id="btnPrintFloorplan" title="도면 출력 (A3 세로)">🖨️ 도면출력</button>
+  <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정안내</button>
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
   <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname, '_blank')">공개도면</button>
@@ -5248,6 +5249,9 @@ document.getElementById('btnAssignGuide').addEventListener('click', () => {
   state.selectedDiscussIds.clear();
   render();
 });
+document.getElementById('btnPrintFloorplan').addEventListener('click', () => {
+  exportFloorplanPDF();
+});
 document.getElementById('btnAssignGuideTopbar').addEventListener('click', () => {
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();
@@ -5989,6 +5993,127 @@ function updateStats() {
 }
 function updateRepeatBadge() {
   document.getElementById('repeatBadge').style.display = state.lastCopyOp ? 'inline' : 'none';
+}
+
+// ─── Floorplan PDF Export ───
+function exportFloorplanPDF() {
+  if (state.booths.length === 0) {
+    alert('부스가 없습니다.');
+    return;
+  }
+
+  // A3 세로형 (297 × 420mm)
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
+  const pageWidth = pdf.internal.pageSize.getWidth();    // 297mm
+  const pageHeight = pdf.internal.pageSize.getHeight();   // 420mm
+  const margin = 10;
+  const contentWidth = pageWidth - 2 * margin;
+  const contentHeight = pageHeight - 2 * margin;
+
+  // 캔버스 생성 및 렌더링
+  const canvas = document.createElement('canvas');
+  const dpi = 300;
+  const mmToPx = dpi / 25.4;
+  canvas.width = contentWidth * mmToPx;
+  canvas.height = contentHeight * mmToPx;
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 도면 범위 계산
+  let bounds = state.bounds || { x1: 0, y1: 0, x2: 1200, y2: 800 };
+  if (!state.bounds) {
+    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+    for (const b of state.booths) {
+      bounds.x1 = Math.min(bounds.x1, b.x);
+      bounds.y1 = Math.min(bounds.y1, b.y);
+      bounds.x2 = Math.max(bounds.x2, b.x + b.w);
+      bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+    }
+    bounds.x1 -= 50;
+    bounds.y1 -= 50;
+    bounds.x2 += 50;
+    bounds.y2 += 50;
+  }
+
+  // 도면 렌더링 (모든 부스, 모든 업체명 표시)
+  const scale = canvas.width / (bounds.x2 - bounds.x1);
+  ctx.save();
+  ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
+  ctx.scale(scale, scale);
+
+  // 배경 렌더링
+  if (state.showBg && state.bgImage) {
+    ctx.globalAlpha = (state.bgOpacity || 100) / 100;
+    ctx.drawImage(state.bgImage, state.bgX || 0, state.bgY || 0, state.bgW || 1200, state.bgH || 800);
+    ctx.globalAlpha = 1;
+  }
+
+  // 부스 렌더링 (업체명 포함)
+  for (const booth of state.booths) {
+    const fillColor = booth.fillColor || getBoothFillColor(booth);
+    ctx.fillStyle = fillColor;
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
+    ctx.strokeRect(booth.x, booth.y, booth.w, booth.h);
+
+    // 부스 번호 표시
+    if (booth.boothId) {
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(booth.boothId, booth.x + booth.w / 2, booth.y + booth.h / 2 - 8);
+    }
+
+    // 업체명 표시
+    const company = state.companies.find(c => c.company_uid === booth.companyUid);
+    if (company && company.company_name) {
+      ctx.fillStyle = '#000';
+      ctx.font = '8px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(company.company_name, booth.x + booth.w / 2, booth.y + booth.h / 2 + 4);
+    }
+  }
+
+  // 로고 렌더링
+  if (state.showLogos && state.logos && state.logos.length > 0) {
+    for (const logo of state.logos) {
+      if (logo.image && logo.show !== false) {
+        ctx.globalAlpha = (logo.opacity || 100) / 100;
+        ctx.drawImage(logo.image, logo.x || 0, logo.y || 0, logo.w || 100, logo.h || 100);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  ctx.restore();
+
+  // PDF에 이미지 추가
+  const imgData = canvas.toDataURL('image/png', 0.95);
+  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+
+  // 저장
+  pdf.save('ExpoMap_Floorplan_A3.pdf');
+}
+
+function getBoothFillColor(booth) {
+  const statusColors = {
+    'available': '#3D4255',
+    'spot': '#FF9800',
+    'hold': '#F06292',
+    'online': '#29B6F6',
+    'proposing': '#3DAF6E',
+    'discuss': '#FFD600',
+    'assigned': '#E0E0E0',
+    'fake': '#F44336',
+    'excluded': '#444444',
+    'facility': '#F5F5F5'
+  };
+  return statusColors[booth.status] || '#FFFFFF';
 }
 
 // ─── Status Selection ───
