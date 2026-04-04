@@ -6279,9 +6279,7 @@ function exportFloorplanPDF() {
   }
 
   // 구조물 렌더링
-  for (const s of state.structures) {
-    drawStructure(ctx, s, scale);
-  }
+  drawStructures(ctx, scale, false);
 
   // 부스 렌더링 (drawBoothContent 재활용)
   for (const booth of state.booths) {
@@ -6293,7 +6291,7 @@ function exportFloorplanPDF() {
     ctx.strokeRect(booth.x, booth.y, booth.w, booth.h);
 
     // 텍스트 색상
-    const textColor = getContrastTextColor(fillColor);
+    const textColor = booth.companyName ? '#111111' : '#7a5045';
     drawBoothContent(ctx, booth, scale, textColor, false);
   }
 
