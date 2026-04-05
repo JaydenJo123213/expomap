@@ -6262,9 +6262,9 @@ function exportFloorplanPDF() {
   ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
   ctx.scale(scale, scale);
 
-  // 배경 렌더링
-  if (state.bg.visible && state.bg.img) {
-    ctx.globalAlpha = state.bg.opacity || 0.5;
+  // 배경 렌더링 (항상 opacity 100%)
+  if (state.bg.img) {
+    ctx.globalAlpha = 1;
     ctx.save();
     if (state.bg.rotation) {
       const cx = state.bg.x + state.bg.w / 2;
@@ -6281,24 +6281,30 @@ function exportFloorplanPDF() {
   // 구조물 렌더링
   drawStructures(ctx, scale, false);
 
-  // 부스 렌더링 (drawBoothContent 재활용)
+  // 부스 렌더링 — 연분홍색 통일, 검정 폰트
   for (const booth of state.booths) {
-    const fillColor = booth.fillColor || getBoothFillColor(booth);
-    ctx.fillStyle = fillColor;
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
+    const isFacility = booth.status === 'facility' || booth.status === 'excluded';
+    const fill = isFacility ? '#EFEFEF' : '#f9e5de';
+    const stroke = isFacility ? '#999999' : '#d4a89a';
+    ctx.fillStyle = fill;
     ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
     ctx.strokeRect(booth.x, booth.y, booth.w, booth.h);
 
-    // 텍스트 색상
-    const textColor = booth.companyName ? '#111111' : '#7a5045';
+    const textColor = '#111111';
     drawBoothContent(ctx, booth, scale, textColor, false);
   }
 
-  // 기본부스번호 렌더링
+  // 기본부스번호 렌더링 (부스에 업체명/부스번호 있으면 숨김)
   for (const bn of state.baseNumbers) {
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.fillRect(bn.x, bn.y, bn.w, bn.h);
+    if (!bn.baseNo) continue;
+    const covering = state.booths.find(b =>
+      b.x < bn.x + bn.w && b.x + b.w > bn.x &&
+      b.y < bn.y + bn.h && b.y + b.h > bn.y &&
+      (b.boothId || b.companyName)
+    );
+    if (covering) continue;
     ctx.fillStyle = '#333';
     const bnFz = Math.min(bn.w, bn.h) * 0.35;
     ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
@@ -6313,8 +6319,10 @@ function exportFloorplanPDF() {
   const imgData = canvas.toDataURL('image/png', 0.95);
   pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
 
-  // 저장
-  pdf.save('ExpoMap_Floorplan_A3.pdf');
+  // 저장 — 파일명: KIMES BUSAN 2026_Floor Plan_YYYYMMDD
+  const today = new Date();
+  const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+  pdf.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}.pdf`);
 }
 
 function getBoothFillColor(booth) {
