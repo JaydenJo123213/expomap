@@ -5436,11 +5436,11 @@ function renderFreeBoothTable() {
           style="width:100%;padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-family:inherit">
       </td>
       <td style="padding:4px 6px;border-bottom:1px solid var(--border)">
-        <input type="number" value="${item.contract}" data-fb-idx="${i}" data-fb-field="contract" min="0"
+        <input type="number" value="${item.contract}" data-fb-idx="${i}" data-fb-field="contract" min="0" step="0.5"
           style="width:100%;padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);text-align:center;font-family:inherit">
       </td>
       <td style="padding:4px 6px;border-bottom:1px solid var(--border)">
-        <input type="number" value="${item.free}" data-fb-idx="${i}" data-fb-field="free" min="0"
+        <input type="number" value="${item.free}" data-fb-idx="${i}" data-fb-field="free" min="0" step="0.5"
           style="width:100%;padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);text-align:center;font-family:inherit">
       </td>
       <td style="padding:4px 6px;border-bottom:1px solid var(--border);text-align:center">
@@ -5456,7 +5456,7 @@ function renderFreeBoothTable() {
       const idx = parseInt(e.target.dataset.fbIdx);
       const field = e.target.dataset.fbField;
       if (field === 'name') state.freeBooths[idx].name = e.target.value;
-      else state.freeBooths[idx][field] = parseInt(e.target.value) || 0;
+      else state.freeBooths[idx][field] = parseFloat(e.target.value) || 0;
       updateFreeBoothCount();
       scheduleSave();
     });
