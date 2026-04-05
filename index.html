@@ -340,6 +340,10 @@
       <span class="topbar-card-label">미배정:</span>
       <span class="topbar-card-value" id="countUnassigned">0</span>
     </div>
+    <div class="topbar-card-compact" id="btnFreeBoothCard" style="cursor:pointer" title="제공부스 관리">
+      <span class="topbar-card-label">제공:</span>
+      <span class="topbar-card-value" id="countFreeBooth">0</span>
+    </div>
   </div>
 
   <button class="tool-btn" id="btnPrintFloorplan" title="도면 출력 (A3 세로)">🖨️ 도면출력</button>
@@ -1122,6 +1126,39 @@
   </div>
 </div>
 
+<!-- 제공부스 모달 -->
+<div class="modal-overlay" id="modalFreeBooth">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">제공부스 관리</span>
+      <button class="modal-close" onclick="closeModal('modalFreeBooth')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px">계약 외 제공부스를 입력하세요. 제공부스 합계가 상단에 표시됩니다.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px" id="freeBoothTable">
+        <thead>
+          <tr style="background:var(--surface-hover)">
+            <th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)">업체명</th>
+            <th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);width:80px">계약부스</th>
+            <th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);width:80px">제공부스</th>
+            <th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border);width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="freeBoothBody"></tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--border);font-weight:600">
+            <td style="padding:6px 8px">합계</td>
+            <td style="padding:6px 8px;text-align:center" id="freeBoothContractTotal">0</td>
+            <td style="padding:6px 8px;text-align:center" id="freeBoothFreeTotal">0</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <button id="btnAddFreeBooth" style="margin-top:8px;padding:4px 12px;font-size:12px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer;font-family:inherit">+ 추가</button>
+    </div>
+  </div>
+</div>
+
 <!-- Supabase Config -->
 <div class="modal-overlay" id="modalSupaConfig">
   <div class="modal">
@@ -1371,6 +1408,7 @@ let state = {
   // companies
   companies: [],
   logoCache: new Map(),  // company_uid → HTMLImageElement (캐시)
+  freeBooths: [],  // [{ name, contract, free }]
   // 배정 워크플로우
   showElec: false,
   showOther: false,
@@ -1907,6 +1945,7 @@ async function saveToSupabase() {
     discussOverlays: state.discussOverlays,
     nextDiscussOverlayId: state.nextDiscussOverlayId,
     nextDiscussGroupId: state.nextDiscussGroupId,
+    freeBooths: state.freeBooths,
     bg: { x: state.bg.x, y: state.bg.y, w: state.bg.w, h: state.bg.h, natW: state.bg.natW, natH: state.bg.natH, opacity: state.bg.opacity, visible: state.bg.visible, rotation: state.bg.rotation || 0, dataUrl: state.bg.dataUrl || null },
   };
   try {
@@ -1960,6 +1999,7 @@ async function loadFromSupabase() {
       state.discussOverlays = s.discussOverlays || [];
       state.nextDiscussOverlayId = s.nextDiscussOverlayId || 1;
       state.nextDiscussGroupId = s.nextDiscussGroupId || 1;
+      state.freeBooths = s.freeBooths || [];
       restoreLogos(s.logos || []);
       if (s.bg) {
         state.bg.x = s.bg.x || 0;
@@ -5375,6 +5415,64 @@ document.getElementById('btnPrintFloorplan').addEventListener('click', () => {
 document.getElementById('btnPrintAvailable').addEventListener('click', () => {
   exportAvailablePDF();
 });
+
+// ─── 제공부스 ───
+document.getElementById('btnFreeBoothCard').addEventListener('click', () => {
+  renderFreeBoothTable();
+  openModal('modalFreeBooth');
+});
+document.getElementById('btnAddFreeBooth').addEventListener('click', () => {
+  state.freeBooths.push({ name: '', contract: 0, free: 0 });
+  renderFreeBoothTable();
+  scheduleSave();
+});
+
+function renderFreeBoothTable() {
+  const tbody = document.getElementById('freeBoothBody');
+  tbody.innerHTML = state.freeBooths.map((item, i) =>
+    `<tr>
+      <td style="padding:4px 6px;border-bottom:1px solid var(--border)">
+        <input type="text" value="${item.name}" data-fb-idx="${i}" data-fb-field="name"
+          style="width:100%;padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);font-family:inherit">
+      </td>
+      <td style="padding:4px 6px;border-bottom:1px solid var(--border)">
+        <input type="number" value="${item.contract}" data-fb-idx="${i}" data-fb-field="contract" min="0"
+          style="width:100%;padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);text-align:center;font-family:inherit">
+      </td>
+      <td style="padding:4px 6px;border-bottom:1px solid var(--border)">
+        <input type="number" value="${item.free}" data-fb-idx="${i}" data-fb-field="free" min="0"
+          style="width:100%;padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);text-align:center;font-family:inherit">
+      </td>
+      <td style="padding:4px 6px;border-bottom:1px solid var(--border);text-align:center">
+        <button onclick="state.freeBooths.splice(${i},1);renderFreeBoothTable();updateFreeBoothCount();scheduleSave()"
+          style="background:none;border:none;color:#f87171;cursor:pointer;font-size:13px">✕</button>
+      </td>
+    </tr>`
+  ).join('');
+
+  // 이벤트 바인딩
+  tbody.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.fbIdx);
+      const field = e.target.dataset.fbField;
+      if (field === 'name') state.freeBooths[idx].name = e.target.value;
+      else state.freeBooths[idx][field] = parseInt(e.target.value) || 0;
+      updateFreeBoothCount();
+      scheduleSave();
+    });
+  });
+
+  updateFreeBoothCount();
+}
+
+function updateFreeBoothCount() {
+  const contractTotal = state.freeBooths.reduce((sum, item) => sum + (item.contract || 0), 0);
+  const freeTotal = state.freeBooths.reduce((sum, item) => sum + (item.free || 0), 0);
+  document.getElementById('freeBoothContractTotal').textContent = contractTotal;
+  document.getElementById('freeBoothFreeTotal').textContent = freeTotal;
+  document.getElementById('countFreeBooth').textContent = freeTotal;
+}
+
 document.getElementById('btnAssignGuideTopbar').addEventListener('click', () => {
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();
@@ -6212,6 +6310,10 @@ function updateStats() {
   document.getElementById('countAssigning').textContent = countAssigning;
   document.getElementById('countContract').textContent = countContract;
   document.getElementById('countUnassigned').textContent = countUnassigned;
+
+  // 제공부스 카운트
+  const freeTotal = state.freeBooths.reduce((sum, item) => sum + (item.free || 0), 0);
+  document.getElementById('countFreeBooth').textContent = freeTotal;
 }
 function updateRepeatBadge() {
   document.getElementById('repeatBadge').style.display = state.lastCopyOp ? 'inline' : 'none';
