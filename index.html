@@ -343,6 +343,7 @@
   </div>
 
   <button class="tool-btn" id="btnPrintFloorplan" title="도면 출력 (A3 세로)">🖨️ 도면출력</button>
+  <button class="tool-btn" id="btnPrintAvailable" title="배정가능위치 PDF (A3 세로)">📍 배정가능위치</button>
   <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정안내</button>
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
@@ -5371,6 +5372,9 @@ document.getElementById('btnAssignGuide').addEventListener('click', () => {
 document.getElementById('btnPrintFloorplan').addEventListener('click', () => {
   exportFloorplanPDF();
 });
+document.getElementById('btnPrintAvailable').addEventListener('click', () => {
+  exportAvailablePDF();
+});
 document.getElementById('btnAssignGuideTopbar').addEventListener('click', () => {
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();
@@ -6323,6 +6327,115 @@ function exportFloorplanPDF() {
   const today = new Date();
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   pdf.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}.pdf`);
+}
+
+function exportAvailablePDF() {
+  if (state.booths.length === 0) {
+    alert('부스가 없습니다.');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 10;
+  const contentWidth = pageWidth - 2 * margin;
+  const contentHeight = pageHeight - 2 * margin;
+
+  const canvas = document.createElement('canvas');
+  const dpi = 300;
+  const mmToPx = dpi / 25.4;
+  canvas.width = contentWidth * mmToPx;
+  canvas.height = contentHeight * mmToPx;
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+  for (const b of state.booths) {
+    bounds.x1 = Math.min(bounds.x1, b.x);
+    bounds.y1 = Math.min(bounds.y1, b.y);
+    bounds.x2 = Math.max(bounds.x2, b.x + b.w);
+    bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+  }
+  bounds.x1 -= 50;
+  bounds.y1 -= 100;
+  bounds.x2 += 50;
+  bounds.y2 += 50;
+
+  const scale = canvas.width / (bounds.x2 - bounds.x1);
+  ctx.save();
+  ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
+  ctx.scale(scale, scale);
+
+  // 배경 렌더링 (항상 opacity 100%)
+  if (state.bg.img) {
+    ctx.globalAlpha = 1;
+    ctx.save();
+    if (state.bg.rotation) {
+      const cx = state.bg.x + state.bg.w / 2;
+      const cy = state.bg.y + state.bg.h / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(state.bg.rotation * Math.PI / 180);
+      ctx.translate(-cx, -cy);
+    }
+    ctx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  // 구조물 렌더링
+  drawStructures(ctx, scale, false);
+
+  // 부스 렌더링 — 배정가능위치(spot)만 노란색, 나머지 연분홍색
+  for (const booth of state.booths) {
+    const isFacility = booth.status === 'facility' || booth.status === 'excluded';
+    const isSpot = booth.status === 'spot';
+    let fill, stroke;
+    if (isFacility) {
+      fill = '#EFEFEF'; stroke = '#999999';
+    } else if (isSpot) {
+      fill = '#FFD600'; stroke = '#F9A825';
+    } else {
+      fill = '#f9e5de'; stroke = '#d4a89a';
+    }
+    ctx.fillStyle = fill;
+    ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(booth.x, booth.y, booth.w, booth.h);
+
+    const textColor = '#111111';
+    drawBoothContent(ctx, booth, scale, textColor, false);
+  }
+
+  // 기본부스번호 렌더링 (부스에 업체명/부스번호 있으면 숨김)
+  for (const bn of state.baseNumbers) {
+    if (!bn.baseNo) continue;
+    const covering = state.booths.find(b =>
+      b.x < bn.x + bn.w && b.x + b.w > bn.x &&
+      b.y < bn.y + bn.h && b.y + b.h > bn.y &&
+      (b.boothId || b.companyName)
+    );
+    if (covering) continue;
+    ctx.fillStyle = '#333';
+    const bnFz = Math.min(bn.w, bn.h) * 0.35;
+    ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
+  }
+
+  ctx.restore();
+
+  const imgData = canvas.toDataURL('image/png', 0.95);
+  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+
+  const today = new Date();
+  const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+  pdf.save(`KIMES BUSAN 2026_Available Spots_${dateStr}.pdf`);
 }
 
 function getBoothFillColor(booth) {
