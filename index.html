@@ -3222,13 +3222,11 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
   // 구조물
   drawStructures(ectx, zoom, false);
 
-  // 부스 (연분홍색 또는 회색 - 기타부대설비/기타설비 부스는 회색)
+  // 부스 (연분홍색 통일, facility/excluded만 회색)
   booths.forEach(b => {
     const isFacility = b.status === 'facility' || b.status === 'excluded';
-    const comp = state.companies.find(c => c.company_uid === b.companyUid);
-    const hasOther = comp && OTHER_KEYS.some(k => comp[k]);
 
-    if (isFacility || hasOther) {
+    if (isFacility) {
       ectx.fillStyle = '#EFEFEF';
       ectx.strokeStyle = '#999999';
     } else {
