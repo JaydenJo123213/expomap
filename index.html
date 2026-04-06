@@ -467,7 +467,7 @@
         <div class="status-row" style="cursor:pointer" onclick="selectByStatus('online')"><div class="status-dot" style="background:#29B6F6"></div>온라인신청<span class="status-count" id="countOnline">0</span></div>
         <div class="status-row" style="cursor:pointer" onclick="selectByStatus('proposing')"><div class="status-dot" style="background:#3DAF6E"></div>계약서접수<span class="status-count" id="countProposing">0</span></div>
         <div class="status-row" style="cursor:pointer" onclick="selectByStatus('discuss')"><div class="status-dot" style="background:#FFD600"></div>배정논의<span class="status-count" id="countDiscuss">0</span></div>
-        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('assigned')"><div class="status-dot" style="background:#fff;border:1px solid #757575"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
+        <div class="status-row" style="cursor:pointer" onclick="selectByStatus('assigned')"><div class="status-dot" style="background:#f9e5de;border:1px solid #d4a89a"></div>배정완료<span class="status-count" id="countAssigned">0</span></div>
         <div class="status-row" style="cursor:pointer" onclick="selectByStatus('fake')"><div class="status-dot" style="background:#F44336"></div>가짜배정<span class="status-count" id="countFake">0</span></div>
         <div class="status-row" style="cursor:pointer" onclick="selectByStatus('excluded')"><div class="status-dot" style="background:#444"></div>배정제외<span class="status-count" id="countExcluded">0</span></div>
         <div class="status-row" style="cursor:pointer" onclick="selectByStatus('facility')"><div class="status-dot" style="background:#fff;border:1.5px solid #111"></div>기타부대설비<span class="status-count" id="countFacility">0</span></div>
@@ -1544,7 +1544,7 @@ const STATUS_COLORS = {
   spot:      { fill: '#4A2800', stroke: '#FF9800', text: '#FFA726' },   // 배정가능위치 — 주황
   hold:      { fill: '#4A0A2A', stroke: '#E91E8C', text: '#F48FB1' },   // 홀딩 — 핑크
   proposing: { fill: '#1A3D2A', stroke: '#2E8B57', text: '#3DAF6E' },   // 계약서 접수 — 초록
-  assigned:  { fill: '#F5F5F5', stroke: '#757575', text: '#111111' },   // 배정완료 — 흰배경 검정글씨
+  assigned:  { fill: '#f9e5de', stroke: '#d4a89a', text: '#111111' },   // 배정완료 — 연분홍 검정글씨
   online:    { fill: '#0A2035', stroke: '#29B6F6', text: '#4FC3F7' },   // 온라인신청 — 하늘색
   fake:      { fill: '#3D0A0A', stroke: '#F44336', text: '#EF9A9A' },   // 가짜배정 — 빨강
   excluded:  { fill: '#1A1A1A', stroke: '#444',    text: '#555' },      // 배정제외 (유지)
