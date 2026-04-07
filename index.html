@@ -713,6 +713,18 @@
         </div>
         <input type="file" id="propLogoUploadInput" accept="image/png,image/jpeg" style="display:none">
         <div id="propLogoUploadProgress" style="font-size:11px;color:var(--text-dim);margin-top:4px;text-align:center;display:none">업로드 중...</div>
+        <div id="propLogoControls" style="display:none;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--text-dim);width:50px">크기</span>
+            <input type="range" id="propLogoScale" min="30" max="200" value="100" step="5" style="flex:1;height:4px">
+            <span id="propLogoScaleVal" style="font-size:11px;color:var(--text-dim);width:32px;text-align:right">100%</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--text-dim);width:50px">간격</span>
+            <input type="range" id="propLogoGap" min="-20" max="20" value="0" step="1" style="flex:1;height:4px">
+            <span id="propLogoGapVal" style="font-size:11px;color:var(--text-dim);width:32px;text-align:right">0</span>
+          </div>
+        </div>
       </div>
       <!-- 메모 -->
       <div style="margin-bottom:10px">
@@ -2108,7 +2120,7 @@ function redo() {
 
 // ─── Booth CRUD ───
 function createBooth(x, y, w, h) {
-  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', companyLogoUrl: '', groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
   saveUndo();
   state.booths.push(booth);
   return booth;
@@ -3392,8 +3404,11 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   if (shouldDrawLogo && !isConstruction) {
     const logoImg = getLogoImage(b, state.logoCache);
     if (logoImg) {
+      const scale = (b.logoScale ?? 100) / 100;
+      const gap = (b.logoGap ?? 0) * (b.h / 100);  // gap을 부스 높이 비율로 변환
+
       // 로고 영역: 상단 60%
-      const logoPad = b.w * 0.08;  // 좌우 패딩
+      const logoPad = b.w * 0.08;
       const logoTopPad = b.h * 0.05;
       const logoBottomPad = b.h * 0.02;
       const logoAreaH = b.h * 0.60;
@@ -3413,15 +3428,19 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
         drawH = logoH;
         drawW = logoH * imgAspect;
       }
+      // scale 적용 (중앙 기준)
+      drawW *= scale;
+      drawH *= scale;
       const logoX = b.x + (b.w - drawW) / 2;
-      const logoY = b.y + logoTopPad + (logoH - drawH) / 2;
+      const logoCenterY = b.y + logoTopPad + logoH / 2;
+      const logoY = logoCenterY - drawH / 2;
       c.drawImage(logoImg, logoX, logoY, drawW, drawH);
       c.globalAlpha = 1;
       c.restore();
 
-      // 텍스트 영역: 로고 바로 아래 밀착
-      const textAreaY = b.y + b.h * 0.58;
-      const textAreaH = b.h * 0.36;
+      // 텍스트 영역: 로고 아래 (gap 적용)
+      const textAreaY = b.y + b.h * 0.58 + gap;
+      const textAreaH = b.h * 0.36 - gap;
       const lines = wrapText(b.companyName);
       const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
@@ -5856,6 +5875,17 @@ function updateProps() {
         preview.innerHTML = '<span style="color:var(--text-dim);font-size:12px">로고 없음</span>';
         preview.style.background = 'var(--bg)';
       }
+      // 로고 컨트롤 (로고가 있을 때만 표시)
+      const logoControls = document.getElementById('propLogoControls');
+      if (b.companyLogoUrl) {
+        logoControls.style.display = 'block';
+        document.getElementById('propLogoScale').value = b.logoScale ?? 100;
+        document.getElementById('propLogoScaleVal').textContent = (b.logoScale ?? 100) + '%';
+        document.getElementById('propLogoGap').value = b.logoGap ?? 0;
+        document.getElementById('propLogoGapVal').textContent = b.logoGap ?? 0;
+      } else {
+        logoControls.style.display = 'none';
+      }
     } else {
       logoSection.style.display = 'none';
     }
@@ -5958,6 +5988,23 @@ document.getElementById('propLogoDeleteBtn').addEventListener('click', () => {
   scheduleSave();
   render(); updateProps();
 });
+
+document.getElementById('propLogoScale').addEventListener('input', (e) => {
+  const b = getSelectedBooth(); if (!b) return;
+  b.logoScale = parseInt(e.target.value);
+  document.getElementById('propLogoScaleVal').textContent = b.logoScale + '%';
+  state.logoCache.delete(b.companyUid || b.id);
+  render();
+});
+document.getElementById('propLogoScale').addEventListener('change', () => { saveUndo(); scheduleSave(); });
+
+document.getElementById('propLogoGap').addEventListener('input', (e) => {
+  const b = getSelectedBooth(); if (!b) return;
+  b.logoGap = parseInt(e.target.value);
+  document.getElementById('propLogoGapVal').textContent = b.logoGap;
+  render();
+});
+document.getElementById('propLogoGap').addEventListener('change', () => { saveUndo(); scheduleSave(); });
 
 // ─── BaseNo Props ───
 ['propBaseNo', 'propBaseNoX', 'propBaseNoY', 'propBaseNoW', 'propBaseNoH'].forEach(id => {
