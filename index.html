@@ -3456,6 +3456,16 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       c.font = `600 ${fz}px Pretendard, sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       lines.forEach((line, i) => c.fillText(line, b.x + b.w / 2, startY + i * lineH));
+
+      // 부스번호: 좌상단
+      if (hasBoothNo) {
+        const noFz = 7;
+        c.font = `500 ${noFz}px Pretendard, sans-serif`;
+        c.textAlign = 'left'; c.textBaseline = 'top';
+        c.globalAlpha = 0.65;
+        c.fillText(b.boothId, b.x + pad, b.y + pad);
+        c.globalAlpha = 1;
+      }
       return;
     }
   }
