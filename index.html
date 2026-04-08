@@ -2043,7 +2043,13 @@ async function loadFromSupabase() {
 function updateSaveIndicator(status) {
   const el = document.getElementById('saveIndicator');
   el.className = 'save-indicator ' + status;
-  const labels = { saved: '● saved', saving: '● saving...', error: '● save error', offline: '● offline' };
+  const target = _supaClient ? 'Supabase' : 'Local';
+  const labels = {
+    saved: `● ${target} saved`,
+    saving: `● ${target} saving...`,
+    error: `● ${target} save error`,
+    offline: '● offline (저장 안 됨)'
+  };
   el.textContent = labels[status] || status;
 }
 
