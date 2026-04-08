@@ -3999,6 +3999,91 @@ function drawStructures(c, zoom, isConstruction) {
 }
 
 // ═══════════════════════════════════════
+// ─── 인접 블럭 거리 인디케이터 함수 ───
+function drawNeighborDistances(ctx, state) {
+  // 대상 바운딩 박스 결정
+  let bx1, by1, bx2, by2;
+  let excludeIds = new Set();
+
+  if (state.isDragging && state.selectedIds.size > 0) {
+    // 기존 부스 드래그
+    const sel = state.booths.filter(b => state.selectedIds.has(b.id));
+    if (!sel.length) return;
+    bx1 = Math.min(...sel.map(b => b.x));
+    by1 = Math.min(...sel.map(b => b.y));
+    bx2 = Math.max(...sel.map(b => b.x + b.w));
+    by2 = Math.max(...sel.map(b => b.y + b.h));
+    excludeIds = state.selectedIds;
+  } else if (state.isDrawing || state.isBaseDrawing) {
+    // 새 부스 그리기 미리보기
+    const startX = state.isDrawing ? state.drawStartX : state.baseDrawStartX;
+    const startY = state.isDrawing ? state.drawStartY : state.baseDrawStartY;
+    const curX = state.isDrawing ? state.drawCurrentX : state.baseDrawCurrentX;
+    const curY = state.isDrawing ? state.drawCurrentY : state.baseDrawCurrentY;
+    const dx = curX - startX, dy = curY - startY;
+    if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+    bx1 = Math.min(startX, curX);
+    by1 = Math.min(startY, curY);
+    bx2 = Math.max(startX, curX);
+    by2 = Math.max(startY, curY);
+  } else {
+    return;
+  }
+
+  const others = state.booths.filter(b => !excludeIds.has(b.id));
+  if (!others.length) return;
+
+  const midX = (bx1 + bx2) / 2, midY = (by1 + by2) / 2;
+  const z = state.zoom;
+
+  let distTop = Infinity, distBot = Infinity, distLeft = Infinity, distRight = Infinity;
+
+  for (const o of others) {
+    const ox2 = o.x + o.w, oy2 = o.y + o.h;
+    const hOverlap = bx1 < ox2 && bx2 > o.x;
+    const vOverlap = by1 < oy2 && by2 > o.y;
+
+    if (hOverlap) {
+      const dTop = by1 - oy2;
+      if (dTop >= 0 && dTop < distTop) distTop = dTop;
+      const dBot = o.y - by2;
+      if (dBot >= 0 && dBot < distBot) distBot = dBot;
+    }
+    if (vOverlap) {
+      const dLeft = bx1 - ox2;
+      if (dLeft >= 0 && dLeft < distLeft) distLeft = dLeft;
+      const dRight = o.x - bx2;
+      if (dRight >= 0 && dRight < distRight) distRight = dRight;
+    }
+  }
+
+  const fz = 9 / z;
+  const drawDistLine = (x1, y1, x2, y2, dist) => {
+    const dm = pxToM(dist);
+    ctx.strokeStyle = '#FF5252';
+    ctx.lineWidth = 1 / z;
+    ctx.setLineDash([3 / z, 2 / z]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const lx = (x1 + x2) / 2, ly = (y1 + y2) / 2;
+    const label = dm.toFixed(1) + 'm';
+    ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(255,82,82,0.9)';
+    ctx.fillRect(lx - tw / 2 - 2 / z, ly - fz / 2 - 1 / z, tw + 4 / z, fz + 2 / z);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, lx, ly);
+  };
+
+  if (distTop < Infinity) drawDistLine(midX, by1, midX, by1 - distTop, distTop);
+  if (distBot < Infinity) drawDistLine(midX, by2, midX, by2 + distBot, distBot);
+  if (distLeft < Infinity) drawDistLine(bx1, midY, bx1 - distLeft, midY, distLeft);
+  if (distRight < Infinity) drawDistLine(bx2, midY, bx2 + distRight, midY, distRight);
+}
+
 //  RENDER
 // ═══════════════════════════════════════
 function render() {
@@ -4261,72 +4346,8 @@ function render() {
   // ─── 배정논의 오버레이 레이어 ───
   drawDiscussOverlays(ctx, state.zoom);
 
-  // ─── 드래그 중 인접 블럭 거리 인디케이터 ───
-  if (state.isDragging && state.selectedIds.size > 0) {
-    const sel = state.booths.filter(b => state.selectedIds.has(b.id));
-    const others = state.booths.filter(b => !state.selectedIds.has(b.id));
-    if (sel.length && others.length) {
-      const bx1 = Math.min(...sel.map(b => b.x));
-      const by1 = Math.min(...sel.map(b => b.y));
-      const bx2 = Math.max(...sel.map(b => b.x + b.w));
-      const by2 = Math.max(...sel.map(b => b.y + b.h));
-      const midX = (bx1 + bx2) / 2, midY = (by1 + by2) / 2;
-      const z = state.zoom;
-
-      // 상하좌우 가장 가까운 블럭 거리 계산
-      let distTop = Infinity, distBot = Infinity, distLeft = Infinity, distRight = Infinity;
-      let nearTop = null, nearBot = null, nearLeft = null, nearRight = null;
-
-      for (const o of others) {
-        const ox2 = o.x + o.w, oy2 = o.y + o.h;
-        // 수평 겹침 체크 (좌우가 아닌 상하 이웃)
-        const hOverlap = bx1 < ox2 && bx2 > o.x;
-        // 수직 겹침 체크 (상하가 아닌 좌우 이웃)
-        const vOverlap = by1 < oy2 && by2 > o.y;
-
-        if (hOverlap) {
-          const dTop = by1 - oy2;  // 위쪽 거리
-          if (dTop >= 0 && dTop < distTop) { distTop = dTop; nearTop = o; }
-          const dBot = o.y - by2;  // 아래쪽 거리
-          if (dBot >= 0 && dBot < distBot) { distBot = dBot; nearBot = o; }
-        }
-        if (vOverlap) {
-          const dLeft = bx1 - ox2;  // 왼쪽 거리
-          if (dLeft >= 0 && dLeft < distLeft) { distLeft = dLeft; nearLeft = o; }
-          const dRight = o.x - bx2;  // 오른쪽 거리
-          if (dRight >= 0 && dRight < distRight) { distRight = dRight; nearRight = o; }
-        }
-      }
-
-      const fz = 9 / z;
-      const drawDistLine = (x1, y1, x2, y2, dist) => {
-        const dm = pxToM(dist);
-        // 빨간 점선
-        ctx.strokeStyle = '#FF5252';
-        ctx.lineWidth = 1 / z;
-        ctx.setLineDash([3 / z, 2 / z]);
-        ctx.beginPath();
-        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        // 라벨 배경 + 텍스트
-        const lx = (x1 + x2) / 2, ly = (y1 + y2) / 2;
-        const label = dm.toFixed(1) + 'm';
-        ctx.font = `600 ${fz}px Pretendard, sans-serif`;
-        const tw = ctx.measureText(label).width;
-        ctx.fillStyle = 'rgba(255,82,82,0.9)';
-        ctx.fillRect(lx - tw / 2 - 2 / z, ly - fz / 2 - 1 / z, tw + 4 / z, fz + 2 / z);
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(label, lx, ly);
-      };
-
-      if (distTop < Infinity) drawDistLine(midX, by1, midX, by1 - distTop, distTop);
-      if (distBot < Infinity) drawDistLine(midX, by2, midX, by2 + distBot, distBot);
-      if (distLeft < Infinity) drawDistLine(bx1, midY, bx1 - distLeft, midY, distLeft);
-      if (distRight < Infinity) drawDistLine(bx2, midY, bx2 + distRight, midY, distRight);
-    }
-  }
+  // ─── 인접 블럭 거리 인디케이터 (드래그 + 부스 그리기) ───
+  drawNeighborDistances(ctx, state);
 
   ctx.restore();
 
