@@ -3392,18 +3392,20 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
       ectx.closePath();
       ectx.fill();
 
-      // 부스 개수 텍스트 (화살표 위)
+      // 부스 개수 텍스트 (화살표 위, 1부스 이상만 표시)
       const boothCountX = (ov.w / GRID_PX);
       const boothCountY = (ov.h / GRID_PX);
       const boothCount = boothCountX * boothCountY;
-      const boothText = boothCount % 1 === 0 ? String(Math.round(boothCount)) : boothCount.toFixed(2);
 
-      const boothFontSize = Math.max(15/zoom, 12);  // 50% 더 크게 (10 → 15, 8 → 12)
-      ectx.font = `600 ${boothFontSize}px Pretendard, sans-serif`;
-      ectx.fillStyle = '#E53935';
-      ectx.textAlign = 'center';
-      ectx.textBaseline = 'bottom';
-      ectx.fillText(`${boothText} Booth`, arrowX, arrowStartY - 2/zoom);
+      if (boothCount >= 1) {
+        const boothText = boothCount % 1 === 0 ? String(Math.round(boothCount)) : boothCount.toFixed(2);
+        const boothFontSize = Math.max(15/zoom, 12);
+        ectx.font = `600 ${boothFontSize}px Pretendard, sans-serif`;
+        ectx.fillStyle = '#E53935';
+        ectx.textAlign = 'center';
+        ectx.textBaseline = 'bottom';
+        ectx.fillText(`${boothText} Booth`, arrowX, arrowStartY - 2/zoom);
+      }
     });
   }
 
