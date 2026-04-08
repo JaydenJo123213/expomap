@@ -3312,7 +3312,7 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
       drawBoothContent(ectx, b, zoom, '#333333', false);
 
       // 업체명이 없으면 겹치는 baseNumber의 baseNo를 표시
-      const agDisplayName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+      const agDisplayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
       if (!agDisplayName) {
         // 부스 영역과 교차하는 모든 baseNumber 찾기
         const overlappingBaseNos = state.baseNumbers.filter(bn =>
@@ -3458,8 +3458,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   const availH = b.h - pad * 2;
   const wm = pxToM(b.w), hm = pxToM(b.h);
   const area = wm * hm;
-  // 언어에 따라 표시할 업체명 결정 (EN 모드에서 영문명 없으면 국문 폴백)
-  const displayName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+  // 언어에 따라 표시할 업체명 결정 (EN 모드에서 영문명 없으면 빈값)
+  const displayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
   const hasCompany = !!displayName;
   const hasBoothNo = !!b.boothId;
   const showSize = wm >= 6 && hm >= 6;
@@ -3688,6 +3688,20 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     c.font = `${warnFz}px sans-serif`;
     c.textAlign = 'right'; c.textBaseline = 'bottom';
     c.fillText('⚠️', b.x + b.w - 1, b.y + b.h - 1);
+  }
+
+  // 배정완료인데 영문 업체명 없는 경우 — 주황 테두리 + 좌하단 EN 경고
+  if (!VIEWER_MODE && b.status === 'assigned' && b.companyName && !b.companyNameEn) {
+    c.strokeStyle = '#FF9800';
+    c.lineWidth = 1.5 / zoom;
+    c.setLineDash([3 / zoom, 2 / zoom]);
+    c.strokeRect(b.x, b.y, b.w, b.h);
+    c.setLineDash([]);
+    const enFz = Math.max(3, Math.min(b.w, b.h) * 0.18);
+    c.font = `600 ${enFz}px sans-serif`;
+    c.fillStyle = '#FF9800';
+    c.textAlign = 'left'; c.textBaseline = 'bottom';
+    c.fillText('EN', b.x + 1, b.y + b.h - 1);
   }
 }
 
@@ -4293,7 +4307,7 @@ function renderViewer(w, h) {
     }
 
     // Use black text if company name exists, otherwise use brown
-    const hasName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+    const hasName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
     const textColor = hasName ? '#111111' : (isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#7a5045');
     drawBoothContent(ctx, b, state.zoom, textColor, false);
   }
@@ -4310,7 +4324,7 @@ function renderViewer(w, h) {
 function showViewerPopup(b, screenX, screenY) {
   const popup = document.getElementById('viewerPopup');
   document.getElementById('vpNo').textContent = b.boothId || '—';
-  const vpDisplayName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+  const vpDisplayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
   document.getElementById('vpName').textContent = (vpDisplayName || '(미배정)').replace(/<\/br>/g, ' ');
   document.getElementById('vpStatus').innerHTML = '';
   const bw = pxToM(b.w), bh = pxToM(b.h);
