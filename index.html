@@ -1589,7 +1589,7 @@ const DEFAULT_SUPA_URL = 'https://pxlredqyzfffirxbmeuw.supabase.co';
 const DEFAULT_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4bHJlZHF5emZmZmlyeGJtZXV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMzQ3NzAsImV4cCI6MjA4OTgxMDc3MH0.dHDFT4ORVRH9WLiYjyHls97iHfjT8jzW35UdHz3aOyA';
 
 let _supaClient = null;
-let _supaProjectId = 'default';
+let _supaProjectId = 'pxlredqyzfffirxbmeuw';
 let _saveTimer = null;
 
 // ─── Presence identity (session-scoped) ───
@@ -1602,7 +1602,7 @@ let _cursorBroadcastTimer = null;
 function initSupabase() {
   const url = localStorage.getItem('expomap_supa_url') || DEFAULT_SUPA_URL;
   const key = localStorage.getItem('expomap_supa_key') || DEFAULT_SUPA_KEY;
-  _supaProjectId = localStorage.getItem('expomap_supa_project') || 'default';
+  _supaProjectId = localStorage.getItem('expomap_supa_project') || 'pxlredqyzfffirxbmeuw';
   if (url && key) {
     try {
       _supaClient = window.supabase.createClient(url, key);
@@ -2765,14 +2765,35 @@ function uploadCompanyLogo(file) {
 
     const progress = document.getElementById('propLogoUploadProgress');
     progress.style.display = 'block';
-    progress.textContent = '변환 중...';
+    progress.textContent = '리사이즈 중...';
+
+    const MAX_SIZE = 300;  // 최대 300px (가로/세로)
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const dataUrl = e.target.result;  // base64 data URL
-      progress.textContent = '완료';
-      setTimeout(() => { progress.style.display = 'none'; }, 1500);
-      resolve(dataUrl);
+      const img = new Image();
+      img.onload = () => {
+        // 리사이즈 (300px 이하면 그대로)
+        let w = img.width, h = img.height;
+        if (w > MAX_SIZE || h > MAX_SIZE) {
+          if (w > h) { h = Math.round(h * MAX_SIZE / w); w = MAX_SIZE; }
+          else { w = Math.round(w * MAX_SIZE / h); h = MAX_SIZE; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/png', 0.9);
+        progress.textContent = '완료';
+        setTimeout(() => { progress.style.display = 'none'; }, 1500);
+        resolve(dataUrl);
+      };
+      img.onerror = () => {
+        alert('이미지 로드 실패');
+        progress.style.display = 'none';
+        resolve(null);
+      };
+      img.src = e.target.result;
     };
     reader.onerror = () => {
       alert('파일 읽기 실패');
