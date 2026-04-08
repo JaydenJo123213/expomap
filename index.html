@@ -3591,6 +3591,23 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     }
   }
 
+  // 전기 레이어 ON일 때 전기 데이터 없는 부스 빨간 표시
+  if (!VIEWER_MODE && state.showElec && b.status !== 'facility' && b.status !== 'excluded') {
+    const comp = state.companies.find(co => co.company_uid === b.companyUid);
+    const hasElec = comp && ELEC_KEYS.some(k => (comp[k] || 0) > 0);
+    if (!hasElec) {
+      c.save();
+      c.fillStyle = 'rgba(244, 67, 54, 0.15)';
+      c.fillRect(b.x, b.y, b.w, b.h);
+      c.strokeStyle = '#F44336';
+      c.lineWidth = 2 / zoom;
+      c.setLineDash([4 / zoom, 3 / zoom]);
+      c.strokeRect(b.x, b.y, b.w, b.h);
+      c.setLineDash([]);
+      c.restore();
+    }
+  }
+
   // 전기내역 원 뱃지
   if (!skipElec) drawElecBadges(c, b, zoom);
   // 기타 원 뱃지
