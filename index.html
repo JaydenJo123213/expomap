@@ -4261,6 +4261,58 @@ function render() {
   // ─── 배정논의 오버레이 레이어 ───
   drawDiscussOverlays(ctx, state.zoom);
 
+  // ─── 드래그 중 치수 인디케이터 ───
+  if (state.isDragging && state.selectedIds.size > 0) {
+    const sel = state.booths.filter(b => state.selectedIds.has(b.id));
+    if (sel.length) {
+      const bx1 = Math.min(...sel.map(b => b.x));
+      const by1 = Math.min(...sel.map(b => b.y));
+      const bx2 = Math.max(...sel.map(b => b.x + b.w));
+      const by2 = Math.max(...sel.map(b => b.y + b.h));
+      const wm = pxToM(bx2 - bx1), hm = pxToM(by2 - by1);
+      const xm = pxToM(bx1), ym = pxToM(by1);
+      const z = state.zoom;
+      const fz = 10 / z;
+      const pad = 6 / z;
+      ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+
+      // 상단: 가로 치수
+      ctx.fillStyle = 'rgba(79,140,255,0.85)';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`${wm}m`, (bx1 + bx2) / 2, by1 - pad);
+
+      // 하단: Y 위치 (원점 기준)
+      ctx.textBaseline = 'top';
+      ctx.fillText(`Y: ${ym.toFixed(1)}m`, (bx1 + bx2) / 2, by2 + pad);
+
+      // 좌측: 세로 치수
+      ctx.save();
+      ctx.translate(bx1 - pad, (by1 + by2) / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`${hm}m`, 0, 0);
+      ctx.restore();
+
+      // 우측: X 위치 (원점 기준)
+      ctx.save();
+      ctx.translate(bx2 + pad, (by1 + by2) / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(`X: ${xm.toFixed(1)}m`, 0, 0);
+      ctx.restore();
+
+      // 점선 가이드라인 (원점 → 블럭)
+      ctx.strokeStyle = 'rgba(79,140,255,0.3)';
+      ctx.lineWidth = 0.5 / z;
+      ctx.setLineDash([4 / z, 4 / z]);
+      ctx.beginPath();
+      ctx.moveTo(0, by1); ctx.lineTo(bx1, by1);  // 수평 (위)
+      ctx.moveTo(bx1, 0); ctx.lineTo(bx1, by1);  // 수직 (좌)
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
   ctx.restore();
 
   // Show/hide assignGuideMode hint
