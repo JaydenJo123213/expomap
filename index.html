@@ -991,6 +991,7 @@
           <option value="lr-tb">좌→우, 상→하</option>
           <option value="lr-bt">좌→우, 하→상</option>
           <option value="tb-lr">상→하, 좌→우</option>
+          <option value="bt-lr">하→상, 좌→우</option>
           <option value="rl-tb">우→좌, 상→하</option>
           <option value="rl-bt">우→좌, 하→상</option>
         </select>
@@ -2906,6 +2907,7 @@ function executeAutoNumber() {
   if      (dir === 'lr-tb') booths.sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
   else if (dir === 'lr-bt') booths.sort((a, b) => a.y !== b.y ? b.y - a.y : a.x - b.x);
   else if (dir === 'tb-lr') booths.sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+  else if (dir === 'bt-lr') booths.sort((a, b) => a.x !== b.x ? a.x - b.x : b.y - a.y);
   else if (dir === 'rl-tb') booths.sort((a, b) => a.y !== b.y ? a.y - b.y : b.x - a.x);
   else if (dir === 'rl-bt') booths.sort((a, b) => a.y !== b.y ? b.y - a.y : b.x - a.x);
   saveUndo();
@@ -2932,6 +2934,7 @@ function executeAutoAssignBaseNo() {
   if      (dir === 'lr-tb') baseNumbers.sort((a, b) => a.y !== b.y ? a.y - b.y : a.x - b.x);
   else if (dir === 'lr-bt') baseNumbers.sort((a, b) => a.y !== b.y ? b.y - a.y : a.x - b.x);
   else if (dir === 'tb-lr') baseNumbers.sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+  else if (dir === 'bt-lr') baseNumbers.sort((a, b) => a.x !== b.x ? a.x - b.x : b.y - a.y);
   else if (dir === 'rl-tb') baseNumbers.sort((a, b) => a.y !== b.y ? a.y - b.y : b.x - a.x);
   else if (dir === 'rl-bt') baseNumbers.sort((a, b) => a.y !== b.y ? b.y - a.y : b.x - a.x);
   saveUndo();
