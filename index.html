@@ -3514,6 +3514,24 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
         c.fillText(b.boothId, b.x + pad, b.y + pad);
         c.globalAlpha = 1;
       }
+      // 전기 레이어 빨간 표시 + 뱃지 (로고 부스에서도 동작)
+      if (!VIEWER_MODE && state.showElec && b.status !== 'facility' && b.status !== 'excluded') {
+        const comp2 = state.companies.find(co => co.company_uid === b.companyUid);
+        const hasElec2 = comp2 && ELEC_KEYS.some(k => (comp2[k] || 0) > 0);
+        if (!hasElec2) {
+          c.save();
+          c.fillStyle = 'rgba(244, 67, 54, 0.15)';
+          c.fillRect(b.x, b.y, b.w, b.h);
+          c.strokeStyle = '#F44336';
+          c.lineWidth = 2 / zoom;
+          c.setLineDash([4 / zoom, 3 / zoom]);
+          c.strokeRect(b.x, b.y, b.w, b.h);
+          c.setLineDash([]);
+          c.restore();
+        }
+      }
+      if (!skipElec) drawElecBadges(c, b, zoom);
+      if (!skipOther) drawOtherBadges(c, b, zoom);
       return;
     }
   }
