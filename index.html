@@ -1984,9 +1984,8 @@ function drawBaseNumbers(c, zoom) {
     );
     if (covering) return;
 
-    // Match booth boothId text style — 부스 크기에 비례
-    const bnFz = Math.min(bn.w, bn.h) * 0.45;
-    c.font = `600 ${bnFz}px Pretendard, sans-serif`;
+    // Match booth boothId text style
+    c.font = `500 7px Pretendard, sans-serif`;
     c.fillStyle = '#8B8FA3';
     c.globalAlpha = 0.65;
     c.textAlign = 'center';
@@ -3573,7 +3572,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
       // 부스번호: 좌상단
       if (hasBoothNo) {
-        const noFz = 7;
+        const noFz = 14;
         c.font = `500 ${noFz}px Pretendard, sans-serif`;
         c.textAlign = 'left'; c.textBaseline = 'top';
         c.globalAlpha = 0.65;
@@ -3626,9 +3625,9 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const lines = wrapText(displayName);
     const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
-    // 부스번호/사이즈는 고정 작은 폰트 — 업체명 크기와 독립적으로 결정
-    const noFz  = hasBoothNo ? 7 : 0;
-    const szFz  = showSize   ? Math.min(availH * 0.12, 7) : 0;
+    // 부스번호/사이즈 — 3m 부스 기준 고정 크기
+    const noFz  = hasBoothNo ? 14 : 0;
+    const szFz  = showSize   ? Math.min(availH * 0.12, 14) : 0;
     const topReserve    = hasBoothNo ? noFz + 2 : 0;
     const bottomReserve = showSize   ? szFz + 2 : 0;
     const textAreaH = availH - topReserve - bottomReserve;
@@ -3667,7 +3666,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   } else if (hasBoothNo) {
     // Booth No.만 → 중앙
     let fz = Math.min(calcFontSize(c, b.boothId, availW * 0.9), availH * 0.5);
-    fz = Math.max(2, Math.min(fz, 14));
+    fz = Math.max(3, Math.min(fz, 20));
     c.font = `600 ${fz}px Pretendard, sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText(b.boothId, b.x + b.w / 2, b.y + b.h / 2);
@@ -6756,7 +6755,7 @@ function exportFloorplanPDF() {
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
-    const bnFz = Math.min(bn.w, bn.h) * 0.45;
+    const bnFz = Math.min(bn.w, bn.h) * 0.35;
     ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -6868,7 +6867,7 @@ function exportAvailablePDF() {
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
-    const bnFz = Math.min(bn.w, bn.h) * 0.45;
+    const bnFz = Math.min(bn.w, bn.h) * 0.35;
     ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
