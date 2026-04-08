@@ -5618,6 +5618,9 @@ document.getElementById('btnAssignGuideConfirm').addEventListener('click', () =>
   document.getElementById('assignGuideModeHint').style.display = 'none';
   openModal('modalAssignGuide');
   document.getElementById('assignGuideInfo').textContent = `선택된 배정논의: ${state.selectedDiscussIds.size}개`;
+  // 현재 언어 상태에 맞게 라디오 초기값 동기화
+  const langRadio = document.querySelector(`input[name="assignLang"][value="${state.lang}"]`);
+  if (langRadio) langRadio.checked = true;
 });
 document.getElementById('btnManualSave').addEventListener('click', () => {
   if (!_supaClient) { alert('Supabase not connected. Set up in Settings first.'); return; }
@@ -6860,7 +6863,7 @@ function renderBoothTypeDbTable(filter = '') {
   // 배정된 부스만 표시 (boothType 있거나 companyUid 있는 것)
   const booths = state.booths.filter(b => b.companyUid || b.boothType);
   const filtered = filter
-    ? booths.filter(b => (b.companyUid||'').includes(filter) || (b.companyName||'').includes(filter))
+    ? booths.filter(b => (b.companyUid||'').includes(filter) || (b.companyName||'').includes(filter) || (b.companyNameEn||'').includes(filter))
     : booths;
 
   const TYPE_COLORS_MAP = { '조립': '#FFEE58', '자체': '#FFA726', '독립': 'transparent' };
