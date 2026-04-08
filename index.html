@@ -1361,6 +1361,7 @@ const EXHIBITIONS = {
     name: 'K-PRINT 2026',
     nameShort: 'K-PRINT',
     pdfPrefix: 'K-PRINT 2026',
+    boothColor: '#f6f9e8',
   },
   // 새 전시회 추가 시 여기에 한 블럭 추가
 };
@@ -3257,9 +3258,9 @@ function renderForExport(ectx, W, H, preset) {
       fill = '#e8e8e8'; stroke = '#333'; textColor = '#333';
     } else if (isCompany) {
       const isHighlight = highlightIds && highlightIds.has(b.id);
-      fill = isHighlight ? '#4CAF50' : '#3D4255';
-      stroke = isHighlight ? '#3DAF6E' : '#555A6E';
-      textColor = isHighlight ? '#fff' : '#8B8FA3';
+      fill = isHighlight ? '#4CAF50' : STATUS_COLORS.available.fill;
+      stroke = isHighlight ? '#3DAF6E' : STATUS_COLORS.available.stroke;
+      textColor = isHighlight ? '#fff' : STATUS_COLORS.available.text;
     } else {
       const c = STATUS_COLORS[b.status] || STATUS_COLORS.available;
       fill = c.fill; stroke = c.stroke; textColor = c.text;
@@ -6886,7 +6887,7 @@ function exportAvailablePDF() {
 
 function getBoothFillColor(booth) {
   const statusColors = {
-    'available': '#3D4255',
+    'available': STATUS_COLORS.available.fill,
     'spot': '#FF9800',
     'hold': '#F06292',
     'online': '#29B6F6',
@@ -7559,6 +7560,11 @@ function applyExhibitionBranding(expo) {
   if (topLogo) topLogo.innerHTML = 'ExpoMap <span>' + expo.nameShort + '</span>';
   const viewerLogo = document.querySelector('.viewer-logo');
   if (viewerLogo) viewerLogo.innerHTML = 'ExpoMap <span>' + expo.nameShort + ' 공개도면</span>';
+  // 전시회별 부스 색상 오버라이드
+  if (expo.boothColor) {
+    STATUS_COLORS.available = { fill: expo.boothColor, stroke: '#b0b8a0', text: '#555555' };
+    VIEWER_STATUS_COLORS.available = { fill: expo.boothColor, stroke: '#b0b8a0', text: '#555555', label: '배정가능' };
+  }
 }
 
 async function init() {
