@@ -1984,10 +1984,11 @@ function drawBaseNumbers(c, zoom) {
     );
     if (covering) return;
 
-    // Match booth boothId text style
-    c.font = `500 7px Pretendard, sans-serif`;
-    c.fillStyle = '#8B8FA3';  // Same as booth available state
-    c.globalAlpha = 0.65;     // Same as booth boothId
+    // Match booth boothId text style — 부스 크기에 비례
+    const bnFz = Math.min(bn.w, bn.h) * 0.45;
+    c.font = `600 ${bnFz}px Pretendard, sans-serif`;
+    c.fillStyle = '#8B8FA3';
+    c.globalAlpha = 0.65;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
@@ -6755,7 +6756,7 @@ function exportFloorplanPDF() {
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
-    const bnFz = Math.min(bn.w, bn.h) * 0.35;
+    const bnFz = Math.min(bn.w, bn.h) * 0.45;
     ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -6867,7 +6868,7 @@ function exportAvailablePDF() {
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
-    const bnFz = Math.min(bn.w, bn.h) * 0.35;
+    const bnFz = Math.min(bn.w, bn.h) * 0.45;
     ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
