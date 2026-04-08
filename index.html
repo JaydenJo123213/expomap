@@ -4014,6 +4014,15 @@ function drawNeighborDistances(ctx, state) {
     bx2 = Math.max(...sel.map(b => b.x + b.w));
     by2 = Math.max(...sel.map(b => b.y + b.h));
     excludeIds = state.selectedIds;
+  } else if (state.baseNoDragging && state.selectedBaseNoIds.size > 0) {
+    // 기본부스 드래그
+    const sel = state.baseNumbers.filter(bn => state.selectedBaseNoIds.has(bn.id));
+    if (!sel.length) return;
+    bx1 = Math.min(...sel.map(b => b.x));
+    by1 = Math.min(...sel.map(b => b.y));
+    bx2 = Math.max(...sel.map(b => b.x + b.w));
+    by2 = Math.max(...sel.map(b => b.y + b.h));
+    // 기본부스가 아닌 일반 부스들을 이웃으로 사용
   } else if (state.isDrawing || state.isBaseDrawing) {
     // 새 부스 그리기 미리보기
     const startX = state.isDrawing ? state.drawStartX : state.baseDrawStartX;
@@ -4030,7 +4039,12 @@ function drawNeighborDistances(ctx, state) {
     return;
   }
 
-  const others = state.booths.filter(b => !excludeIds.has(b.id));
+  // 이웃 블럭: 일반 부스 + 기본부스 (드래그 대상 제외)
+  const otherBooths = state.booths.filter(b => !excludeIds.has(b.id));
+  const otherBaseNos = state.baseNoDragging
+    ? state.baseNumbers.filter(bn => !state.selectedBaseNoIds.has(bn.id))
+    : state.baseNumbers;
+  const others = [...otherBooths, ...otherBaseNos];
   if (!others.length) return;
 
   const midX = (bx1 + bx2) / 2, midY = (by1 + by2) / 2;
