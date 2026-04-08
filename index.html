@@ -297,6 +297,7 @@
   <div class="viewer-logo">ExpoMap <span>공개도면</span></div>
   <div style="flex:1"></div>
   <button id="btnViewerAvailable" onclick="toggleViewerAvailable()" style="padding:5px 16px;border:1px solid #F9A825;border-radius:6px;background:#FFD600;color:#7A5800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">배정 가능한 위치</button>
+  <button id="btnViewerLang" onclick="toggleLang()" style="padding:5px 16px;border:1px solid #666;border-radius:6px;background:#fff;color:#333;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">EN</button>
   <div style="flex:1"></div>
   <button onclick="window.open(location.pathname+'?mode=admin','_blank')" style="padding:5px 16px;border:1px solid #1a73e8;border-radius:6px;background:#fff;color:#1a73e8;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">🔧 배정모드</button>
   <div class="viewer-zoom" id="viewerZoomDisplay">100%</div>
@@ -351,6 +352,7 @@
   <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정안내</button>
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
+  <button class="tool-btn" id="btnAdminLang" title="국문/영문 전환" style="font-weight:600;color:#333" onclick="toggleLang()">EN</button>
   <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname, '_blank')">공개도면</button>
 </div>
 
@@ -631,7 +633,8 @@
       <!-- Booth No. -->
       <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
       <!-- Company -->
-      <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명"></div>
+      <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명 (국문)"></div>
+      <div class="prop-row"><span class="prop-label">Name EN</span><input class="prop-input" id="propCompanyNameEn" style="width:120px" placeholder="Company (English)"></div>
       <!-- UID -->
       <div class="prop-row"><span class="prop-label">UID</span><input class="prop-input" id="propCompany" style="width:120px" placeholder="company_uid"></div>
       <!-- X -->
@@ -1109,6 +1112,11 @@
         <input type="checkbox" id="assignShowNames" style="width:14px;height:14px;cursor:pointer">
         <label for="assignShowNames" style="font-size:12px;color:var(--text);cursor:pointer">업체명 표기 (모든 부스명)</label>
       </div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:12px;color:var(--text-dim)">언어:</span>
+        <label style="font-size:12px;cursor:pointer"><input type="radio" name="assignLang" value="ko" checked style="margin-right:3px">국문</label>
+        <label style="font-size:12px;cursor:pointer"><input type="radio" name="assignLang" value="en" style="margin-right:3px">영문</label>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeModal('modalAssignGuide')">Cancel</button>
@@ -1427,6 +1435,7 @@ let state = {
   showBoothType: true,
   showBooths: true,
   locked: true,
+  lang: 'ko',  // 'ko' | 'en' — 캔버스 표시 언어
   // viewer mode
   showViewerAvailable: true,
   viewerHoverId: null,
@@ -1930,7 +1939,7 @@ function drawBaseNumbers(c, zoom) {
     const covering = state.booths.find(b =>
       b.x < bn.x + bn.w && b.x + b.w > bn.x &&
       b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.boothId || b.companyName)
+      (b.boothId || b.companyName || b.companyNameEn)
     );
     if (covering) return;
 
@@ -2004,7 +2013,7 @@ async function loadFromSupabase() {
     if (!data) { console.log('No saved state, starting fresh.'); return; }
     if (data?.state_json) {
       const s = data.state_json;
-      state.booths = s.booths || [];
+      state.booths = (s.booths || []).map(b => ({ ...b, companyNameEn: b.companyNameEn || '' }));
       state.groups = s.groups || [];
       state.structures = s.structures || [];
       state.companies = s.companies || [];
@@ -2141,7 +2150,7 @@ function redo() {
 
 // ─── Booth CRUD ───
 function createBooth(x, y, w, h) {
-  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
   saveUndo();
   state.booths.push(booth);
   return booth;
@@ -2191,7 +2200,7 @@ function mergeSelected() {
   state.groups.forEach(g => { g.boothIds = g.boothIds.filter(id => !ids.has(id)); });
   state.groups = state.groups.filter(g => g.boothIds.length > 0);
   state.booths = state.booths.filter(b => !ids.has(b.id));
-  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
   state.booths.push(merged);
   state.selectedIds.clear();
   state.selectedIds.add(merged.id);
@@ -2213,10 +2222,10 @@ function executeDivide() {
   const newBooths = [];
   if (dir === 'h') {
     const nw = b.w / count;
-    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x + i * nw, y: b.y, w: nw, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: b.groupId, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
+    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x + i * nw, y: b.y, w: nw, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: b.groupId, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
   } else {
     const nh = b.h / count;
-    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x, y: b.y + i * nh, w: b.w, h: nh, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: b.groupId, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
+    for (let i = 0; i < count; i++) newBooths.push({ id: state.nextId++, x: b.x, y: b.y + i * nh, w: b.w, h: nh, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: b.groupId, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' });
   }
   if (b.groupId) {
     const g = state.groups.find(g => g.id === b.groupId);
@@ -2250,7 +2259,7 @@ function executeNumericCopy() {
   // Copy booths
   if (hasBooths) {
     const selected = state.booths.filter(b => state.selectedIds.has(b.id));
-    const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
+    const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
     state.booths.push(...newBooths);
     state.selectedIds.clear();
     newBooths.forEach(nb => state.selectedIds.add(nb.id));
@@ -2282,7 +2291,7 @@ function repeatLastCopy() {
   // Repeat booth copy
   if (hasBooths) {
     const selected = state.booths.filter(b => state.selectedIds.has(b.id));
-    const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
+    const newBooths = selected.map(b => ({ id: state.nextId++, x: b.x + dx, y: b.y + dy, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' }));
     state.booths.push(...newBooths);
     state.selectedIds.clear();
     newBooths.forEach(nb => state.selectedIds.add(nb.id));
@@ -2317,7 +2326,7 @@ function executeArrayCopy() {
     for (let c = 0; c < cols; c++) {
       if (r === 0 && c === 0) continue;
       selected.forEach(b => {
-        newBooths.push({ id: state.nextId++, x: b.x + c * stepX, y: b.y + r * stepY, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: b.elecSide || '', otherSide: b.otherSide || '' });
+        newBooths.push({ id: state.nextId++, x: b.x + c * stepX, y: b.y + r * stepY, w: b.w, h: b.h, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: b.elecSide || '', otherSide: b.otherSide || '' });
       });
     }
   }
@@ -3022,6 +3031,7 @@ function confirmImport() {
       if (booth) {
         booth.companyUid = obj.company_uid || obj.company_name;
         booth.companyName = obj.company_name || '';
+        booth.companyNameEn = obj.company_name_en || '';
         if (!booth.status || booth.status === 'available') booth.status = 'assigned';
       }
     }
@@ -3101,12 +3111,17 @@ function executeAssignGuideExport() {
     return;
   }
   const showNames = document.getElementById('assignShowNames').checked;
+  // 언어 선택 적용
+  const assignLang = document.querySelector('input[name="assignLang"]:checked')?.value || 'ko';
+  const prevLang = state.lang;
+  state.lang = assignLang;
   // A3 portrait: 297×420mm → 3508×4961px @300dpi
   const offW = 3508, offH = 4961;
   const off = document.createElement('canvas');
   off.width = offW; off.height = offH;
   const octx = off.getContext('2d');
   renderForAssignGuideExport(octx, offW, offH, showNames);
+  state.lang = prevLang;  // 원래 언어로 복원
   const imgData = off.toDataURL('image/jpeg', 0.95);
   try {
     const { jsPDF } = window.jspdf;
@@ -3118,7 +3133,8 @@ function executeAssignGuideExport() {
     const dateStr = String(now.getFullYear()).slice(2) +
       String(now.getMonth() + 1).padStart(2, '0') +
       String(now.getDate()).padStart(2, '0');
-    doc.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}_${companyName}.pdf`);
+    const langTag = assignLang === 'en' ? '_EN' : '';
+    doc.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}_${companyName}${langTag}.pdf`);
     closeModal('modalAssignGuide');
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
@@ -3296,7 +3312,8 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
       drawBoothContent(ectx, b, zoom, '#333333', false);
 
       // 업체명이 없으면 겹치는 baseNumber의 baseNo를 표시
-      if (!b.companyName) {
+      const agDisplayName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+      if (!agDisplayName) {
         // 부스 영역과 교차하는 모든 baseNumber 찾기
         const overlappingBaseNos = state.baseNumbers.filter(bn =>
           // 두 사각형이 교차하는지 확인
@@ -3441,7 +3458,9 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   const availH = b.h - pad * 2;
   const wm = pxToM(b.w), hm = pxToM(b.h);
   const area = wm * hm;
-  const hasCompany = !!b.companyName;
+  // 언어에 따라 표시할 업체명 결정 (EN 모드에서 영문명 없으면 국문 폴백)
+  const displayName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+  const hasCompany = !!displayName;
   const hasBoothNo = !!b.boothId;
   const showSize = wm >= 6 && hm >= 6;
 
@@ -3489,7 +3508,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       // 텍스트 영역: 로고 아래 (gap 적용)
       const textAreaY = b.y + b.h * 0.58 + gap;
       const textAreaH = b.h * 0.36 - gap;
-      const lines = wrapText(b.companyName);
+      const lines = wrapText(displayName);
       const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
       let fz = calcFontSize(c, longestLine || 'A', availW * 0.85);
@@ -3556,7 +3575,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   }
 
   if (hasCompany) {
-    const lines = wrapText(b.companyName);
+    const lines = wrapText(displayName);
     const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
     // 부스번호/사이즈는 고정 작은 폰트 — 업체명 크기와 독립적으로 결정
@@ -4232,6 +4251,7 @@ function renderViewer(w, h) {
     const isHighlighted = searchTerm && (
       b.boothId.toLowerCase().includes(searchTerm) ||
       b.companyName.toLowerCase().includes(searchTerm) ||
+      (b.companyNameEn || '').toLowerCase().includes(searchTerm) ||
       b.companyUid.toLowerCase().includes(searchTerm)
     );
     const isHovered = state.viewerHoverId === b.id;
@@ -4272,8 +4292,9 @@ function renderViewer(w, h) {
       }
     }
 
-    // Use black text if companyName exists, otherwise use brown
-    const textColor = b.companyName ? '#111111' : (isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#7a5045');
+    // Use black text if company name exists, otherwise use brown
+    const hasName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+    const textColor = hasName ? '#111111' : (isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#7a5045');
     drawBoothContent(ctx, b, state.zoom, textColor, false);
   }
 
@@ -4289,7 +4310,8 @@ function renderViewer(w, h) {
 function showViewerPopup(b, screenX, screenY) {
   const popup = document.getElementById('viewerPopup');
   document.getElementById('vpNo').textContent = b.boothId || '—';
-  document.getElementById('vpName').textContent = (b.companyName || '(미배정)').replace(/<\/br>/g, ' ');
+  const vpDisplayName = state.lang === 'en' ? (b.companyNameEn || b.companyName) : b.companyName;
+  document.getElementById('vpName').textContent = (vpDisplayName || '(미배정)').replace(/<\/br>/g, ' ');
   document.getElementById('vpStatus').innerHTML = '';
   const bw = pxToM(b.w), bh = pxToM(b.h);
   document.getElementById('vpSize').textContent = `${bw}m × ${bh}m (${(bw * bh).toFixed(0)}㎡)`;
@@ -5155,7 +5177,7 @@ canvas.addEventListener('mouseup', (e) => {
       saveUndo();
       const newBooths = state.altDragClones.map(b => ({
         id: state.nextId++, x: b.x, y: b.y, w: b.w, h: b.h,
-        boothId: '', status: 'available', companyUid: '', companyName: '', groupId: null, memo: '', elecSide: '', otherSide: ''
+        boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: ''
       }));
       state.booths.push(...newBooths);
       state.altDragClones = [];
@@ -5902,6 +5924,7 @@ function updateProps() {
     if (!b) return;
     document.getElementById('propBoothId').value = b.boothId;
     document.getElementById('propCompanyName').value = b.companyName;
+    document.getElementById('propCompanyNameEn').value = b.companyNameEn || '';
     document.getElementById('propCompany').value = b.companyUid;
     document.getElementById('propX').value = pxToM(b.x).toFixed(1);
     document.getElementById('propY').value = pxToM(b.y).toFixed(1);
@@ -6270,6 +6293,10 @@ document.getElementById('propCompanyName').addEventListener('change', (e) => {
     render();
   }
 });
+document.getElementById('propCompanyNameEn').addEventListener('change', (e) => {
+  const b = getSelectedBooth();
+  if (b) { saveUndo(); b.companyNameEn = e.target.value; render(); }
+});
 document.getElementById('propX').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.x = mToPx(parseFloat(e.target.value) || 0); render(); } });
 document.getElementById('propY').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.y = mToPx(parseFloat(e.target.value) || 0); render(); } });
 document.getElementById('propW').addEventListener('change', (e) => { const b = getSelectedBooth(); if (b) { saveUndo(); b.w = mToPx(Math.max(0.5, parseFloat(e.target.value) || 3)); render(); updateProps(); } });
@@ -6545,7 +6572,7 @@ function exportFloorplanPDF() {
     const covering = state.booths.find(b =>
       b.x < bn.x + bn.w && b.x + b.w > bn.x &&
       b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.boothId || b.companyName)
+      (b.boothId || b.companyName || b.companyNameEn)
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
@@ -6565,7 +6592,8 @@ function exportFloorplanPDF() {
   // 저장 — 파일명: KIMES BUSAN 2026_Floor Plan_YYYYMMDD
   const today = new Date();
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
-  pdf.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}.pdf`);
+  const langSuffix = state.lang === 'en' ? '_EN' : '';
+  pdf.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}${langSuffix}.pdf`);
 }
 
 function exportAvailablePDF() {
@@ -6656,7 +6684,7 @@ function exportAvailablePDF() {
     const covering = state.booths.find(b =>
       b.x < bn.x + bn.w && b.x + b.w > bn.x &&
       b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.boothId || b.companyName)
+      (b.boothId || b.companyName || b.companyNameEn)
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
@@ -6674,7 +6702,8 @@ function exportAvailablePDF() {
 
   const today = new Date();
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
-  pdf.save(`KIMES BUSAN 2026_Available Spots_${dateStr}.pdf`);
+  const langSuffix = state.lang === 'en' ? '_EN' : '';
+  pdf.save(`KIMES BUSAN 2026_Available Spots_${dateStr}${langSuffix}.pdf`);
 }
 
 function getBoothFillColor(booth) {
@@ -7275,6 +7304,28 @@ function toggleBgPanel() {
   panel.style.display = isOpen ? 'none' : '';
   sep.style.display = isOpen ? 'none' : '';
   btn.classList.toggle('active', !isOpen);
+}
+
+function toggleLang() {
+  state.lang = state.lang === 'ko' ? 'en' : 'ko';
+  const label = state.lang === 'en' ? 'KO' : 'EN';
+  const active = state.lang === 'en';
+  // 뷰어 버튼
+  const vBtn = document.getElementById('btnViewerLang');
+  if (vBtn) {
+    vBtn.textContent = label;
+    vBtn.style.background = active ? '#1a73e8' : '#fff';
+    vBtn.style.color = active ? '#fff' : '#333';
+    vBtn.style.borderColor = active ? '#1a73e8' : '#666';
+  }
+  // 관리자 버튼
+  const aBtn = document.getElementById('btnAdminLang');
+  if (aBtn) {
+    aBtn.textContent = label;
+    aBtn.style.background = active ? '#1a73e8' : '';
+    aBtn.style.color = active ? '#fff' : '#333';
+  }
+  render();
 }
 
 function toggleViewerAvailable() {
