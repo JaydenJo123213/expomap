@@ -4261,55 +4261,70 @@ function render() {
   // ─── 배정논의 오버레이 레이어 ───
   drawDiscussOverlays(ctx, state.zoom);
 
-  // ─── 드래그 중 치수 인디케이터 ───
+  // ─── 드래그 중 인접 블럭 거리 인디케이터 ───
   if (state.isDragging && state.selectedIds.size > 0) {
     const sel = state.booths.filter(b => state.selectedIds.has(b.id));
-    if (sel.length) {
+    const others = state.booths.filter(b => !state.selectedIds.has(b.id));
+    if (sel.length && others.length) {
       const bx1 = Math.min(...sel.map(b => b.x));
       const by1 = Math.min(...sel.map(b => b.y));
       const bx2 = Math.max(...sel.map(b => b.x + b.w));
       const by2 = Math.max(...sel.map(b => b.y + b.h));
-      const wm = pxToM(bx2 - bx1), hm = pxToM(by2 - by1);
-      const xm = pxToM(bx1), ym = pxToM(by1);
+      const midX = (bx1 + bx2) / 2, midY = (by1 + by2) / 2;
       const z = state.zoom;
-      const fz = 10 / z;
-      const pad = 6 / z;
-      ctx.font = `600 ${fz}px Pretendard, sans-serif`;
 
-      // 상단: 가로 치수
-      ctx.fillStyle = 'rgba(79,140,255,0.85)';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(`${wm}m`, (bx1 + bx2) / 2, by1 - pad);
+      // 상하좌우 가장 가까운 블럭 거리 계산
+      let distTop = Infinity, distBot = Infinity, distLeft = Infinity, distRight = Infinity;
+      let nearTop = null, nearBot = null, nearLeft = null, nearRight = null;
 
-      // 하단: Y 위치 (원점 기준)
-      ctx.textBaseline = 'top';
-      ctx.fillText(`Y: ${ym.toFixed(1)}m`, (bx1 + bx2) / 2, by2 + pad);
+      for (const o of others) {
+        const ox2 = o.x + o.w, oy2 = o.y + o.h;
+        // 수평 겹침 체크 (좌우가 아닌 상하 이웃)
+        const hOverlap = bx1 < ox2 && bx2 > o.x;
+        // 수직 겹침 체크 (상하가 아닌 좌우 이웃)
+        const vOverlap = by1 < oy2 && by2 > o.y;
 
-      // 좌측: 세로 치수
-      ctx.save();
-      ctx.translate(bx1 - pad, (by1 + by2) / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(`${hm}m`, 0, 0);
-      ctx.restore();
+        if (hOverlap) {
+          const dTop = by1 - oy2;  // 위쪽 거리
+          if (dTop >= 0 && dTop < distTop) { distTop = dTop; nearTop = o; }
+          const dBot = o.y - by2;  // 아래쪽 거리
+          if (dBot >= 0 && dBot < distBot) { distBot = dBot; nearBot = o; }
+        }
+        if (vOverlap) {
+          const dLeft = bx1 - ox2;  // 왼쪽 거리
+          if (dLeft >= 0 && dLeft < distLeft) { distLeft = dLeft; nearLeft = o; }
+          const dRight = o.x - bx2;  // 오른쪽 거리
+          if (dRight >= 0 && dRight < distRight) { distRight = dRight; nearRight = o; }
+        }
+      }
 
-      // 우측: X 위치 (원점 기준)
-      ctx.save();
-      ctx.translate(bx2 + pad, (by1 + by2) / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(`X: ${xm.toFixed(1)}m`, 0, 0);
-      ctx.restore();
+      const fz = 9 / z;
+      const drawDistLine = (x1, y1, x2, y2, dist) => {
+        const dm = pxToM(dist);
+        // 빨간 점선
+        ctx.strokeStyle = '#FF5252';
+        ctx.lineWidth = 1 / z;
+        ctx.setLineDash([3 / z, 2 / z]);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // 라벨 배경 + 텍스트
+        const lx = (x1 + x2) / 2, ly = (y1 + y2) / 2;
+        const label = dm.toFixed(1) + 'm';
+        ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(255,82,82,0.9)';
+        ctx.fillRect(lx - tw / 2 - 2 / z, ly - fz / 2 - 1 / z, tw + 4 / z, fz + 2 / z);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, lx, ly);
+      };
 
-      // 점선 가이드라인 (원점 → 블럭)
-      ctx.strokeStyle = 'rgba(79,140,255,0.3)';
-      ctx.lineWidth = 0.5 / z;
-      ctx.setLineDash([4 / z, 4 / z]);
-      ctx.beginPath();
-      ctx.moveTo(0, by1); ctx.lineTo(bx1, by1);  // 수평 (위)
-      ctx.moveTo(bx1, 0); ctx.lineTo(bx1, by1);  // 수직 (좌)
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (distTop < Infinity) drawDistLine(midX, by1, midX, by1 - distTop, distTop);
+      if (distBot < Infinity) drawDistLine(midX, by2, midX, by2 + distBot, distBot);
+      if (distLeft < Infinity) drawDistLine(bx1, midY, bx1 - distLeft, midY, distLeft);
+      if (distRight < Infinity) drawDistLine(bx2, midY, bx2 + distRight, midY, distRight);
     }
   }
 
