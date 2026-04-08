@@ -4404,7 +4404,7 @@ function drawGrid(screenW, screenH) {
   const tl = screenToWorld(0, 0);
   const br = screenToWorld(screenW, screenH);
   if (state.zoom > 0.8) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth = 0.5 / state.zoom;
     const step = HALF_GRID_PX;
     const sx = Math.floor(tl.x / step) * step, sy = Math.floor(tl.y / step) * step;
@@ -4413,7 +4413,7 @@ function drawGrid(screenW, screenH) {
     for (let y = sy; y < br.y; y += step) { ctx.moveTo(tl.x, y); ctx.lineTo(br.x, y); }
     ctx.stroke();
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = 0.5 / state.zoom;
   const sx2 = Math.floor(tl.x / GRID_PX) * GRID_PX, sy2 = Math.floor(tl.y / GRID_PX) * GRID_PX;
   ctx.beginPath();
