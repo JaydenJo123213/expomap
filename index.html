@@ -1614,7 +1614,7 @@ const SELECTED_STROKE = '#4F8CFF';
 const GROUP_STROKE = '#4F8CFF';
 
 const VIEWER_STATUS_COLORS = {
-  available: { fill: '#F5F5F5', stroke: '#BDBDBD', text: '#9E9E9E', label: '배정가능' },
+  available: { fill: '#f9e5de', stroke: '#d4a89a', text: '#7a5045', label: '배정가능' },
   discuss:   { fill: '#FFFDE7', stroke: '#FDD835', text: '#F57F17', label: '배정논의' },      // 노랑
   spot:      { fill: '#FFF3E0', stroke: '#FFA726', text: '#E65100', label: '배정가능위치' },  // 주황
   hold:      { fill: '#FCE4EC', stroke: '#F06292', text: '#C2185B', label: '홀딩' },           // 핑크
@@ -4413,6 +4413,7 @@ function renderViewer(w, h) {
   // 4. Booths — 상태 구분 없이 단일 스타일
   const searchEl = document.getElementById('viewerSearch');
   const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const _vAvail = VIEWER_STATUS_COLORS.available;
   for (const b of state.booths) {
     const isHighlighted = searchTerm && (
       b.boothId.toLowerCase().includes(searchTerm) ||
@@ -4427,8 +4428,8 @@ function renderViewer(w, h) {
     // facility → 연한회색 #EFEFEF
     const isSelected = isHovered && b.status === 'spot';
     const isAvailableHighlight = state.showViewerAvailable && b.status === 'spot';
-    let fill = b.status === 'facility' ? '#EFEFEF' : '#f9e5de';
-    let stroke = b.status === 'facility' ? '#111111' : '#d4a89a';
+    let fill = b.status === 'facility' ? '#EFEFEF' : _vAvail.fill;
+    let stroke = b.status === 'facility' ? '#111111' : _vAvail.stroke;
     if (isHighlighted) { fill = '#FFF9C4'; stroke = '#F57F17'; }
     else if (isSelected || isAvailableHighlight) { fill = '#FFD600'; stroke = '#F9A825'; }
 
@@ -4460,7 +4461,7 @@ function renderViewer(w, h) {
 
     // Use black text if company name exists, otherwise use brown
     const hasName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
-    const textColor = hasName ? '#111111' : (isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#7a5045');
+    const textColor = hasName ? '#111111' : (isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : _vAvail.text);
     drawBoothContent(ctx, b, state.zoom, textColor, false);
   }
 
