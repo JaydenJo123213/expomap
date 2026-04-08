@@ -1887,14 +1887,18 @@ function drawDiscussOverlays(c, zoom) {
       c.fillRect(ov.x + ov.w - hs, ov.y + ov.h - hs, hs, hs);
     }
 
-    // 라벨 텍스트
+    // 라벨 텍스트 (</br> 줄바꿈 지원)
     if (ov.label) {
-      c.font = `500 7px Pretendard, sans-serif`;
+      const fz = 7;
+      c.font = `500 ${fz}px Pretendard, sans-serif`;
       c.fillStyle = '#FFD600';
       c.globalAlpha = 0.9;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.fillText(ov.label, ov.x + ov.w / 2, ov.y + ov.h / 2);
+      const lines = ov.label.split('</br>').map(s => s.trim());
+      const lineH = fz * 1.3;
+      const startY = ov.y + ov.h / 2 - (lines.length - 1) * lineH / 2;
+      lines.forEach((line, i) => c.fillText(line, ov.x + ov.w / 2, startY + i * lineH));
       c.globalAlpha = 1;
     }
   });
@@ -3330,13 +3334,17 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
     ectx.setLineDash([]);
     ectx.strokeRect(ov.x, ov.y, ov.w, ov.h);
 
-    // 라벨 (검정색)
+    // 라벨 (검정색, </br> 줄바꿈 지원)
     if (ov.label) {
-      ectx.font = `600 ${Math.max(10/zoom, 8)}px Pretendard, sans-serif`;
-      ectx.fillStyle = '#000000';  // 검정색
+      const fz = Math.max(10/zoom, 8);
+      ectx.font = `600 ${fz}px Pretendard, sans-serif`;
+      ectx.fillStyle = '#000000';
       ectx.textAlign = 'center';
       ectx.textBaseline = 'middle';
-      ectx.fillText(ov.label, ov.x + ov.w / 2, ov.y + ov.h / 2);
+      const lines = ov.label.split('</br>').map(s => s.trim());
+      const lineH = fz * 1.3;
+      const startY = ov.y + ov.h / 2 - (lines.length - 1) * lineH / 2;
+      lines.forEach((line, i) => ectx.fillText(line, ov.x + ov.w / 2, startY + i * lineH));
     }
   });
 
