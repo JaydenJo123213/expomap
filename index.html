@@ -3551,6 +3551,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       }
       if (!skipElec) drawElecBadges(c, b, zoom);
       if (!skipOther) drawOtherBadges(c, b, zoom);
+      drawBoothWarnings(c, b, zoom);
       return;
     }
   }
@@ -3677,8 +3678,14 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     c.fillText('🔒', b.x + b.w - 1, b.y + 1);
   }
 
+  drawBoothWarnings(c, b, zoom);
+}
+
+// ─── 부스 경고 표시 (UID 미입력, 영문명 미입력) ───
+function drawBoothWarnings(c, b, zoom) {
+  if (VIEWER_MODE) return;
   // 배정완료인데 UID 없는 경우 — 빨간 테두리 + 우하단 ⚠ 경고
-  if (!VIEWER_MODE && b.status === 'assigned' && !b.companyUid) {
+  if (b.status === 'assigned' && !b.companyUid) {
     c.strokeStyle = '#F44336';
     c.lineWidth = 2 / zoom;
     c.setLineDash([4 / zoom, 3 / zoom]);
@@ -3689,9 +3696,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     c.textAlign = 'right'; c.textBaseline = 'bottom';
     c.fillText('⚠️', b.x + b.w - 1, b.y + b.h - 1);
   }
-
   // 배정완료인데 영문 업체명 없는 경우 — 주황 테두리 + 좌하단 EN 경고
-  if (!VIEWER_MODE && b.status === 'assigned' && b.companyName && !b.companyNameEn) {
+  if (b.status === 'assigned' && b.companyName && !b.companyNameEn) {
     c.strokeStyle = '#FF9800';
     c.lineWidth = 1.5 / zoom;
     c.setLineDash([3 / zoom, 2 / zoom]);
