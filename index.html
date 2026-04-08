@@ -1616,6 +1616,7 @@ function initSupabase() {
   }
   updateSaveIndicator('offline');
   document.getElementById('supaStatus').textContent = 'Not connected';
+  showConnectionAlert('Supabase에 연결되지 않았습니다.\n데이터가 저장되지 않습니다!');
   return false;
 }
 
@@ -1972,6 +1973,7 @@ async function saveToSupabase() {
   } catch (e) {
     console.error('Save failed:', e);
     updateSaveIndicator('error');
+    showConnectionAlert('저장 실패: ' + (e.message || '서버 연결 끊김') + '\n데이터가 저장되지 않고 있습니다!');
   }
 }
 
@@ -2034,6 +2036,7 @@ async function loadFromSupabase() {
   } catch (e) {
     console.error('Load failed:', e);
     updateSaveIndicator('error');
+    showConnectionAlert('데이터 로드 실패: ' + (e.message || '서버 연결 끊김') + '\n설정에서 Supabase 연결을 확인해주세요!');
   }
 }
 
@@ -2042,6 +2045,14 @@ function updateSaveIndicator(status) {
   el.className = 'save-indicator ' + status;
   const labels = { saved: '● saved', saving: '● saving...', error: '● save error', offline: '● offline' };
   el.textContent = labels[status] || status;
+}
+
+let _lastAlertTime = 0;
+function showConnectionAlert(msg) {
+  const now = Date.now();
+  if (now - _lastAlertTime < 30000) return;  // 30초 내 중복 알림 방지
+  _lastAlertTime = now;
+  alert('⚠️ Supabase 연결 문제\n\n' + msg);
 }
 
 // ─── Resize ───
