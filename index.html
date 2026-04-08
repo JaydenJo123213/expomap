@@ -4039,12 +4039,10 @@ function drawNeighborDistances(ctx, state) {
     return;
   }
 
-  // 이웃 블럭: 일반 부스 + 기본부스 (드래그 대상 제외)
-  const otherBooths = state.booths.filter(b => !excludeIds.has(b.id));
-  const otherBaseNos = state.baseNoDragging
+  // 같은 종류끼리만 이웃으로 비교
+  const others = state.baseNoDragging
     ? state.baseNumbers.filter(bn => !state.selectedBaseNoIds.has(bn.id))
-    : state.baseNumbers;
-  const others = [...otherBooths, ...otherBaseNos];
+    : state.booths.filter(b => !excludeIds.has(b.id));
   if (!others.length) return;
 
   const midX = (bx1 + bx2) / 2, midY = (by1 + by2) / 2;
