@@ -3514,8 +3514,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
         c.fillText(b.boothId, b.x + pad, b.y + pad);
         c.globalAlpha = 1;
       }
-      // 전기 레이어 빨간 표시 + 뱃지 (로고 부스에서도 동작)
-      if (!VIEWER_MODE && state.showElec && b.status !== 'facility' && b.status !== 'excluded') {
+      // 전기 레이어 빨간 표시 + 뱃지 (로고 부스에서도 동작, 업체 배정된 부스만)
+      if (!VIEWER_MODE && state.showElec && hasCompany && b.status !== 'facility' && b.status !== 'excluded') {
         const comp2 = state.companies.find(co => co.company_uid === b.companyUid);
         const hasElec2 = comp2 && ELEC_KEYS.some(k => (comp2[k] || 0) > 0);
         if (!hasElec2) {
@@ -3617,8 +3617,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     }
   }
 
-  // 전기 레이어 ON일 때 전기 데이터 없는 부스 빨간 표시
-  if (!VIEWER_MODE && state.showElec && b.status !== 'facility' && b.status !== 'excluded') {
+  // 전기 레이어 ON일 때 전기 데이터 없는 부스 빨간 표시 (업체 배정된 부스만)
+  if (!VIEWER_MODE && state.showElec && hasCompany && b.status !== 'facility' && b.status !== 'excluded') {
     const comp = state.companies.find(co => co.company_uid === b.companyUid);
     const hasElec = comp && ELEC_KEYS.some(k => (comp[k] || 0) > 0);
     if (!hasElec) {
