@@ -292,6 +292,15 @@
 </head>
 <body>
 
+<!-- ─── Exhibition Selector (no ?expo= param) ─── -->
+<div id="expoSelector" style="display:none;position:fixed;inset:0;z-index:9999;background:#1a1a2e;color:#fff;font-family:'Pretendard',system-ui,sans-serif;overflow-y:auto">
+  <div style="max-width:520px;margin:0 auto;padding:60px 24px;text-align:center">
+    <div style="font-size:32px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px">ExpoMap</div>
+    <div style="font-size:13px;color:#999;margin-bottom:40px">Exhibition Floor Plan Platform</div>
+    <div id="expoList"></div>
+  </div>
+</div>
+
 <!-- ─── Viewer Bar (visible only in ?mode=viewer) ─── -->
 <div class="viewer-bar">
   <div class="viewer-logo">ExpoMap <span>공개도면</span></div>
@@ -299,7 +308,7 @@
   <button id="btnViewerAvailable" onclick="toggleViewerAvailable()" style="padding:5px 16px;border:1px solid #F9A825;border-radius:6px;background:#FFD600;color:#7A5800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">배정 가능한 위치</button>
   <button id="btnViewerLang" onclick="toggleLang()" style="padding:5px 16px;border:1px solid #666;border-radius:6px;background:#fff;color:#333;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">EN</button>
   <div style="flex:1"></div>
-  <button onclick="window.open(location.pathname+'?mode=admin','_blank')" style="padding:5px 16px;border:1px solid #1a73e8;border-radius:6px;background:#fff;color:#1a73e8;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">🔧 배정모드</button>
+  <button onclick="window.open(location.pathname+'?expo='+EXPO_SLUG+'&mode=admin','_blank')" style="padding:5px 16px;border:1px solid #1a73e8;border-radius:6px;background:#fff;color:#1a73e8;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600">🔧 배정모드</button>
   <div class="viewer-zoom" id="viewerZoomDisplay">100%</div>
 </div>
 
@@ -353,7 +362,7 @@
   <div class="zoom-display" id="zoomDisplay">100%</div>
   <div class="topbar-divider"></div>
   <button class="tool-btn" id="btnAdminLang" title="국문/영문 전환" style="font-weight:600;color:#333" onclick="toggleLang()">EN</button>
-  <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname, '_blank')">공개도면</button>
+  <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname+'?expo='+EXPO_SLUG, '_blank')">공개도면</button>
 </div>
 
 <!-- ─── Main Layout ─── -->
@@ -1332,9 +1341,31 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const container = document.getElementById('canvasContainer');
 
-const APP_MODE = new URLSearchParams(window.location.search).get('mode') || 'view';
-// 'view' = 기본 viewer (default), 'admin' = 배정/편집 모드
+// ─── URL 파라미터 ───
+const _urlParams = new URLSearchParams(window.location.search);
+const APP_MODE = _urlParams.get('mode') || 'view';
+const EXPO_SLUG = _urlParams.get('expo');  // null이면 전시회 선택 화면
 const VIEWER_MODE = APP_MODE !== 'admin';
+
+// ─── 전시회 레지스트리 ───
+const EXHIBITIONS = {
+  'kimes-busan-2026': {
+    id: 'pxlredqyzfffirxbmeuw',  // 기존 데이터 row — 하위호환
+    name: 'KIMES BUSAN 2026',
+    nameShort: 'KIMES BUSAN',
+    pdfPrefix: 'KIMES BUSAN 2026',
+  },
+  // 새 전시회 추가 시 여기에 한 블럭 추가
+};
+
+function resolveExhibition(slug) {
+  if (!slug) return null;
+  if (EXHIBITIONS[slug]) return EXHIBITIONS[slug];
+  // 미등록 slug → slug 자체를 ID/이름으로 사용 (새 전시회 즉시 사용 가능)
+  return { id: slug, name: slug, nameShort: slug, pdfPrefix: slug };
+}
+
+let _currentExpo = null;
 
 const PX_PER_METER = 10;
 const GRID_PX = 30;
@@ -1611,7 +1642,9 @@ let _cursorBroadcastTimer = null;
 function initSupabase() {
   const url = localStorage.getItem('expomap_supa_url') || DEFAULT_SUPA_URL;
   const key = localStorage.getItem('expomap_supa_key') || DEFAULT_SUPA_KEY;
-  _supaProjectId = localStorage.getItem('expomap_supa_project') || 'pxlredqyzfffirxbmeuw';
+  // 전시회 URL이 있으면 해당 config의 id 사용, 아니면 localStorage 폴백
+  _supaProjectId = _currentExpo ? _currentExpo.id
+    : (localStorage.getItem('expomap_supa_project') || 'pxlredqyzfffirxbmeuw');
   if (url && key) {
     try {
       _supaClient = window.supabase.createClient(url, key);
@@ -1636,7 +1669,7 @@ function saveSupaConfig() {
   if (!url || !key) { alert('URL and Key are required.'); return; }
   localStorage.setItem('expomap_supa_url', url);
   localStorage.setItem('expomap_supa_key', key);
-  localStorage.setItem('expomap_supa_project', pid);
+  if (!_currentExpo) localStorage.setItem('expomap_supa_project', pid);
   closeModal('modalSupaConfig');
   if (initSupabase()) {
     loadFromSupabase();
@@ -2057,8 +2090,9 @@ function updateSaveIndicator(status) {
   const el = document.getElementById('saveIndicator');
   el.className = 'save-indicator ' + status;
   const target = _supaClient ? 'Supabase' : 'Local';
+  const exName = _currentExpo ? ' [' + _currentExpo.nameShort + ']' : '';
   const labels = {
-    saved: `● ${target} saved`,
+    saved: `● ${target} saved${exName}`,
     saving: `● ${target} saving...`,
     error: `● ${target} save error`,
     offline: '● offline (저장 안 됨)'
@@ -2388,7 +2422,7 @@ document.getElementById('bgUpload').addEventListener('change', (e) => {
       state.bg.visible = true;
       state.bg.rotation = 0;
       // 로컬 폴백 저장
-      try { localStorage.setItem('expomap_bg_dataurl', dataUrl); } catch(err) { console.warn('BG localStorage 저장 실패 (용량 초과일 수 있음):', err); }
+      try { localStorage.setItem('expomap_bg_dataurl_' + _supaProjectId, dataUrl); } catch(err) { console.warn('BG localStorage 저장 실패 (용량 초과일 수 있음):', err); }
       scheduleSave();
       updateBgFineTuneInputs();
       render();
@@ -2411,7 +2445,7 @@ document.getElementById('btnBgToggle').addEventListener('click', () => {
 document.getElementById('btnBgRemove').addEventListener('click', () => {
   state.bg.img = null;
   state.bg.dataUrl = null;
-  localStorage.removeItem('expomap_bg_dataurl');
+  localStorage.removeItem('expomap_bg_dataurl_' + _supaProjectId);
   scheduleSave();
   render();
 });
@@ -3097,7 +3131,8 @@ function executeExport() {
     const ph = doc.internal.pageSize.getHeight();
     doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
     const presetNames = { construction: '시공팀용', sales: '영업팀용', company: '업체안내용', large: '대형출력용' };
-    doc.save('ExpoMap_' + (presetNames[preset] || preset) + '.pdf');
+    const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+    doc.save(_pdfPre + '_' + (presetNames[preset] || preset) + '.pdf');
     closeModal('modalExport');
   } catch (e) {
     alert('PDF export failed: ' + e.message);
@@ -3134,7 +3169,8 @@ function executeAssignGuideExport() {
       String(now.getMonth() + 1).padStart(2, '0') +
       String(now.getDate()).padStart(2, '0');
     const langTag = assignLang === 'en' ? '_EN' : '';
-    doc.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}_${companyName}${langTag}.pdf`);
+    const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+    doc.save(`${_pdfPre}_Floor Plan_${dateStr}_${companyName}${langTag}.pdf`);
     closeModal('modalAssignGuide');
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
@@ -5650,7 +5686,16 @@ document.getElementById('btnManualSave').addEventListener('click', () => {
 document.getElementById('btnSupaConfig').addEventListener('click', () => {
   document.getElementById('supaUrl').value = localStorage.getItem('expomap_supa_url') || '';
   document.getElementById('supaKey').value = localStorage.getItem('expomap_supa_key') || '';
-  document.getElementById('supaProjectId').value = localStorage.getItem('expomap_supa_project') || 'default';
+  const pidInput = document.getElementById('supaProjectId');
+  if (_currentExpo) {
+    pidInput.value = _currentExpo.id;
+    pidInput.disabled = true;
+    pidInput.title = '?expo= URL 파라미터에 의해 자동 설정됨';
+  } else {
+    pidInput.value = localStorage.getItem('expomap_supa_project') || 'default';
+    pidInput.disabled = false;
+    pidInput.title = '';
+  }
   openModal('modalSupaConfig');
 });
 
@@ -6612,11 +6657,11 @@ function exportFloorplanPDF() {
   const imgData = canvas.toDataURL('image/png', 0.95);
   pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
 
-  // 저장 — 파일명: KIMES BUSAN 2026_Floor Plan_YYYYMMDD
+  const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
   const today = new Date();
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
-  pdf.save(`KIMES BUSAN 2026_Floor Plan_${dateStr}${langSuffix}.pdf`);
+  pdf.save(`${_pdfPre}_Floor Plan_${dateStr}${langSuffix}.pdf`);
 }
 
 function exportAvailablePDF() {
@@ -6726,7 +6771,8 @@ function exportAvailablePDF() {
   const today = new Date();
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
-  pdf.save(`KIMES BUSAN 2026_Available Spots_${dateStr}${langSuffix}.pdf`);
+  const _pdfPre2 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+  pdf.save(`${_pdfPre2}_Available Spots_${dateStr}${langSuffix}.pdf`);
 }
 
 function getBoothFillColor(booth) {
@@ -7382,7 +7428,39 @@ document.getElementById('btnLockCanvas').addEventListener('click', () => {
 });
 
 // ─── Init ───
+// ─── 전시회 선택 화면 ───
+function showExpoSelector() {
+  document.getElementById('expoSelector').style.display = '';
+  const list = document.getElementById('expoList');
+  list.innerHTML = Object.entries(EXHIBITIONS).map(([slug, ex]) => `
+    <div style="background:#16213e;border:1px solid #2a3a5c;border-radius:12px;padding:20px;margin-bottom:16px;text-align:left">
+      <div style="font-size:18px;font-weight:700;margin-bottom:12px">${ex.name}</div>
+      <div style="display:flex;gap:10px">
+        <a href="?expo=${slug}" style="flex:1;text-align:center;padding:10px;background:#4F8CFF;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">공개도면</a>
+        <a href="?expo=${slug}&mode=admin" style="flex:1;text-align:center;padding:10px;background:#FF9800;color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">배정모드</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── 동적 브랜딩 ───
+function applyExhibitionBranding(expo) {
+  document.title = 'ExpoMap — ' + expo.name;
+  const topLogo = document.querySelector('.topbar-logo');
+  if (topLogo) topLogo.innerHTML = 'ExpoMap <span>' + expo.nameShort + '</span>';
+  const viewerLogo = document.querySelector('.viewer-logo');
+  if (viewerLogo) viewerLogo.innerHTML = 'ExpoMap <span>' + expo.nameShort + ' 공개도면</span>';
+}
+
 async function init() {
+  // 전시회 선택 화면
+  if (!EXPO_SLUG) {
+    showExpoSelector();
+    return;
+  }
+  _currentExpo = resolveExhibition(EXPO_SLUG);
+  applyExhibitionBranding(_currentExpo);
+
   if (VIEWER_MODE) {
     document.body.classList.add('viewer');
     container.style.cursor = 'default';
@@ -7395,7 +7473,8 @@ async function init() {
     await loadFromSupabase();
   } else {
     // Supabase 없을 때 localStorage 폴백으로 bg 복원
-    const savedBg = localStorage.getItem('expomap_bg_dataurl');
+    const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
+    const savedBg = localStorage.getItem(bgKey);
     if (savedBg) restoreBgImage(savedBg);
   }
   // ─── Presence init ───
