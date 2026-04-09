@@ -3517,71 +3517,52 @@ function wrapText(text) {
 // ─── 비정형 부스(ㄴ/ㄱ자) 렌더 헬퍼 ───
 function fillBoothShape(ctx, b) {
   if (b.cells && b.cells.length > 1) {
-    const path = getBoothOutlinePath(b.cells);
-    if (path.length) {
-      ctx.beginPath();
-      ctx.moveTo(path[0][0], path[0][1]);
-      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
-      ctx.closePath();
-      ctx.fill();
-    }
+    // 단일 path에 모든 셀 rect 추가 → 한번에 fill (alpha 겹침 없음)
+    ctx.beginPath();
+    b.cells.forEach(c => ctx.rect(c.x, c.y, c.w, c.h));
+    ctx.fill();
   } else {
     ctx.fillRect(b.x, b.y, b.w, b.h);
   }
 }
 function strokeBoothShape(ctx, b, zoom) {
   if (b.cells && b.cells.length > 1) {
-    // 외곽선만 그리기: path로 외곽 계산
+    // 외곽선만 그리기: 각 셀의 4변 중 다른 셀과 접하지 않는 변만 stroke
+    const cells = b.cells;
     ctx.beginPath();
-    const path = getBoothOutlinePath(b.cells);
-    if (path.length) {
-      ctx.moveTo(path[0][0], path[0][1]);
-      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
-      ctx.closePath();
+    for (const c of cells) {
+      const r = c.x + c.w, bot = c.y + c.h;
+      // top edge: 다른 셀이 바로 위에 접하는 구간을 제외
+      if (!hasAdjacentEdge(cells, c, 'top'))    { ctx.moveTo(c.x, c.y); ctx.lineTo(r, c.y); }
+      // bottom edge
+      if (!hasAdjacentEdge(cells, c, 'bottom')) { ctx.moveTo(c.x, bot); ctx.lineTo(r, bot); }
+      // left edge
+      if (!hasAdjacentEdge(cells, c, 'left'))   { ctx.moveTo(c.x, c.y); ctx.lineTo(c.x, bot); }
+      // right edge
+      if (!hasAdjacentEdge(cells, c, 'right'))  { ctx.moveTo(r, c.y); ctx.lineTo(r, bot); }
     }
     ctx.stroke();
   } else {
     ctx.strokeRect(b.x, b.y, b.w, b.h);
   }
 }
-function getBoothOutlinePath(cells) {
-  // 셀들의 합집합 외곽선을 edge 집합으로 계산
-  const edgeMap = new Map();
-  const edgeKey = (x1,y1,x2,y2) => `${x1},${y1},${x2},${y2}`;
-  for (const c of cells) {
-    const edges = [
-      [c.x, c.y, c.x+c.w, c.y],         // top
-      [c.x+c.w, c.y, c.x+c.w, c.y+c.h], // right
-      [c.x+c.w, c.y+c.h, c.x, c.y+c.h], // bottom (reversed)
-      [c.x, c.y+c.h, c.x, c.y],          // left (reversed)
-    ];
-    for (const [x1,y1,x2,y2] of edges) {
-      const fwd = edgeKey(x1,y1,x2,y2);
-      const rev = edgeKey(x2,y2,x1,y1);
-      if (edgeMap.has(rev)) edgeMap.delete(rev);  // 내부 공유 edge 제거
-      else edgeMap.set(fwd, [x1,y1,x2,y2]);
+// 셀 c의 특정 변이 다른 셀과 완전히 접하는지 체크
+function hasAdjacentEdge(cells, c, side) {
+  const EPS = 0.5;
+  for (const o of cells) {
+    if (o === c) continue;
+    if (side === 'top') {
+      // c의 상변(y)에 o의 하변(y+h)이 접하고, 가로 범위가 완전히 포함
+      if (Math.abs(c.y - (o.y + o.h)) < EPS && o.x <= c.x + EPS && o.x + o.w >= c.x + c.w - EPS) return true;
+    } else if (side === 'bottom') {
+      if (Math.abs((c.y + c.h) - o.y) < EPS && o.x <= c.x + EPS && o.x + o.w >= c.x + c.w - EPS) return true;
+    } else if (side === 'left') {
+      if (Math.abs(c.x - (o.x + o.w)) < EPS && o.y <= c.y + EPS && o.y + o.h >= c.y + c.h - EPS) return true;
+    } else if (side === 'right') {
+      if (Math.abs((c.x + c.w) - o.x) < EPS && o.y <= c.y + EPS && o.y + o.h >= c.y + c.h - EPS) return true;
     }
   }
-  // edge를 연결해서 경로 만들기
-  const edges = [...edgeMap.values()];
-  if (!edges.length) return [];
-  const path = [[edges[0][0], edges[0][1]], [edges[0][2], edges[0][3]]];
-  const used = new Set([0]);
-  while (used.size < edges.length) {
-    const [lx, ly] = path[path.length - 1];
-    let found = false;
-    for (let i = 0; i < edges.length; i++) {
-      if (used.has(i)) continue;
-      if (Math.abs(edges[i][0]-lx) < 0.01 && Math.abs(edges[i][1]-ly) < 0.01) {
-        path.push([edges[i][2], edges[i][3]]);
-        used.add(i);
-        found = true;
-        break;
-      }
-    }
-    if (!found) break;
-  }
-  return path;
+  return false;
 }
 // 텍스트 배치용 가장 큰 셀 반환
 function getTextRect(b) {
