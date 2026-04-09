@@ -3572,7 +3572,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
       // 부스번호: 좌상단
       if (hasBoothNo) {
-        const noFz = 14;
+        const noFz = calcFontSize(c, b.boothId, 26);
         c.font = `500 ${noFz}px Pretendard, sans-serif`;
         c.textAlign = 'left'; c.textBaseline = 'top';
         c.globalAlpha = 0.65;
@@ -3626,8 +3626,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
     // 부스번호/사이즈 — 3m 부스 기준 고정 크기
-    const noFz  = hasBoothNo ? 14 : 0;
-    const szFz  = showSize   ? Math.min(availH * 0.12, 14) : 0;
+    const noFz  = hasBoothNo ? calcFontSize(c, b.boothId, 26) : 0;
+    const szFz  = showSize   ? Math.min(availH * 0.12, 10) : 0;
     const topReserve    = hasBoothNo ? noFz + 2 : 0;
     const bottomReserve = showSize   ? szFz + 2 : 0;
     const textAreaH = availH - topReserve - bottomReserve;
