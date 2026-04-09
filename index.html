@@ -3517,7 +3517,14 @@ function wrapText(text) {
 // ─── 비정형 부스(ㄴ/ㄱ자) 렌더 헬퍼 ───
 function fillBoothShape(ctx, b) {
   if (b.cells && b.cells.length > 1) {
-    b.cells.forEach(cell => ctx.fillRect(cell.x, cell.y, cell.w, cell.h));
+    const path = getBoothOutlinePath(b.cells);
+    if (path.length) {
+      ctx.beginPath();
+      ctx.moveTo(path[0][0], path[0][1]);
+      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
+      ctx.closePath();
+      ctx.fill();
+    }
   } else {
     ctx.fillRect(b.x, b.y, b.w, b.h);
   }
