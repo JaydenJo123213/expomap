@@ -3167,9 +3167,11 @@ function executeExport() {
 }
 
 function executeAssignGuideExport() {
+  state._exporting = true;
   const companyName = document.getElementById('assignGuideCompanyName').value.trim();
   if (!companyName) {
     alert('업체명을 입력해주세요.');
+    state._exporting = false;
     return;
   }
   const showNames = document.getElementById('assignShowNames').checked;
@@ -3202,6 +3204,7 @@ function executeAssignGuideExport() {
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
   }
+  state._exporting = false;
 }
 
 function renderForExport(ectx, W, H, preset) {
@@ -3810,7 +3813,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
 // ─── 부스 경고 표시 (UID 미입력, 영문명 미입력) ───
 function drawBoothWarnings(c, b, zoom) {
-  if (VIEWER_MODE) return;
+  if (VIEWER_MODE || state._exporting) return;
   const tr = getTextRect(b);
   // 배정완료인데 UID 없는 경우 — 빨간 테두리 + 우하단 ⚠ 경고
   if (b.status === 'assigned' && !b.companyUid) {
@@ -6752,8 +6755,10 @@ function updateRepeatBadge() {
 
 // ─── Floorplan PDF Export ───
 function exportFloorplanPDF() {
+  state._exporting = true;
   if (state.booths.length === 0) {
     alert('부스가 없습니다.');
+    state._exporting = false;
     return;
   }
 
@@ -6794,9 +6799,10 @@ function exportFloorplanPDF() {
   }
 
   // 도면 렌더링 (모든 부스, 모든 업체명 표시)
+  const _isLandscape = (_currentExpo && _currentExpo.pdfOrientation) === 'landscape';
   const scaleX = canvas.width / (bounds.x2 - bounds.x1);
   const scaleY = canvas.height / (bounds.y2 - bounds.y1);
-  const scale = Math.min(scaleX, scaleY);
+  const scale = _isLandscape ? Math.min(scaleX, scaleY) : scaleX;
   ctx.save();
   ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
   ctx.scale(scale, scale);
@@ -6863,11 +6869,14 @@ function exportFloorplanPDF() {
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
   pdf.save(`${_pdfPre}_Floor Plan_${dateStr}${langSuffix}.pdf`);
+  state._exporting = false;
 }
 
 function exportAvailablePDF() {
+  state._exporting = true;
   if (state.booths.length === 0) {
     alert('부스가 없습니다.');
+    state._exporting = false;
     return;
   }
 
@@ -6901,9 +6910,10 @@ function exportAvailablePDF() {
   bounds.x2 += 50;
   bounds.y2 += 50;
 
+  const _isLandscape2 = (_currentExpo && _currentExpo.pdfOrientation) === 'landscape';
   const scaleX2 = canvas.width / (bounds.x2 - bounds.x1);
   const scaleY2 = canvas.height / (bounds.y2 - bounds.y1);
-  const scale = Math.min(scaleX2, scaleY2);
+  const scale = _isLandscape2 ? Math.min(scaleX2, scaleY2) : scaleX2;
   ctx.save();
   ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
   ctx.scale(scale, scale);
@@ -6976,6 +6986,7 @@ function exportAvailablePDF() {
   const langSuffix = state.lang === 'en' ? '_EN' : '';
   const _pdfPre2 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
   pdf.save(`${_pdfPre2}_Available Spots_${dateStr}${langSuffix}.pdf`);
+  state._exporting = false;
 }
 
 function getBoothFillColor(booth) {
