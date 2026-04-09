@@ -2825,7 +2825,7 @@ function deleteLogo(id) {
 // ─── Company Logo Caching & Upload ───
 function getLogoImage(booth, logoCache) {
   if (!booth.companyLogoUrl) return null;
-  const cacheKey = booth.companyUid || booth.id;
+  const cacheKey = booth.id;
 
   if (logoCache.has(cacheKey)) {
     return logoCache.get(cacheKey);
@@ -6342,11 +6342,11 @@ document.getElementById('propLogoUploadInput').addEventListener('change', async 
   if (dataUrl) {
     saveUndo();
     b.companyLogoUrl = dataUrl;
+    state.logoCache.delete(b.id);
     // company 객체에도 저장
     const company = state.companies.find(c => c.company_uid === b.companyUid);
     if (company) {
       company.logo_url = dataUrl;
-      state.logoCache.delete(b.companyUid);
     }
     scheduleSave();
     render();
@@ -6363,8 +6363,8 @@ document.getElementById('propLogoDeleteBtn').addEventListener('click', () => {
   const company = state.companies.find(c => c.company_uid === b.companyUid);
   if (company) {
     company.logo_url = null;
-    state.logoCache.delete(b.companyUid);
   }
+  state.logoCache.delete(b.id);
   b.companyLogoUrl = null;
   scheduleSave();
   render(); updateProps();
