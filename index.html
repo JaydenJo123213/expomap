@@ -1980,7 +1980,7 @@ function drawBaseNumbers(c, zoom) {
     const covering = state.booths.find(b =>
       b.x < bn.x + bn.w && b.x + b.w > bn.x &&
       b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.boothId || b.companyName || b.companyNameEn)
+      (b.companyName || b.companyNameEn)
     );
     if (covering) return;
 
@@ -3742,16 +3742,17 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       c.globalAlpha = 1;
     }
   } else if (hasBoothNo) {
-    // Booth No.만 → 중앙
-    let fz = Math.min(calcFontSize(c, b.boothId, availW * 0.9), availH * 0.5);
-    fz = Math.max(3, Math.min(fz, 20));
-    c.font = `600 ${fz}px Pretendard, sans-serif`;
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(b.boothId, tr.x + tr.w / 2, tr.y + tr.h / 2);
+    // Booth No.만 → 좌상단 (기본부스번호와 공존)
+    const noFz = calcFontSize(c, b.boothId, 26);
+    c.font = `500 ${noFz}px Pretendard, sans-serif`;
+    c.textAlign = 'left'; c.textBaseline = 'top';
+    c.globalAlpha = 0.65;
+    c.fillText(b.boothId, tr.x + pad, tr.y + pad);
+    c.globalAlpha = 1;
 
     if (showSize) {
       const szText = `${wm}×${hm}m`;
-      let szFz = Math.max(1.5, fz * 0.4);
+      let szFz = Math.max(1.5, noFz * 0.4);
       szFz = Math.min(szFz, 8);
       c.font = `400 ${szFz}px Pretendard, sans-serif`;
       c.textAlign = 'right'; c.textBaseline = 'bottom';
@@ -6838,7 +6839,7 @@ function exportFloorplanPDF() {
     const covering = state.booths.find(b =>
       b.x < bn.x + bn.w && b.x + b.w > bn.x &&
       b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.boothId || b.companyName || b.companyNameEn)
+      (b.companyName || b.companyNameEn)
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
@@ -6950,7 +6951,7 @@ function exportAvailablePDF() {
     const covering = state.booths.find(b =>
       b.x < bn.x + bn.w && b.x + b.w > bn.x &&
       b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.boothId || b.companyName || b.companyNameEn)
+      (b.companyName || b.companyNameEn)
     );
     if (covering) continue;
     ctx.fillStyle = '#333';
