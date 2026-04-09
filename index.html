@@ -2197,10 +2197,15 @@ function createBooth(x, y, w, h) {
   state.booths.push(booth);
   return booth;
 }
+function pointInBooth(b, wx, wy) {
+  if (b.cells && b.cells.length > 1) {
+    return b.cells.some(c => wx >= c.x && wx <= c.x + c.w && wy >= c.y && wy <= c.y + c.h);
+  }
+  return wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h;
+}
 function getBoothAt(wx, wy) {
   for (let i = state.booths.length - 1; i >= 0; i--) {
-    const b = state.booths[i];
-    if (wx >= b.x && wx <= b.x + b.w && wy >= b.y && wy <= b.y + b.h) return b;
+    if (pointInBooth(state.booths[i], wx, wy)) return state.booths[i];
   }
   return null;
 }
@@ -2242,7 +2247,18 @@ function mergeSelected() {
   state.groups.forEach(g => { g.boothIds = g.boothIds.filter(id => !ids.has(id)); });
   state.groups = state.groups.filter(g => g.boothIds.length > 0);
   state.booths = state.booths.filter(b => !ids.has(b.id));
-  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  // 셀 목록 저장 — ㄴ/ㄱ자 등 비정형 부스 지원
+  const cells = selected.map(s => {
+    // 이미 cells가 있는 부스(재머지)면 풀어서 합침
+    if (s.cells && s.cells.length > 1) return s.cells;
+    return [{ x: s.x, y: s.y, w: s.w, h: s.h }];
+  }).flat();
+  // 바운딩 박스와 동일하면 cells 불필요 (일반 직사각형)
+  const isRect = cells.length === 1 || (
+    cells.every(c => c.x >= minX && c.y >= minY && c.x + c.w <= maxX && c.y + c.h <= maxY) &&
+    cells.reduce((s, c) => s + c.w * c.h, 0) === (maxX - minX) * (maxY - minY)
+  );
+  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells: isRect ? null : cells };
   state.booths.push(merged);
   state.selectedIds.clear();
   state.selectedIds.add(merged.id);
@@ -3267,10 +3283,10 @@ function renderForExport(ectx, W, H, preset) {
     }
 
     ectx.fillStyle = fill;
-    ectx.fillRect(b.x, b.y, b.w, b.h);
+    fillBoothShape(ectx, b);
     ectx.strokeStyle = stroke;
     ectx.lineWidth = 1 / zoom;
-    ectx.strokeRect(b.x, b.y, b.w, b.h);
+    strokeBoothShape(ectx, b, zoom);
 
     drawBoothContent(ectx, b, zoom, textColor, isConstruction);
   });
@@ -3349,9 +3365,9 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
       ectx.fillStyle = '#F5D7D5';
       ectx.strokeStyle = '#D4B5B3';
     }
-    ectx.fillRect(b.x, b.y, b.w, b.h);
+    fillBoothShape(ectx, b);
     ectx.lineWidth = 1 / zoom;
-    ectx.strokeRect(b.x, b.y, b.w, b.h);
+    strokeBoothShape(ectx, b, zoom);
 
     // 업체명 표기 여부
     if (showNames) {
@@ -3498,10 +3514,86 @@ function wrapText(text) {
   return text.split('</br>').map(s => s.trim());
 }
 
+// ─── 비정형 부스(ㄴ/ㄱ자) 렌더 헬퍼 ───
+function fillBoothShape(ctx, b) {
+  if (b.cells && b.cells.length > 1) {
+    b.cells.forEach(cell => ctx.fillRect(cell.x, cell.y, cell.w, cell.h));
+  } else {
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+  }
+}
+function strokeBoothShape(ctx, b, zoom) {
+  if (b.cells && b.cells.length > 1) {
+    // 외곽선만 그리기: path로 외곽 계산
+    ctx.beginPath();
+    const path = getBoothOutlinePath(b.cells);
+    if (path.length) {
+      ctx.moveTo(path[0][0], path[0][1]);
+      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
+      ctx.closePath();
+    }
+    ctx.stroke();
+  } else {
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+  }
+}
+function getBoothOutlinePath(cells) {
+  // 셀들의 합집합 외곽선을 edge 집합으로 계산
+  const edgeMap = new Map();
+  const edgeKey = (x1,y1,x2,y2) => `${x1},${y1},${x2},${y2}`;
+  for (const c of cells) {
+    const edges = [
+      [c.x, c.y, c.x+c.w, c.y],         // top
+      [c.x+c.w, c.y, c.x+c.w, c.y+c.h], // right
+      [c.x+c.w, c.y+c.h, c.x, c.y+c.h], // bottom (reversed)
+      [c.x, c.y+c.h, c.x, c.y],          // left (reversed)
+    ];
+    for (const [x1,y1,x2,y2] of edges) {
+      const fwd = edgeKey(x1,y1,x2,y2);
+      const rev = edgeKey(x2,y2,x1,y1);
+      if (edgeMap.has(rev)) edgeMap.delete(rev);  // 내부 공유 edge 제거
+      else edgeMap.set(fwd, [x1,y1,x2,y2]);
+    }
+  }
+  // edge를 연결해서 경로 만들기
+  const edges = [...edgeMap.values()];
+  if (!edges.length) return [];
+  const path = [[edges[0][0], edges[0][1]], [edges[0][2], edges[0][3]]];
+  const used = new Set([0]);
+  while (used.size < edges.length) {
+    const [lx, ly] = path[path.length - 1];
+    let found = false;
+    for (let i = 0; i < edges.length; i++) {
+      if (used.has(i)) continue;
+      if (Math.abs(edges[i][0]-lx) < 0.01 && Math.abs(edges[i][1]-ly) < 0.01) {
+        path.push([edges[i][2], edges[i][3]]);
+        used.add(i);
+        found = true;
+        break;
+      }
+    }
+    if (!found) break;
+  }
+  return path;
+}
+// 텍스트 배치용 가장 큰 셀 반환
+function getTextRect(b) {
+  if (!b.cells || b.cells.length <= 1) return { x: b.x, y: b.y, w: b.w, h: b.h };
+  let best = b.cells[0];
+  let bestArea = best.w * best.h;
+  for (let i = 1; i < b.cells.length; i++) {
+    const a = b.cells[i].w * b.cells[i].h;
+    if (a > bestArea) { bestArea = a; best = b.cells[i]; }
+  }
+  return best;
+}
+
 function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false, skipOther = false) {
   const pad = 2;
-  const availW = b.w - pad * 2;
-  const availH = b.h - pad * 2;
+  // 비정형 부스(ㄴ/ㄱ자)면 가장 큰 셀 기준으로 텍스트 배치
+  const tr = getTextRect(b);
+  const availW = tr.w - pad * 2;
+  const availH = tr.h - pad * 2;
   const wm = pxToM(b.w), hm = pxToM(b.h);
   const area = wm * hm;
   // 언어에 따라 표시할 업체명 결정 (EN 모드에서 영문명 없으면 빈값)
@@ -3518,19 +3610,18 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const logoImg = getLogoImage(b, state.logoCache);
     if (logoImg) {
       const scale = (b.logoScale ?? 100) / 100;
-      const gap = (b.logoGap ?? 0) * (b.h / 100);  // gap을 부스 높이 비율로 변환
+      const gap = (b.logoGap ?? 0) * (tr.h / 100);
 
       // 로고 영역: 상단 60%
-      const logoPad = b.w * 0.08;
-      const logoTopPad = b.h * 0.05;
-      const logoBottomPad = b.h * 0.02;
-      const logoAreaH = b.h * 0.60;
-      const logoW = b.w - logoPad * 2;
+      const logoPad = tr.w * 0.08;
+      const logoTopPad = tr.h * 0.05;
+      const logoBottomPad = tr.h * 0.02;
+      const logoAreaH = tr.h * 0.60;
+      const logoW = tr.w - logoPad * 2;
       const logoH = logoAreaH - logoTopPad - logoBottomPad;
 
       c.save();
       c.globalAlpha = 0.9;
-      // 비율 유지하며 로고 그리기
       const imgAspect = logoImg.width / logoImg.height;
       const areaAspect = logoW / logoH;
       let drawW, drawH;
@@ -3541,19 +3632,18 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
         drawH = logoH;
         drawW = logoH * imgAspect;
       }
-      // scale 적용 (중앙 기준)
       drawW *= scale;
       drawH *= scale;
-      const logoX = b.x + (b.w - drawW) / 2;
-      const logoCenterY = b.y + logoTopPad + logoH / 2;
+      const logoX = tr.x + (tr.w - drawW) / 2;
+      const logoCenterY = tr.y + logoTopPad + logoH / 2;
       const logoY = logoCenterY - drawH / 2;
       c.drawImage(logoImg, logoX, logoY, drawW, drawH);
       c.globalAlpha = 1;
       c.restore();
 
       // 텍스트 영역: 로고 아래 (gap 적용)
-      const textAreaY = b.y + b.h * 0.58 + gap;
-      const textAreaH = b.h * 0.36 - gap;
+      const textAreaY = tr.y + tr.h * 0.58 + gap;
+      const textAreaH = tr.h * 0.36 - gap;
       const lines = wrapText(displayName);
       const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
@@ -3568,7 +3658,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       c.fillStyle = textColor;
       c.font = `600 ${fz}px Pretendard, sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
-      lines.forEach((line, i) => c.fillText(line, b.x + b.w / 2, startY + i * lineH));
+      lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
 
       // 부스번호: 좌상단
       if (hasBoothNo) {
@@ -3576,7 +3666,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
         c.font = `500 ${noFz}px Pretendard, sans-serif`;
         c.textAlign = 'left'; c.textBaseline = 'top';
         c.globalAlpha = 0.65;
-        c.fillText(b.boothId, b.x + pad, b.y + pad);
+        c.fillText(b.boothId, tr.x + pad, tr.y + pad);
         c.globalAlpha = 1;
       }
       // 전기 레이어 빨간 표시 + 뱃지 (로고 부스에서도 동작, 업체 배정된 부스만)
@@ -3586,11 +3676,11 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
         if (!hasElec2) {
           c.save();
           c.fillStyle = 'rgba(244, 67, 54, 0.15)';
-          c.fillRect(b.x, b.y, b.w, b.h);
+          fillBoothShape(c, b);
           c.strokeStyle = '#F44336';
           c.lineWidth = 2 / zoom;
           c.setLineDash([4 / zoom, 3 / zoom]);
-          c.strokeRect(b.x, b.y, b.w, b.h);
+          strokeBoothShape(c, b, zoom);
           c.setLineDash([]);
           c.restore();
         }
@@ -3608,7 +3698,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       fz = Math.max(2, Math.min(fz, 14));
       c.font = `600 ${fz}px Pretendard, sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(b.boothId, b.x + b.w / 2, b.y + b.h * 0.4);
+      c.fillText(b.boothId, tr.x + tr.w / 2, tr.y + tr.h * 0.4);
     }
     const dimText = `${wm}×${hm}m`;
     let dimFz = Math.min(calcFontSize(c, dimText, availW * 0.85), availH * 0.25);
@@ -3616,7 +3706,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     c.font = `400 ${dimFz}px Pretendard, sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.globalAlpha = 0.6;
-    c.fillText(dimText, b.x + b.w / 2, b.y + b.h * 0.65);
+    c.fillText(dimText, tr.x + tr.w / 2, tr.y + tr.h * 0.65);
     c.globalAlpha = 1;
     return;
   }
@@ -3639,19 +3729,19 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
     const lineH = fz * 1.25;
     const blockH = lines.length * lineH;
-    const startY = b.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
+    const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
 
     c.fillStyle = textColor;
     c.font = `600 ${fz}px Pretendard, sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    lines.forEach((line, i) => c.fillText(line, b.x + b.w / 2, startY + i * lineH));
+    lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
 
     // Booth No.: 좌상단 (고정 작은 폰트)
     if (hasBoothNo) {
       c.font = `500 ${noFz}px Pretendard, sans-serif`;
       c.textAlign = 'left'; c.textBaseline = 'top';
       c.globalAlpha = 0.65;
-      c.fillText(b.boothId, b.x + pad, b.y + pad);
+      c.fillText(b.boothId, tr.x + pad, tr.y + pad);
       c.globalAlpha = 1;
     }
 
@@ -3660,7 +3750,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       c.font = `400 ${szFz}px Pretendard, sans-serif`;
       c.textAlign = 'right'; c.textBaseline = 'bottom';
       c.globalAlpha = 0.45;
-      c.fillText(`${wm}×${hm}m`, b.x + b.w - pad, b.y + b.h - pad);
+      c.fillText(`${wm}×${hm}m`, tr.x + tr.w - pad, tr.y + tr.h - pad);
       c.globalAlpha = 1;
     }
   } else if (hasBoothNo) {
@@ -3669,7 +3759,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     fz = Math.max(3, Math.min(fz, 20));
     c.font = `600 ${fz}px Pretendard, sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(b.boothId, b.x + b.w / 2, b.y + b.h / 2);
+    c.fillText(b.boothId, tr.x + tr.w / 2, tr.y + tr.h / 2);
 
     if (showSize) {
       const szText = `${wm}×${hm}m`;
@@ -3678,7 +3768,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       c.font = `400 ${szFz}px Pretendard, sans-serif`;
       c.textAlign = 'right'; c.textBaseline = 'bottom';
       c.globalAlpha = 0.45;
-      c.fillText(szText, b.x + b.w - pad, b.y + b.h - pad);
+      c.fillText(szText, tr.x + tr.w - pad, tr.y + tr.h - pad);
       c.globalAlpha = 1;
     }
   }
@@ -3690,11 +3780,11 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     if (!hasElec) {
       c.save();
       c.fillStyle = 'rgba(244, 67, 54, 0.15)';
-      c.fillRect(b.x, b.y, b.w, b.h);
+      fillBoothShape(c, b);
       c.strokeStyle = '#F44336';
       c.lineWidth = 2 / zoom;
       c.setLineDash([4 / zoom, 3 / zoom]);
-      c.strokeRect(b.x, b.y, b.w, b.h);
+      strokeBoothShape(c, b, zoom);
       c.setLineDash([]);
       c.restore();
     }
@@ -3730,30 +3820,31 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 // ─── 부스 경고 표시 (UID 미입력, 영문명 미입력) ───
 function drawBoothWarnings(c, b, zoom) {
   if (VIEWER_MODE) return;
+  const tr = getTextRect(b);
   // 배정완료인데 UID 없는 경우 — 빨간 테두리 + 우하단 ⚠ 경고
   if (b.status === 'assigned' && !b.companyUid) {
     c.strokeStyle = '#F44336';
     c.lineWidth = 2 / zoom;
     c.setLineDash([4 / zoom, 3 / zoom]);
-    c.strokeRect(b.x, b.y, b.w, b.h);
+    strokeBoothShape(c, b, zoom);
     c.setLineDash([]);
-    const warnFz = Math.max(4, Math.min(b.w, b.h) * 0.28);
+    const warnFz = Math.max(4, Math.min(tr.w, tr.h) * 0.28);
     c.font = `${warnFz}px sans-serif`;
     c.textAlign = 'right'; c.textBaseline = 'bottom';
-    c.fillText('⚠️', b.x + b.w - 1, b.y + b.h - 1);
+    c.fillText('⚠️', tr.x + tr.w - 1, tr.y + tr.h - 1);
   }
   // 배정완료인데 영문 업체명 없는 경우 — 주황 테두리 + 좌하단 EN 경고
   if (b.status === 'assigned' && b.companyName && !b.companyNameEn) {
     c.strokeStyle = '#FF9800';
     c.lineWidth = 1.5 / zoom;
     c.setLineDash([3 / zoom, 2 / zoom]);
-    c.strokeRect(b.x, b.y, b.w, b.h);
+    strokeBoothShape(c, b, zoom);
     c.setLineDash([]);
-    const enFz = Math.max(3, Math.min(b.w, b.h) * 0.18);
+    const enFz = Math.max(3, Math.min(tr.w, tr.h) * 0.18);
     c.font = `600 ${enFz}px sans-serif`;
     c.fillStyle = '#FF9800';
     c.textAlign = 'left'; c.textBaseline = 'bottom';
-    c.fillText('EN', b.x + 1, b.y + b.h - 1);
+    c.fillText('EN', tr.x + 1, tr.y + tr.h - 1);
   }
 }
 
@@ -4219,15 +4310,15 @@ function render() {
     const colors = STATUS_COLORS[b.status] || STATUS_COLORS.available;
     ctx.globalAlpha = 0.55;
     ctx.fillStyle = b.fillColor || colors.fill;
-    ctx.fillRect(b.x, b.y, b.w, b.h);
+    fillBoothShape(ctx, b);
     ctx.globalAlpha = 1;
     if (isSelected) {
       ctx.fillStyle = 'rgba(79,140,255,0.15)';
-      ctx.fillRect(b.x, b.y, b.w, b.h);
+      fillBoothShape(ctx, b);
     }
     ctx.strokeStyle = isSelected ? SELECTED_STROKE : colors.stroke;
     ctx.lineWidth = isSelected ? 2 / state.zoom : 1 / state.zoom;
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    strokeBoothShape(ctx, b, state.zoom);
 
     // Resize handle for selected booths (bottom-right corner)
     if (isSelected && state.selectedIds.size === 1) {
@@ -4285,11 +4376,11 @@ function render() {
   // Alt drag clones
   for (const b of state.altDragClones) {
     ctx.fillStyle = 'rgba(79,140,255,0.25)';
-    ctx.fillRect(b.x, b.y, b.w, b.h);
+    fillBoothShape(ctx, b);
     ctx.strokeStyle = SELECTED_STROKE;
     ctx.lineWidth = 1.5 / state.zoom;
     ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    strokeBoothShape(ctx, b, state.zoom);
     ctx.setLineDash([]);
   }
   } // end if (state.showBooths)
@@ -4434,11 +4525,11 @@ function renderViewer(w, h) {
     else if (isSelected || isAvailableHighlight) { fill = '#FFD600'; stroke = '#F9A825'; }
 
     ctx.fillStyle = fill;
-    ctx.fillRect(b.x, b.y, b.w, b.h);
+    fillBoothShape(ctx, b);
 
     ctx.strokeStyle = stroke;
     ctx.lineWidth = (isSelected || isHighlighted) ? 2 / state.zoom : 1 / state.zoom;
-    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    strokeBoothShape(ctx, b, state.zoom);
 
     // 부스 타입 오버레이 (viewer에서도 표시)
     if (state.showBoothType && b.boothType) {
@@ -4845,7 +4936,7 @@ canvas.addEventListener('mousedown', (e) => {
       state.dragStartSY = sy;
       state.dragBoothsOrigin = state.booths
         .filter(b => state.selectedIds.has(b.id))
-        .map(b => ({ id: b.id, x: b.x, y: b.y }));
+        .map(b => ({ id: b.id, x: b.x, y: b.y, cells: b.cells ? b.cells.map(c => ({...c})) : null }));
       render(); updateProps();
       return;
     }
@@ -5062,6 +5153,7 @@ canvas.addEventListener('mousemove', (e) => {
       if (orig) {
         b.w = Math.max(GRID_PX, snapValue(orig.w + ddx));
         b.h = Math.max(GRID_PX, snapValue(orig.h + ddy));
+        if (b.cells) b.cells = null;  // 리사이즈하면 비정형 형태 해제
       }
     });
     render(); return;
@@ -5111,7 +5203,14 @@ canvas.addEventListener('mousemove', (e) => {
       state.booths.forEach(b => {
         if (!state.selectedIds.has(b.id) || b.locked) return;
         const orig = state.dragBoothsOrigin.find(o => o.id === b.id);
-        if (orig) { b.x = snapValue(orig.x + wdx); b.y = snapValue(orig.y + wdy); }
+        if (orig) {
+          const nx = snapValue(orig.x + wdx), ny = snapValue(orig.y + wdy);
+          const cdx = nx - orig.x, cdy = ny - orig.y;
+          b.x = nx; b.y = ny;
+          if (b.cells && orig.cells) {
+            b.cells.forEach((cell, i) => { cell.x = orig.cells[i].x + cdx; cell.y = orig.cells[i].y + cdy; });
+          }
+        }
       });
       render(); return;
     }
