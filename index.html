@@ -1362,6 +1362,7 @@ const EXHIBITIONS = {
     nameShort: 'K-PRINT',
     pdfPrefix: 'K-PRINT 2026',
     boothColor: '#f6f9e8',
+    pdfOrientation: 'landscape',
   },
   // 새 전시회 추가 시 여기에 한 블럭 추가
 };
@@ -3186,7 +3187,7 @@ function executeAssignGuideExport() {
   const imgData = off.toDataURL('image/jpeg', 0.95);
   try {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
+    const doc = new jsPDF({ orientation: (_currentExpo && _currentExpo.pdfOrientation) || 'portrait', unit: 'mm', format: 'a3' });
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
     doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
@@ -6758,7 +6759,7 @@ function exportFloorplanPDF() {
 
   // A3 세로형 (297 × 420mm)
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
+  const pdf = new jsPDF({ orientation: (_currentExpo && _currentExpo.pdfOrientation) || 'portrait', unit: 'mm', format: 'a3' });
   const pageWidth = pdf.internal.pageSize.getWidth();    // 297mm
   const pageHeight = pdf.internal.pageSize.getHeight();   // 420mm
   const margin = 10;
@@ -6820,8 +6821,8 @@ function exportFloorplanPDF() {
   // 부스 렌더링 — 연분홍색 통일, 검정 폰트
   for (const booth of state.booths) {
     const isFacility = booth.status === 'facility' || booth.status === 'excluded';
-    const fill = isFacility ? '#EFEFEF' : '#f9e5de';
-    const stroke = isFacility ? '#999999' : '#d4a89a';
+    const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
+    const stroke = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
     ctx.fillStyle = fill;
     ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
     ctx.strokeStyle = stroke;
@@ -6869,7 +6870,7 @@ function exportAvailablePDF() {
   }
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a3' });
+  const pdf = new jsPDF({ orientation: (_currentExpo && _currentExpo.pdfOrientation) || 'portrait', unit: 'mm', format: 'a3' });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 10;
@@ -6932,7 +6933,7 @@ function exportAvailablePDF() {
     } else if (isSpot) {
       fill = '#FFD600'; stroke = '#F9A825';
     } else {
-      fill = '#f9e5de'; stroke = '#d4a89a';
+      fill = VIEWER_STATUS_COLORS.available.fill; stroke = VIEWER_STATUS_COLORS.available.stroke;
     }
     ctx.fillStyle = fill;
     ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
