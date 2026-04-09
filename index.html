@@ -4539,9 +4539,7 @@ function renderViewer(w, h) {
       }
     }
 
-    // Use black text if company name exists, otherwise use brown
-    const hasName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
-    const textColor = hasName ? '#111111' : (isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : _vAvail.text);
+    const textColor = isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#111111';
     drawBoothContent(ctx, b, state.zoom, textColor, false);
   }
 
