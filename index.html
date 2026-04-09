@@ -3355,7 +3355,7 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
   // 구조물
   drawStructures(ectx, zoom, false);
 
-  // 부스 (연분홍색 통일, facility/excluded만 회색)
+  // 부스 (전시회별 색상, facility/excluded만 회색)
   booths.forEach(b => {
     const isFacility = b.status === 'facility' || b.status === 'excluded';
 
@@ -3363,8 +3363,8 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
       ectx.fillStyle = '#EFEFEF';
       ectx.strokeStyle = '#999999';
     } else {
-      ectx.fillStyle = '#F5D7D5';
-      ectx.strokeStyle = '#D4B5B3';
+      ectx.fillStyle = VIEWER_STATUS_COLORS.available.fill;
+      ectx.strokeStyle = VIEWER_STATUS_COLORS.available.stroke;
     }
     fillBoothShape(ectx, b);
     ectx.lineWidth = 1 / zoom;
@@ -6794,7 +6794,9 @@ function exportFloorplanPDF() {
   }
 
   // 도면 렌더링 (모든 부스, 모든 업체명 표시)
-  const scale = canvas.width / (bounds.x2 - bounds.x1);
+  const scaleX = canvas.width / (bounds.x2 - bounds.x1);
+  const scaleY = canvas.height / (bounds.y2 - bounds.y1);
+  const scale = Math.min(scaleX, scaleY);
   ctx.save();
   ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
   ctx.scale(scale, scale);
@@ -6899,7 +6901,9 @@ function exportAvailablePDF() {
   bounds.x2 += 50;
   bounds.y2 += 50;
 
-  const scale = canvas.width / (bounds.x2 - bounds.x1);
+  const scaleX2 = canvas.width / (bounds.x2 - bounds.x1);
+  const scaleY2 = canvas.height / (bounds.y2 - bounds.y1);
+  const scale = Math.min(scaleX2, scaleY2);
   ctx.save();
   ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
   ctx.scale(scale, scale);
