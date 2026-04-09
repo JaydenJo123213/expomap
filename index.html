@@ -3600,9 +3600,10 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       const scale = (b.logoScale ?? 100) / 100;
       const gap = (b.logoGap ?? 0) * (tr.h / 100);
 
-      // 로고 영역: 상단 60%
+      // 로고 영역: 부스번호 아래 ~ 상단 60%
+      const noReserve = hasBoothNo ? calcFontSize(c, b.boothId, 26) + 4 : 0;
       const logoPad = tr.w * 0.08;
-      const logoTopPad = tr.h * 0.05;
+      const logoTopPad = Math.max(tr.h * 0.05, noReserve);
       const logoBottomPad = tr.h * 0.02;
       const logoAreaH = tr.h * 0.60;
       const logoW = tr.w - logoPad * 2;
