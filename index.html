@@ -3179,12 +3179,19 @@ function executeAssignGuideExport() {
   const assignLang = document.querySelector('input[name="assignLang"]:checked')?.value || 'ko';
   const prevLang = state.lang;
   state.lang = assignLang;
-  // bgFill: BG 이미지 비율로 방향 자동 결정
+  // exportFloorplanPDF와 동일한 캔버스/스케일 방식 사용
   const _bgFillAG = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
   const _orientAG = _bgFillAG ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
-  // A3 @300dpi: portrait=3508×4961, landscape=4961×3508
-  const offW = _orientAG === 'landscape' ? 4961 : 3508;
-  const offH = _orientAG === 'landscape' ? 3508 : 4961;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: _orientAG, unit: 'mm', format: 'a3' });
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const agMargin = _bgFillAG ? 0 : 10;
+  const agContentW = pw - 2 * agMargin;
+  const agContentH = ph - 2 * agMargin;
+  const dpi = 300, mmToPx = dpi / 25.4;
+  const offW = agContentW * mmToPx;
+  const offH = agContentH * mmToPx;
   const off = document.createElement('canvas');
   off.width = offW; off.height = offH;
   const octx = off.getContext('2d');
@@ -3192,11 +3199,7 @@ function executeAssignGuideExport() {
   state.lang = prevLang;  // 원래 언어로 복원
   const imgData = off.toDataURL('image/jpeg', 0.95);
   try {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: _orientAG, unit: 'mm', format: 'a3' });
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
+    doc.addImage(imgData, 'JPEG', agMargin, agMargin, agContentW, agContentH);
     const now = new Date();
     const dateStr = String(now.getFullYear()).slice(2) +
       String(now.getMonth() + 1).padStart(2, '0') +
@@ -3312,50 +3315,52 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
   const booths = state.booths;
   const selectedOverlays = state.discussOverlays.filter(ov => state.selectedDiscussIds.has(ov.id));
 
-  // 배경 이미지 전체 기준으로 bounds 계산
-  let minX, minY, maxX, maxY;
-  if (state.bg.img && state.bg.visible) {
-    minX = state.bg.x;
-    minY = state.bg.y;
-    maxX = state.bg.x + state.bg.w;
-    maxY = state.bg.y + state.bg.h;
-  } else if (booths.length) {
-    minX = Math.min(...booths.map(b => b.x)) - GRID_PX;
-    minY = Math.min(...booths.map(b => b.y)) - GRID_PX;
-    maxX = Math.max(...booths.map(b => b.x + b.w)) + GRID_PX;
-    maxY = Math.max(...booths.map(b => b.y + b.h)) + GRID_PX;
+  // exportFloorplanPDF와 동일한 bounds/scale/translate 방식
+  const _bgFillAGR = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+  let bounds;
+  if (_bgFillAGR) {
+    bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
   } else {
-    minX = 0; minY = 0; maxX = 300; maxY = 300;
+    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+    if (booths.length) {
+      for (const b of booths) {
+        bounds.x1 = Math.min(bounds.x1, b.x);
+        bounds.y1 = Math.min(bounds.y1, b.y);
+        bounds.x2 = Math.max(bounds.x2, b.x + b.w);
+        bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+      }
+    }
+    bounds.x1 -= 50;
+    bounds.y1 -= 100;
+    bounds.x2 += 50;
+    bounds.y2 += 50;
   }
 
-  const sceneW = maxX - minX, sceneH = maxY - minY;
-  // bgFill 모드면 꽉 채움, 아니면 0.97 여백
-  const _bgFillAGR = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
-  const zoom = Math.min(W / sceneW, H / sceneH) * (_bgFillAGR ? 1.0 : 0.97);
-  const panX = (W - sceneW * zoom) / 2 - minX * zoom;
-  const panY = (H - sceneH * zoom) / 2 - minY * zoom;
+  const scaleX = W / (bounds.x2 - bounds.x1);
+  const scaleY = H / (bounds.y2 - bounds.y1);
+  const zoom = _bgFillAGR ? Math.min(scaleX, scaleY) : scaleX;
 
   // 흰 배경
   ectx.fillStyle = '#FFFFFF';
   ectx.fillRect(0, 0, W, H);
   ectx.save();
-  ectx.translate(panX, panY);
+  ectx.translate(-bounds.x1 * zoom, -bounds.y1 * zoom);
   ectx.scale(zoom, zoom);
 
-  // 배경 이미지 (PDF 출력 시 항상 100% opacity)
-  if (state.bg.img && state.bg.visible) {
-    const rot = (state.bg.rotation || 0) * Math.PI / 180;
+  // 배경 이미지 (항상 opacity 100%, visible 무관)
+  if (state.bg.img) {
     ectx.globalAlpha = 1;
-    if (rot !== 0) {
-      const cx = state.bg.x + state.bg.w / 2, cy = state.bg.y + state.bg.h / 2;
-      ectx.save();
+    ectx.save();
+    if (state.bg.rotation) {
+      const cx = state.bg.x + state.bg.w / 2;
+      const cy = state.bg.y + state.bg.h / 2;
       ectx.translate(cx, cy);
-      ectx.rotate(rot);
-      ectx.drawImage(state.bg.img, -state.bg.w/2, -state.bg.h/2, state.bg.w, state.bg.h);
-      ectx.restore();
-    } else {
-      ectx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+      ectx.rotate(state.bg.rotation * Math.PI / 180);
+      ectx.translate(-cx, -cy);
     }
+    ectx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+    ectx.restore();
+    ectx.globalAlpha = 1;
   }
 
   // 구조물
@@ -3372,29 +3377,25 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
     ectx.lineWidth = 1 / zoom;
     strokeBoothShape(ectx, b, zoom);
 
-    // 업체명 표기
-    if (showNames) {
-      drawBoothContent(ectx, b, zoom, '#111111', false);
-    }
+    // 업체명/부스번호 항상 표시 (배정 현황 확인용)
+    drawBoothContent(ectx, b, zoom, '#111111', false);
   }
 
   // 기본부스번호 렌더링 (도면출력과 동일 로직)
-  if (showNames) {
-    for (const bn of state.baseNumbers) {
-      if (!bn.baseNo) continue;
-      const covering = booths.find(b =>
-        b.x < bn.x + bn.w && b.x + b.w > bn.x &&
-        b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-        (b.companyName || b.companyNameEn)
-      );
-      if (covering) continue;
-      ectx.fillStyle = '#333';
-      const bnFz = Math.min(bn.w, bn.h) * 0.35;
-      ectx.font = `600 ${bnFz}px Pretendard, sans-serif`;
-      ectx.textAlign = 'center';
-      ectx.textBaseline = 'middle';
-      ectx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
-    }
+  for (const bn of state.baseNumbers) {
+    if (!bn.baseNo) continue;
+    const covering = booths.find(b =>
+      b.x < bn.x + bn.w && b.x + b.w > bn.x &&
+      b.y < bn.y + bn.h && b.y + b.h > bn.y &&
+      (b.companyName || b.companyNameEn)
+    );
+    if (covering) continue;
+    ectx.fillStyle = '#333';
+    const bnFz = Math.min(bn.w, bn.h) * 0.35;
+    ectx.font = `600 ${bnFz}px Pretendard, sans-serif`;
+    ectx.textAlign = 'center';
+    ectx.textBaseline = 'middle';
+    ectx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
 
   // 배정논의 오버레이 (불투명 처리 - 아래 블럭이 안보이게)
