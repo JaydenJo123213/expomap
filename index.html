@@ -5633,6 +5633,46 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
+  // ── 방향키 이동 (snap 모드 연동) ──
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+    const hasSelection = state.selectedIds.size || state.selectedBaseNoIds.size || state.selectedStructId;
+    if (!hasSelection) return;
+    e.preventDefault();
+    const step = state.snap === 'grid' ? GRID_PX : state.snap === 'half' ? HALF_GRID_PX : 1;
+    const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+    const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+    saveUndo();
+    // 일반 부스
+    if (state.selectedIds.size) {
+      for (const b of state.booths) {
+        if (!state.selectedIds.has(b.id)) continue;
+        b.x += dx; b.y += dy;
+        if (b.cells) b.cells.forEach(c => { c.x += dx; c.y += dy; });
+      }
+    }
+    // 기본부스번호
+    if (state.selectedBaseNoIds.size) {
+      for (const bn of state.baseNumbers) {
+        if (state.selectedBaseNoIds.has(bn.id)) { bn.x += dx; bn.y += dy; }
+      }
+    }
+    // 구조물
+    if (state.selectedStructId) {
+      const s = state.structures.find(s => s.id === state.selectedStructId);
+      if (s) {
+        if (s.type === 'column' || s.type === 'circle') {
+          s.x += dx; s.y += dy;
+        } else if (s.type === 'wall' || s.type === 'line' || s.type === 'arrow') {
+          s.x1 += dx; s.y1 += dy; s.x2 += dx; s.y2 += dy;
+        } else {
+          s.x += dx; s.y += dy;
+        }
+      }
+    }
+    scheduleSave(); render(); updateProps();
+    return;
+  }
+
   if (ctrl && e.key === 'm') { e.preventDefault(); mergeSelected(); }
 
   if (ctrl && !e.shiftKey && e.key === 'd') {
