@@ -51,30 +51,34 @@ function drawDimensionVertical(ctx, x1, y1, x2, y2, label, zoom) {
 }
 
 // 서브1: 각 부스의 가로/세로 치수선 — 외곽에만 표시
-// 위에 붙은 부스 있으면 가로 스킵 (topmost row만 표시)
-// 좌측에 붙은 부스 있으면 세로 스킵 (leftmost column만 표시)
+// 위/좌측에 부스가 있으면(붙어있거나 통로 범위 내) 스킵
+// → 통로 치수선이 해당 경계를 이미 표시하므로 중복 방지
 function drawMeasureBooths(ctx, zoom) {
   const OFFSET = 8;
   const EPS = 0.5;
+  const MAX_GAP = 100; // drawMeasurePassageways와 동일 기준
+
   for (const b of state.booths) {
     const r = getBoothOuterRect(b);
 
-    // 가로: 바로 위에 붙어있는 부스가 있으면 스킵 (x 범위 겹침)
+    // 가로: 위에 부스가 있으면 스킵 (붙어있거나 통로 범위 내)
     const skipW = state.booths.some(o => {
       if (o.id === b.id) return false;
       const or = getBoothOuterRect(o);
-      return Math.abs((or.y + or.h) - r.y) < EPS &&
+      const gap = r.y - (or.y + or.h); // 양수: or이 위, r이 아래
+      return gap >= -EPS && gap <= MAX_GAP &&
              or.x < r.x + r.w && or.x + or.w > r.x;
     });
     if (!skipW) {
       drawDimension(ctx, r.x, r.y - OFFSET, r.x + r.w, r.y - OFFSET, pxToM(r.w).toFixed(1) + 'm', zoom);
     }
 
-    // 세로: 바로 좌측에 붙어있는 부스가 있으면 스킵 (y 범위 겹침)
+    // 세로: 좌측에 부스가 있으면 스킵 (붙어있거나 통로 범위 내)
     const skipH = state.booths.some(o => {
       if (o.id === b.id) return false;
       const or = getBoothOuterRect(o);
-      return Math.abs((or.x + or.w) - r.x) < EPS &&
+      const gap = r.x - (or.x + or.w); // 양수: or이 좌측, r이 우측
+      return gap >= -EPS && gap <= MAX_GAP &&
              or.y < r.y + r.h && or.y + or.h > r.y;
     });
     if (!skipH) {
