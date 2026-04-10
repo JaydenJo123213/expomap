@@ -4242,16 +4242,37 @@ function drawDimensionVertical(ctx, x1, y1, x2, y2, label, zoom) {
 }
 
 // 서브1: 각 부스의 가로/세로 치수선
+// 좌측에 붙어있는 동일 너비 부스 → 가로 스킵 (leftmost만 표시)
+// 상단에 붙어있는 동일 높이 부스 → 세로 스킵 (topmost만 표시)
 function drawMeasureBooths(ctx, zoom) {
   const OFFSET = 8;
+  const EPS = 0.5; // 픽셀 오차 허용
   for (const b of state.booths) {
     const r = getBoothOuterRect(b);
-    const wLabel = pxToM(r.w).toFixed(1) + 'm';
-    const hLabel = pxToM(r.h).toFixed(1) + 'm';
-    // 가로: 상단 위에 수평선
-    drawDimension(ctx, r.x, r.y - OFFSET, r.x + r.w, r.y - OFFSET, wLabel, zoom);
-    // 세로: 좌측에 수직선 (라벨 회전)
-    drawDimensionVertical(ctx, r.x - OFFSET, r.y, r.x - OFFSET, r.y + r.h, hLabel, zoom);
+
+    // 가로: 좌측에 동일 너비의 부스가 붙어있으면 스킵
+    const skipW = state.booths.some(o => {
+      if (o.id === b.id) return false;
+      const or = getBoothOuterRect(o);
+      return Math.abs((or.x + or.w) - r.x) < EPS &&   // 바로 왼쪽에 붙어있고
+             Math.abs(or.w - r.w) < EPS &&              // 너비가 같고
+             or.y < r.y + r.h && or.y + or.h > r.y;    // y 범위 겹침
+    });
+    if (!skipW) {
+      drawDimension(ctx, r.x, r.y - OFFSET, r.x + r.w, r.y - OFFSET, pxToM(r.w).toFixed(1) + 'm', zoom);
+    }
+
+    // 세로: 상단에 동일 높이의 부스가 붙어있으면 스킵
+    const skipH = state.booths.some(o => {
+      if (o.id === b.id) return false;
+      const or = getBoothOuterRect(o);
+      return Math.abs((or.y + or.h) - r.y) < EPS &&    // 바로 위에 붙어있고
+             Math.abs(or.h - r.h) < EPS &&              // 높이가 같고
+             or.x < r.x + r.w && or.x + or.w > r.x;    // x 범위 겹침
+    });
+    if (!skipH) {
+      drawDimensionVertical(ctx, r.x - OFFSET, r.y, r.x - OFFSET, r.y + r.h, pxToM(r.h).toFixed(1) + 'm', zoom);
+    }
   }
 }
 
