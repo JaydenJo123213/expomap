@@ -5638,7 +5638,7 @@ document.addEventListener('keydown', (e) => {
     const hasSelection = state.selectedIds.size || state.selectedBaseNoIds.size || state.selectedStructId;
     if (!hasSelection) return;
     e.preventDefault();
-    const step = state.snap === 'grid' ? GRID_PX : state.snap === 'half' ? HALF_GRID_PX : 1;
+    const step = state.snap === 'grid' ? GRID_PX : state.snap === 'half' ? HALF_GRID_PX : 0.5;
     const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
     const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
     saveUndo();
