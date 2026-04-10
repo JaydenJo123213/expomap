@@ -50,38 +50,45 @@ function drawDimensionVertical(ctx, x1, y1, x2, y2, label, zoom) {
   ctx.restore();
 }
 
-// 서브1: 각 부스의 가로/세로 치수선 — 외곽에만 표시
-// 위/좌측에 부스가 있으면(붙어있거나 통로 범위 내) 스킵
-// → 통로 치수선이 해당 경계를 이미 표시하므로 중복 방지
+// 서브1: 각 부스의 가로/세로 치수선 — 접촉 면 수 기준
+// 4방향 중 딱 붙은 면이 3개 이상 → 내부 블럭 → 치수 표시 안 함
+// 0~2면 접촉 → 외곽 부스 → 노출된 방향에 치수 표시
 function drawMeasureBooths(ctx, zoom) {
   const OFFSET = 8;
   const EPS = 0.5;
-  const MAX_GAP = 100; // drawMeasurePassageways와 동일 기준
+
+  function touches(r, dir) {
+    // 해당 방향으로 딱 붙어있는(gap ≈ 0) 부스 있으면 true
+    return state.booths.some(o => {
+      if (o.id === r._id) return false;
+      const or = getBoothOuterRect(o);
+      if (dir === 'N') return Math.abs((or.y + or.h) - r.y) < EPS && or.x < r.x + r.w && or.x + or.w > r.x;
+      if (dir === 'S') return Math.abs(or.y - (r.y + r.h)) < EPS && or.x < r.x + r.w && or.x + or.w > r.x;
+      if (dir === 'W') return Math.abs((or.x + or.w) - r.x) < EPS && or.y < r.y + r.h && or.y + or.h > r.y;
+      if (dir === 'E') return Math.abs(or.x - (r.x + r.w)) < EPS && or.y < r.y + r.h && or.y + or.h > r.y;
+    });
+  }
 
   for (const b of state.booths) {
     const r = getBoothOuterRect(b);
+    r._id = b.id; // touches()에서 자기 자신 제외용
 
-    // 가로: 위에 부스가 있으면 스킵 (붙어있거나 통로 범위 내)
-    const skipW = state.booths.some(o => {
-      if (o.id === b.id) return false;
-      const or = getBoothOuterRect(o);
-      const gap = r.y - (or.y + or.h); // 양수: or이 위, r이 아래
-      return gap >= -EPS && gap <= MAX_GAP &&
-             or.x < r.x + r.w && or.x + or.w > r.x;
-    });
-    if (!skipW) {
+    const touchN = touches(r, 'N');
+    const touchS = touches(r, 'S');
+    const touchW = touches(r, 'W');
+    const touchE = touches(r, 'E');
+    const touchCount = [touchN, touchS, touchW, touchE].filter(Boolean).length;
+
+    // 3면 이상 접촉 → 내부 블럭, 치수 표시 안 함
+    if (touchCount >= 3) continue;
+
+    // 가로(너비): 위쪽(N)이 열려있으면 상단에 표시
+    if (!touchN) {
       drawDimension(ctx, r.x, r.y - OFFSET, r.x + r.w, r.y - OFFSET, pxToM(r.w).toFixed(1) + 'm', zoom);
     }
 
-    // 세로: 좌측에 부스가 있으면 스킵 (붙어있거나 통로 범위 내)
-    const skipH = state.booths.some(o => {
-      if (o.id === b.id) return false;
-      const or = getBoothOuterRect(o);
-      const gap = r.x - (or.x + or.w); // 양수: or이 좌측, r이 우측
-      return gap >= -EPS && gap <= MAX_GAP &&
-             or.y < r.y + r.h && or.y + or.h > r.y;
-    });
-    if (!skipH) {
+    // 세로(높이): 좌측(W)이 열려있으면 좌측에 표시
+    if (!touchW) {
       drawDimensionVertical(ctx, r.x - OFFSET, r.y, r.x - OFFSET, r.y + r.h, pxToM(r.h).toFixed(1) + 'm', zoom);
     }
   }
