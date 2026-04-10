@@ -4256,80 +4256,89 @@ function drawMeasureBooths(ctx, zoom) {
 }
 
 // 서브2: 부스 간 통로 폭
+// - 수직 통로(상하): 블럭 사이를 수직으로 잇는 선, 통로의 좌끝/우끝에만 표시
+// - 수평 통로(좌우): 블럭 사이를 수평으로 잇는 선, 통로의 위끝/아래끝에만 표시
 function drawMeasurePassageways(ctx, zoom) {
   const MAX_GAP = 100; // 10m 이내만
   const booths = state.booths;
   if (booths.length < 2) return;
-  const drawn = new Set();
 
-  // 각 부스에서 4방향 nearest 탐색
+  // Step 1: 각 부스의 south/east 방향 nearest 이웃 수집
+  const vSegs = []; // 수직 gap 세그먼트 {gapY1, gapY2, gap, oxs, oxe}
+  const hSegs = []; // 수평 gap 세그먼트 {gapX1, gapX2, gap, oys, oye}
+
   for (let i = 0; i < booths.length; i++) {
     const a = getBoothOuterRect(booths[i]);
     const ax1 = a.x, ax2 = a.x + a.w, ay1 = a.y, ay2 = a.y + a.h;
-
-    // 방향별 nearest 초기화
-    let nearS = null, nearSgap = Infinity;  // a 아래(south) 가장 가까운 부스
-    let nearE = null, nearEgap = Infinity;  // a 오른쪽(east) 가장 가까운 부스
+    let nearSgap = Infinity, nearSseg = null;
+    let nearEgap = Infinity, nearEseg = null;
 
     for (let j = 0; j < booths.length; j++) {
       if (i === j) continue;
       const b = getBoothOuterRect(booths[j]);
-      const bx1 = b.x, bx2 = b.x + b.w, by1 = b.y, by2 = b.y + b.h;
+      const bx1 = b.x, bx2 = b.x + b.w, by1 = b.y;
 
-      // 수평 겹침 → 상하 통로
+      // 수평 겹침 → 상하 통로 (b가 a 아래)
       const oxs = Math.max(ax1, bx1), oxe = Math.min(ax2, bx2);
       if (oxe > oxs) {
-        // b가 a 아래
         const gap = by1 - ay2;
         if (gap > 0 && gap <= MAX_GAP && gap < nearSgap) {
-          nearSgap = gap; nearS = { b: booths[j], oxs, oxe };
+          nearSgap = gap;
+          nearSseg = { gapY1: ay2, gapY2: by1, gap, oxs, oxe };
         }
       }
 
-      // 수직 겹침 → 좌우 통로
-      const oys = Math.max(ay1, by1), oye = Math.min(ay2, by2);
+      // 수직 겹침 → 좌우 통로 (b가 a 오른쪽)
+      const oys = Math.max(ay1, b.y), oye = Math.min(ay2, b.y + b.h);
       if (oye > oys) {
-        // b가 a 오른쪽
         const gap = bx1 - ax2;
         if (gap > 0 && gap <= MAX_GAP && gap < nearEgap) {
-          nearEgap = gap; nearE = { b: booths[j], oys, oye };
+          nearEgap = gap;
+          nearEseg = { gapX1: ax2, gapX2: bx1, gap, oys, oye };
         }
       }
     }
 
-    // South: a↓b 수직 통로선 (수평 방향 치수선)
-    if (nearS) {
-      const id1 = Math.min(booths[i].id, nearS.b.id), id2 = Math.max(booths[i].id, nearS.b.id);
-      const key = `${id1}:${id2}:V`;
-      if (!drawn.has(key)) {
-        drawn.add(key);
-        const midX = (nearS.oxs + nearS.oxe) / 2;
-        const label = pxToM(nearSgap).toFixed(1) + 'm';
-        drawDimension(ctx, midX - nearSgap/2, ay2 + nearSgap/2, midX + nearSgap/2, ay2 + nearSgap/2, label, zoom);
-        // 연장선 (가이드)
-        ctx.strokeStyle = MEASURE_COLOR; ctx.lineWidth = 0.5/zoom;
-        ctx.setLineDash([3/zoom, 3/zoom]);
-        ctx.beginPath(); ctx.moveTo(midX, ay2); ctx.lineTo(midX, ay2 + nearSgap); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
+    if (nearSseg) vSegs.push(nearSseg);
+    if (nearEseg) hSegs.push(nearEseg);
+  }
 
-    // East: a→b 수평 통로선 (수직 방향 치수선)
-    if (nearE) {
-      const id1 = Math.min(booths[i].id, nearE.b.id), id2 = Math.max(booths[i].id, nearE.b.id);
-      const key = `${id1}:${id2}:H`;
-      if (!drawn.has(key)) {
-        drawn.add(key);
-        const midY = (nearE.oys + nearE.oye) / 2;
-        const label = pxToM(nearEgap).toFixed(1) + 'm';
-        drawDimensionVertical(ctx, ax2 + nearEgap/2, midY - nearEgap/2, ax2 + nearEgap/2, midY + nearEgap/2, label, zoom);
-        // 연장선
-        ctx.strokeStyle = MEASURE_COLOR; ctx.lineWidth = 0.5/zoom;
-        ctx.setLineDash([3/zoom, 3/zoom]);
-        ctx.beginPath(); ctx.moveTo(ax2, midY); ctx.lineTo(ax2 + nearEgap, midY); ctx.stroke();
-        ctx.setLineDash([]);
-      }
+  // Step 2: 수직 gap → 코리더 그룹핑 (같은 gapY1 + gap 값 = 같은 수평 통로)
+  // 그룹 내 oxs/oxe 범위 집계 → 전체 좌끝(minX), 우끝(maxX)에만 치수선
+  const vGroups = {}; // key: "round(gapY1):round(gap)"
+  for (const s of vSegs) {
+    const key = `${Math.round(s.gapY1)}:${Math.round(s.gap)}`;
+    if (!vGroups[key]) vGroups[key] = { ...s, minX: s.oxs, maxX: s.oxe };
+    else {
+      vGroups[key].minX = Math.min(vGroups[key].minX, s.oxs);
+      vGroups[key].maxX = Math.max(vGroups[key].maxX, s.oxe);
     }
+  }
+  for (const grp of Object.values(vGroups)) {
+    const label = pxToM(grp.gap).toFixed(1) + 'm';
+    // 수직선: 블럭 아랫면(gapY1) → 윗면(gapY2), 좌끝/우끝에 배치
+    drawDimensionVertical(ctx, grp.minX, grp.gapY1, grp.minX, grp.gapY2, label, zoom);
+    if (grp.maxX !== grp.minX)
+      drawDimensionVertical(ctx, grp.maxX, grp.gapY1, grp.maxX, grp.gapY2, label, zoom);
+  }
+
+  // Step 3: 수평 gap → 코리더 그룹핑 (같은 gapX1 + gap 값 = 같은 수직 통로)
+  // 그룹 내 oys/oye 범위 집계 → 전체 위끝(minY), 아래끝(maxY)에만 치수선
+  const hGroups = {}; // key: "round(gapX1):round(gap)"
+  for (const s of hSegs) {
+    const key = `${Math.round(s.gapX1)}:${Math.round(s.gap)}`;
+    if (!hGroups[key]) hGroups[key] = { ...s, minY: s.oys, maxY: s.oye };
+    else {
+      hGroups[key].minY = Math.min(hGroups[key].minY, s.oys);
+      hGroups[key].maxY = Math.max(hGroups[key].maxY, s.oye);
+    }
+  }
+  for (const grp of Object.values(hGroups)) {
+    const label = pxToM(grp.gap).toFixed(1) + 'm';
+    // 수평선: 블럭 우측면(gapX1) → 좌측면(gapX2), 위끝/아래끝에 배치
+    drawDimension(ctx, grp.gapX1, grp.minY, grp.gapX2, grp.minY, label, zoom);
+    if (grp.maxY !== grp.minY)
+      drawDimension(ctx, grp.gapX1, grp.maxY, grp.gapX2, grp.maxY, label, zoom);
   }
 }
 
