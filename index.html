@@ -1474,6 +1474,7 @@ let state = {
   showOther: false,
   showBoothType: true,
   showBooths: true,
+  showMeasure: false,
   locked: true,
   lang: 'ko',  // 'ko' | 'en' — 캔버스 표시 언어
   // viewer mode
@@ -1530,11 +1531,13 @@ let state = {
     'booth': false,       // 부스블럭
     'baseNo': true,       // 기본부스번호 (기본 잠금)
     'bg': false,          // 도면배경
+    'measure': false,     // 실측
   },
 };
 
 // ─── 레이어 정의 ───
 const LAYERS = [
+  { id: 'measure', label: '실측', stateKey: 'showMeasure' },
   { id: 'other', label: '부대시설_기타', stateKey: 'showOther' },
   { id: 'elec', label: '부대시설_전기', stateKey: 'showElec' },
   { id: 'boothType', label: '조립부스', stateKey: 'showBoothType' },
@@ -3570,6 +3573,16 @@ function getTextRect(b) {
   return best;
 }
 
+function getBoothOuterRect(b) {
+  if (!b.cells || b.cells.length === 0) return { x: b.x, y: b.y, w: b.w, h: b.h };
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const c of b.cells) {
+    x1 = Math.min(x1, c.x); y1 = Math.min(y1, c.y);
+    x2 = Math.max(x2, c.x + c.w); y2 = Math.max(y2, c.y + c.h);
+  }
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
 function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false, skipOther = false) {
   const pad = 2;
   // 비정형 부스(ㄴ/ㄱ자)면 가장 큰 셀 기준으로 텍스트 배치
@@ -4176,6 +4189,230 @@ function drawNeighborDistances(ctx, state) {
   if (distRight < Infinity) drawDistLine(bx2, midY, bx2 + distRight, midY, distRight);
 }
 
+// ─── 실측 레이어 ───────────────────────────────────────────────
+const MEASURE_COLOR = '#1E88E5';
+const MEASURE_FILL  = 'rgba(30,136,229,0.15)';
+
+function _drawDimLine(ctx, x1, y1, x2, y2, zoom) {
+  const TICK = 4 / zoom;
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len < 0.5) return;
+  const px = -dy / len, py = dx / len;
+  ctx.strokeStyle = MEASURE_COLOR;
+  ctx.lineWidth = 1 / zoom;
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1 + px*TICK, y1 + py*TICK); ctx.lineTo(x1 - px*TICK, y1 - py*TICK); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2 + px*TICK, y2 + py*TICK); ctx.lineTo(x2 - px*TICK, y2 - py*TICK); ctx.stroke();
+}
+
+// 수평 치수선 (라벨 가로)
+function drawDimension(ctx, x1, y1, x2, y2, label, zoom) {
+  _drawDimLine(ctx, x1, y1, x2, y2, zoom);
+  const mx = (x1+x2)/2, my = (y1+y2)/2;
+  const fz = Math.max(9/zoom, 5);
+  ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+  const tw = ctx.measureText(label).width;
+  const ph = 2/zoom, pw = 3/zoom;
+  ctx.fillStyle = MEASURE_FILL;
+  ctx.fillRect(mx - tw/2 - pw, my - fz/2 - ph, tw + pw*2, fz + ph*2);
+  ctx.fillStyle = MEASURE_COLOR;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, mx, my);
+}
+
+// 수직 치수선 (라벨 90° 회전)
+function drawDimensionVertical(ctx, x1, y1, x2, y2, label, zoom) {
+  _drawDimLine(ctx, x1, y1, x2, y2, zoom);
+  const mx = (x1+x2)/2, my = (y1+y2)/2;
+  const fz = Math.max(9/zoom, 5);
+  ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+  const tw = ctx.measureText(label).width;
+  const ph = 2/zoom, pw = 3/zoom;
+  ctx.save();
+  ctx.translate(mx, my);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillStyle = MEASURE_FILL;
+  ctx.fillRect(-tw/2 - pw, -fz/2 - ph, tw + pw*2, fz + ph*2);
+  ctx.fillStyle = MEASURE_COLOR;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, 0, 0);
+  ctx.restore();
+}
+
+// 서브1: 각 부스의 가로/세로 치수선
+function drawMeasureBooths(ctx, zoom) {
+  const OFFSET = 8;
+  for (const b of state.booths) {
+    const r = getBoothOuterRect(b);
+    const wLabel = pxToM(r.w).toFixed(1) + 'm';
+    const hLabel = pxToM(r.h).toFixed(1) + 'm';
+    // 가로: 상단 위에 수평선
+    drawDimension(ctx, r.x, r.y - OFFSET, r.x + r.w, r.y - OFFSET, wLabel, zoom);
+    // 세로: 좌측에 수직선 (라벨 회전)
+    drawDimensionVertical(ctx, r.x - OFFSET, r.y, r.x - OFFSET, r.y + r.h, hLabel, zoom);
+  }
+}
+
+// 서브2: 부스 간 통로 폭
+function drawMeasurePassageways(ctx, zoom) {
+  const MAX_GAP = 100; // 10m 이내만
+  const booths = state.booths;
+  if (booths.length < 2) return;
+  const drawn = new Set();
+
+  // 각 부스에서 4방향 nearest 탐색
+  for (let i = 0; i < booths.length; i++) {
+    const a = getBoothOuterRect(booths[i]);
+    const ax1 = a.x, ax2 = a.x + a.w, ay1 = a.y, ay2 = a.y + a.h;
+
+    // 방향별 nearest 초기화
+    let nearS = null, nearSgap = Infinity;  // a 아래(south) 가장 가까운 부스
+    let nearE = null, nearEgap = Infinity;  // a 오른쪽(east) 가장 가까운 부스
+
+    for (let j = 0; j < booths.length; j++) {
+      if (i === j) continue;
+      const b = getBoothOuterRect(booths[j]);
+      const bx1 = b.x, bx2 = b.x + b.w, by1 = b.y, by2 = b.y + b.h;
+
+      // 수평 겹침 → 상하 통로
+      const oxs = Math.max(ax1, bx1), oxe = Math.min(ax2, bx2);
+      if (oxe > oxs) {
+        // b가 a 아래
+        const gap = by1 - ay2;
+        if (gap > 0 && gap <= MAX_GAP && gap < nearSgap) {
+          nearSgap = gap; nearS = { b: booths[j], oxs, oxe };
+        }
+      }
+
+      // 수직 겹침 → 좌우 통로
+      const oys = Math.max(ay1, by1), oye = Math.min(ay2, by2);
+      if (oye > oys) {
+        // b가 a 오른쪽
+        const gap = bx1 - ax2;
+        if (gap > 0 && gap <= MAX_GAP && gap < nearEgap) {
+          nearEgap = gap; nearE = { b: booths[j], oys, oye };
+        }
+      }
+    }
+
+    // South: a↓b 수직 통로선 (수평 방향 치수선)
+    if (nearS) {
+      const id1 = Math.min(booths[i].id, nearS.b.id), id2 = Math.max(booths[i].id, nearS.b.id);
+      const key = `${id1}:${id2}:V`;
+      if (!drawn.has(key)) {
+        drawn.add(key);
+        const midX = (nearS.oxs + nearS.oxe) / 2;
+        const label = pxToM(nearSgap).toFixed(1) + 'm';
+        drawDimension(ctx, midX - nearSgap/2, ay2 + nearSgap/2, midX + nearSgap/2, ay2 + nearSgap/2, label, zoom);
+        // 연장선 (가이드)
+        ctx.strokeStyle = MEASURE_COLOR; ctx.lineWidth = 0.5/zoom;
+        ctx.setLineDash([3/zoom, 3/zoom]);
+        ctx.beginPath(); ctx.moveTo(midX, ay2); ctx.lineTo(midX, ay2 + nearSgap); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // East: a→b 수평 통로선 (수직 방향 치수선)
+    if (nearE) {
+      const id1 = Math.min(booths[i].id, nearE.b.id), id2 = Math.max(booths[i].id, nearE.b.id);
+      const key = `${id1}:${id2}:H`;
+      if (!drawn.has(key)) {
+        drawn.add(key);
+        const midY = (nearE.oys + nearE.oye) / 2;
+        const label = pxToM(nearEgap).toFixed(1) + 'm';
+        drawDimensionVertical(ctx, ax2 + nearEgap/2, midY - nearEgap/2, ax2 + nearEgap/2, midY + nearEgap/2, label, zoom);
+        // 연장선
+        ctx.strokeStyle = MEASURE_COLOR; ctx.lineWidth = 0.5/zoom;
+        ctx.setLineDash([3/zoom, 3/zoom]);
+        ctx.beginPath(); ctx.moveTo(ax2, midY); ctx.lineTo(ax2 + nearEgap, midY); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  }
+}
+
+// 서브3: 기둥 ↔ 부스 끝선 거리
+function drawMeasureColumns(ctx, zoom) {
+  const MAX_DIST = 150; // 15m 이내
+  const columns = state.structures.filter(s => s.type === 'column' || s.type === 'circle');
+  if (!columns.length) return;
+
+  for (const col of columns) {
+    const cx = col.x, cy = col.y, r = col.radius || 5;
+
+    // 기둥이 속한 부스 찾기 (중심 기준)
+    const enclosing = state.booths.find(b => {
+      const rect = getBoothOuterRect(b);
+      return cx >= rect.x && cx <= rect.x + rect.w && cy >= rect.y && cy <= rect.y + rect.h;
+    });
+
+    // N/S/E/W 각 방향: [기둥 edge 좌표, 목표 좌표]
+    const dirs = [
+      { label: 'N', ex: cx, ey: cy - r, tx: cx, ty: null },
+      { label: 'S', ex: cx, ey: cy + r, tx: cx, ty: null },
+      { label: 'W', ex: cx - r, ey: cy, tx: null, ty: cy },
+      { label: 'E', ex: cx + r, ey: cy, tx: null, ty: cy },
+    ];
+
+    for (const d of dirs) {
+      if (enclosing) {
+        const rect = getBoothOuterRect(enclosing);
+        if (d.label === 'N') d.ty = rect.y;
+        if (d.label === 'S') d.ty = rect.y + rect.h;
+        if (d.label === 'W') d.tx = rect.x;
+        if (d.label === 'E') d.tx = rect.x + rect.w;
+      } else {
+        // 해당 방향에서 가장 가까운 부스 edge 탐색
+        let nearDist = MAX_DIST;
+        for (const b of state.booths) {
+          const rect = getBoothOuterRect(b);
+          if (d.label === 'N' && rect.x <= cx && cx <= rect.x + rect.w) {
+            const dist = (cy - r) - (rect.y + rect.h);
+            if (dist >= 0 && dist < nearDist) { nearDist = dist; d.ty = rect.y + rect.h; }
+          }
+          if (d.label === 'S' && rect.x <= cx && cx <= rect.x + rect.w) {
+            const dist = rect.y - (cy + r);
+            if (dist >= 0 && dist < nearDist) { nearDist = dist; d.ty = rect.y; }
+          }
+          if (d.label === 'W' && rect.y <= cy && cy <= rect.y + rect.h) {
+            const dist = (cx - r) - (rect.x + rect.w);
+            if (dist >= 0 && dist < nearDist) { nearDist = dist; d.tx = rect.x + rect.w; }
+          }
+          if (d.label === 'E' && rect.y <= cy && cy <= rect.y + rect.h) {
+            const dist = rect.x - (cx + r);
+            if (dist >= 0 && dist < nearDist) { nearDist = dist; d.tx = rect.x; }
+          }
+        }
+      }
+
+      // 목표점이 없거나 거리가 무의미하면 스킵
+      const tx = d.tx ?? d.ex, ty = d.ty ?? d.ey;
+      const dist = Math.sqrt((tx-d.ex)**2 + (ty-d.ey)**2);
+      if (dist < 0.5 || dist > MAX_DIST) continue;
+
+      const label = pxToM(dist).toFixed(1) + 'm';
+      if (d.label === 'N' || d.label === 'S') {
+        drawDimension(ctx, d.ex - 4/zoom, d.ey, tx - 4/zoom, ty, label, zoom);
+      } else {
+        drawDimensionVertical(ctx, d.ex, d.ey - 4/zoom, tx, ty - 4/zoom, label, zoom);
+      }
+    }
+  }
+}
+
+function drawMeasureLayer(ctx, zoom) {
+  if (!state.showMeasure) return;
+  ctx.globalAlpha = 1;
+  ctx.save();
+  drawMeasureBooths(ctx, zoom);
+  drawMeasurePassageways(ctx, zoom);
+  drawMeasureColumns(ctx, zoom);
+  ctx.restore();
+}
+// ────────────────────────────────────────────────────────────────
+
 //  RENDER
 // ═══════════════════════════════════════
 function render() {
@@ -4440,6 +4677,9 @@ function render() {
 
   // ─── 인접 블럭 거리 인디케이터 (드래그 + 부스 그리기) ───
   drawNeighborDistances(ctx, state);
+
+  // ─── 실측 레이어 ───
+  drawMeasureLayer(ctx, state.zoom);
 
   ctx.restore();
 
