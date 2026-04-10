@@ -3401,6 +3401,9 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
   // 구조물 (부스 위에)
   drawStructures(ectx, zoom, false);
 
+  // 실측 레이어 (showMeasure ON 시 배정안내 PDF에도 반영)
+  drawMeasureLayer(ectx, zoom);
+
   // 배정논의 오버레이 (불투명 처리 - 아래 블럭이 안보이게)
   selectedOverlays.forEach(ov => {
     ectx.fillStyle = '#FFC700';  // 진한 노란색
@@ -4309,35 +4312,49 @@ function drawMeasurePassageways(ctx, zoom) {
       }
     }
 
-    // 수평 통로 (상하 gap): 두 부스의 겹침 X 범위 좌끝/우끝에 수직 치수선
+    // 수평 통로 (상하 gap): 겹침 X 범위 좌끝/우끝에 수직 치수선
+    // 겹침 구간 >= 60px(6m)이면 양끝, 아니면 중앙 하나만
     if (nearSb) {
       const id1 = Math.min(booths[i].id, booths[nearSj].id);
       const id2 = Math.max(booths[i].id, booths[nearSj].id);
       const key = `${id1}:${id2}:V`;
       if (!drawn.has(key)) {
         drawn.add(key);
-        const oxs = Math.max(ax1, nearSb.x);   // 겹침 구간 좌끝
-        const oxe = Math.min(ax2, nearSb.x + nearSb.w); // 겹침 구간 우끝
+        const oxs = Math.max(ax1, nearSb.x);
+        const oxe = Math.min(ax2, nearSb.x + nearSb.w);
         const label = pxToM(nearSgap).toFixed(1) + 'm';
-        drawDimensionVertical(ctx, oxs, ay2, oxs, ay2 + nearSgap, label, zoom);
-        if (oxe - oxs > 1)
+        if (oxe - oxs >= 60) {
+          // 겹침 구간 충분 → 양끝 표시
+          drawDimensionVertical(ctx, oxs, ay2, oxs, ay2 + nearSgap, label, zoom);
           drawDimensionVertical(ctx, oxe, ay2, oxe, ay2 + nearSgap, label, zoom);
+        } else {
+          // 겹침 구간 좁음 → 중앙 하나만
+          const midX = (oxs + oxe) / 2;
+          drawDimensionVertical(ctx, midX, ay2, midX, ay2 + nearSgap, label, zoom);
+        }
       }
     }
 
-    // 수직 통로 (좌우 gap): 두 부스의 겹침 Y 범위 위끝/아래끝에 수평 치수선
+    // 수직 통로 (좌우 gap): 겹침 Y 범위 위끝/아래끝에 수평 치수선
+    // 겹침 구간 >= 60px(6m)이면 양끝, 아니면 중앙 하나만
     if (nearEb) {
       const id1 = Math.min(booths[i].id, booths[nearEj].id);
       const id2 = Math.max(booths[i].id, booths[nearEj].id);
       const key = `${id1}:${id2}:H`;
       if (!drawn.has(key)) {
         drawn.add(key);
-        const oys = Math.max(ay1, nearEb.y);   // 겹침 구간 위끝
-        const oye = Math.min(ay2, nearEb.y + nearEb.h); // 겹침 구간 아래끝
+        const oys = Math.max(ay1, nearEb.y);
+        const oye = Math.min(ay2, nearEb.y + nearEb.h);
         const label = pxToM(nearEgap).toFixed(1) + 'm';
-        drawDimension(ctx, ax2, oys, ax2 + nearEgap, oys, label, zoom);
-        if (oye - oys > 1)
+        if (oye - oys >= 60) {
+          // 겹침 구간 충분 → 양끝 표시
+          drawDimension(ctx, ax2, oys, ax2 + nearEgap, oys, label, zoom);
           drawDimension(ctx, ax2, oye, ax2 + nearEgap, oye, label, zoom);
+        } else {
+          // 겹침 구간 좁음 → 중앙 하나만
+          const midY = (oys + oye) / 2;
+          drawDimension(ctx, ax2, midY, ax2 + nearEgap, midY, label, zoom);
+        }
       }
     }
   }
@@ -4401,6 +4418,19 @@ function drawMeasureColumns(ctx, zoom) {
       const tx = d.tx ?? d.ex, ty = d.ty ?? d.ey;
       const dist = Math.sqrt((tx-d.ex)**2 + (ty-d.ey)**2);
       if (dist < 0.5 || dist > MAX_DIST) continue;
+
+      // 부스 안 기둥: 각 축(N/S, E/W)에서 더 짧은 방향(더 가까운 벽)만 표시
+      if (enclosing) {
+        const rect = getBoothOuterRect(enclosing);
+        const distN = (cy - r) - rect.y;
+        const distS = (rect.y + rect.h) - (cy + r);
+        const distW = (cx - r) - rect.x;
+        const distE = (rect.x + rect.w) - (cx + r);
+        if (d.label === 'N' && distN > distS) continue;
+        if (d.label === 'S' && distS > distN) continue;
+        if (d.label === 'W' && distW > distE) continue;
+        if (d.label === 'E' && distE > distW) continue;
+      }
 
       const label = pxToM(dist).toFixed(1) + 'm';
       if (d.label === 'N' || d.label === 'S') {
@@ -7144,6 +7174,9 @@ function exportFloorplanPDF() {
   // 구조물 렌더링 (부스 위에)
   drawStructures(ctx, scale, false);
 
+  // 실측 레이어 (showMeasure ON 시 PDF에도 반영)
+  drawMeasureLayer(ctx, scale);
+
   ctx.restore();
 
   // PDF에 이미지 추가
@@ -7266,6 +7299,9 @@ function exportAvailablePDF() {
 
   // 구조물 렌더링 (부스 위에)
   drawStructures(ctx, scale, false);
+
+  // 실측 레이어 (showMeasure ON 시 PDF에도 반영)
+  drawMeasureLayer(ctx, scale);
 
   ctx.restore();
 
