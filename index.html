@@ -4212,13 +4212,10 @@ function render() {
   // ── 3. Base Numbers
   drawBaseNumbers(ctx, state.zoom);
 
-  // ── 4. Structures
-  drawStructures(ctx, state.zoom, false);
-
-  // ── 5. Logos
+  // ── 4. Logos
   drawLogos(ctx, state.zoom);
 
-  // ── 6. Booths
+  // ── 5. Booths
   if (state.showBooths) {
 
   // Wall/Line/Arrow start point preview
@@ -4434,6 +4431,9 @@ function render() {
     ctx.setLineDash([]);
   }
 
+  // ── Structures (부스 위에 항상 렌더링)
+  drawStructures(ctx, state.zoom, false);
+
   // ─── 배정논의 오버레이 레이어 ───
   drawDiscussOverlays(ctx, state.zoom);
 
@@ -4479,13 +4479,10 @@ function renderViewer(w, h) {
     }
   }
 
-  // 2. Structures
-  drawStructures(ctx, state.zoom, false);
-
-  // 3. Logos
+  // 2. Logos
   drawLogos(ctx, state.zoom);
 
-  // 4. Booths — 상태 구분 없이 단일 스타일
+  // 3. Booths — 상태 구분 없이 단일 스타일
   const searchEl = document.getElementById('viewerSearch');
   const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
   const _vAvail = VIEWER_STATUS_COLORS.available;
@@ -4540,6 +4537,9 @@ function renderViewer(w, h) {
 
   // BaseNumbers text only (outline hidden in viewer mode)
   drawBaseNumbers(ctx, state.zoom);
+
+  // Structures (부스 위에 항상 렌더링)
+  drawStructures(ctx, state.zoom, false);
 
   ctx.restore();
   drawRemoteCursors();
