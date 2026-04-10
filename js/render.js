@@ -1,0 +1,1129 @@
+// ─── Booth Content Drawing (shared) ───
+function calcFontSize(c, text, maxW) {
+  const refSize = 100;
+  c.font = `600 ${refSize}px Pretendard, sans-serif`;
+  const refWidth = c.measureText(text).width;
+  if (refWidth === 0) return maxW * 0.3;
+  return (maxW / refWidth) * refSize;
+}
+
+// 텍스트를 maxChars 글자씩 줄바꿈
+function wrapText(text) {
+  // </br> 로만 줄바꿈, 자동 줄바꿈 없음
+  return text.split('</br>').map(s => s.trim());
+}
+
+// ─── 비정형 부스(ㄴ/ㄱ자) 렌더 헬퍼 ───
+function fillBoothShape(ctx, b) {
+  if (b.cells && b.cells.length > 1) {
+    // 단일 path에 모든 셀 rect 추가 → 한번에 fill (alpha 겹침 없음)
+    ctx.beginPath();
+    b.cells.forEach(c => ctx.rect(c.x, c.y, c.w, c.h));
+    ctx.fill();
+  } else {
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+  }
+}
+function strokeBoothShape(ctx, b, zoom) {
+  if (b.cells && b.cells.length > 1) {
+    // 외곽선만 그리기: 각 셀의 4변 중 다른 셀과 접하지 않는 변만 stroke
+    const cells = b.cells;
+    ctx.beginPath();
+    for (const c of cells) {
+      const r = c.x + c.w, bot = c.y + c.h;
+      // top edge: 다른 셀이 바로 위에 접하는 구간을 제외
+      if (!hasAdjacentEdge(cells, c, 'top'))    { ctx.moveTo(c.x, c.y); ctx.lineTo(r, c.y); }
+      // bottom edge
+      if (!hasAdjacentEdge(cells, c, 'bottom')) { ctx.moveTo(c.x, bot); ctx.lineTo(r, bot); }
+      // left edge
+      if (!hasAdjacentEdge(cells, c, 'left'))   { ctx.moveTo(c.x, c.y); ctx.lineTo(c.x, bot); }
+      // right edge
+      if (!hasAdjacentEdge(cells, c, 'right'))  { ctx.moveTo(r, c.y); ctx.lineTo(r, bot); }
+    }
+    ctx.stroke();
+  } else {
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+  }
+}
+// 셀 c의 특정 변이 다른 셀과 완전히 접하는지 체크
+function hasAdjacentEdge(cells, c, side) {
+  const EPS = 0.5;
+  for (const o of cells) {
+    if (o === c) continue;
+    if (side === 'top') {
+      // c의 상변(y)에 o의 하변(y+h)이 접하고, 가로 범위가 완전히 포함
+      if (Math.abs(c.y - (o.y + o.h)) < EPS && o.x <= c.x + EPS && o.x + o.w >= c.x + c.w - EPS) return true;
+    } else if (side === 'bottom') {
+      if (Math.abs((c.y + c.h) - o.y) < EPS && o.x <= c.x + EPS && o.x + o.w >= c.x + c.w - EPS) return true;
+    } else if (side === 'left') {
+      if (Math.abs(c.x - (o.x + o.w)) < EPS && o.y <= c.y + EPS && o.y + o.h >= c.y + c.h - EPS) return true;
+    } else if (side === 'right') {
+      if (Math.abs((c.x + c.w) - o.x) < EPS && o.y <= c.y + EPS && o.y + o.h >= c.y + c.h - EPS) return true;
+    }
+  }
+  return false;
+}
+// 텍스트 배치용 가장 큰 셀 반환
+function getTextRect(b) {
+  if (!b.cells || b.cells.length <= 1) return { x: b.x, y: b.y, w: b.w, h: b.h };
+  let best = b.cells[0];
+  let bestArea = best.w * best.h;
+  for (let i = 1; i < b.cells.length; i++) {
+    const a = b.cells[i].w * b.cells[i].h;
+    if (a > bestArea) { bestArea = a; best = b.cells[i]; }
+  }
+  return best;
+}
+
+function getBoothOuterRect(b) {
+  if (!b.cells || b.cells.length === 0) return { x: b.x, y: b.y, w: b.w, h: b.h };
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+  for (const c of b.cells) {
+    x1 = Math.min(x1, c.x); y1 = Math.min(y1, c.y);
+    x2 = Math.max(x2, c.x + c.w); y2 = Math.max(y2, c.y + c.h);
+  }
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false, skipOther = false) {
+  const pad = 2;
+  // 비정형 부스(ㄴ/ㄱ자)면 가장 큰 셀 기준으로 텍스트 배치
+  const tr = getTextRect(b);
+  const availW = tr.w - pad * 2;
+  const availH = tr.h - pad * 2;
+  const wm = pxToM(b.w), hm = pxToM(b.h);
+  const area = wm * hm;
+  // 언어에 따라 표시할 업체명 결정 (EN 모드에서 영문명 없으면 빈값)
+  const displayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
+  const hasCompany = !!displayName;
+  const hasBoothNo = !!b.boothId;
+  const showSize = wm >= 6 && hm >= 6;
+
+  c.fillStyle = textColor;
+
+  // 로고 렌더링 (4부스 이상 & 로고 URL 있을 때)
+  const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
+  if (shouldDrawLogo && !isConstruction) {
+    const logoImg = getLogoImage(b, state.logoCache);
+    if (logoImg) {
+      const scale = (b.logoScale ?? 100) / 100;
+      const gap = (b.logoGap ?? 0) * (tr.h / 100);
+
+      // 로고 영역: 부스번호 아래 ~ 상단 60%
+      const noReserve = hasBoothNo ? calcFontSize(c, b.boothId, 26) + 4 : 0;
+      const logoPad = tr.w * 0.08;
+      const logoTopPad = Math.max(tr.h * 0.05, noReserve);
+      const logoBottomPad = tr.h * 0.02;
+      const logoAreaH = tr.h * 0.60;
+      const logoW = tr.w - logoPad * 2;
+      const logoH = logoAreaH - logoTopPad - logoBottomPad;
+
+      c.save();
+      c.globalAlpha = 0.9;
+      const imgAspect = logoImg.width / logoImg.height;
+      const areaAspect = logoW / logoH;
+      let drawW, drawH;
+      if (imgAspect > areaAspect) {
+        drawW = logoW;
+        drawH = logoW / imgAspect;
+      } else {
+        drawH = logoH;
+        drawW = logoH * imgAspect;
+      }
+      drawW *= scale;
+      drawH *= scale;
+      const logoX = tr.x + (tr.w - drawW) / 2;
+      const logoCenterY = tr.y + logoTopPad + logoH / 2;
+      const logoY = logoCenterY - drawH / 2;
+      c.drawImage(logoImg, logoX, logoY, drawW, drawH);
+      c.globalAlpha = 1;
+      c.restore();
+
+      // 텍스트 영역: 로고 아래 (gap 적용)
+      const textAreaY = tr.y + tr.h * 0.58 + gap;
+      const textAreaH = tr.h * 0.36 - gap;
+      const lines = wrapText(displayName);
+      const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
+
+      let fz = calcFontSize(c, longestLine || 'A', availW * 0.85);
+      if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
+      fz = Math.max(1.5, Math.min(fz, 12));
+
+      const lineH = fz * 1.25;
+      const blockH = lines.length * lineH;
+      const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
+
+      c.fillStyle = textColor;
+      c.font = `600 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
+
+      // 부스번호: 좌상단
+      if (hasBoothNo) {
+        const noFz = calcFontSize(c, b.boothId, 26);
+        c.font = `500 ${noFz}px Pretendard, sans-serif`;
+        c.textAlign = 'left'; c.textBaseline = 'top';
+        c.globalAlpha = 0.65;
+        c.fillText(b.boothId, tr.x + pad, tr.y + pad);
+        c.globalAlpha = 1;
+      }
+      // 전기 레이어 빨간 표시 + 뱃지 (로고 부스에서도 동작, 업체 배정된 부스만)
+      if (!VIEWER_MODE && state.showElec && hasCompany && b.status !== 'facility' && b.status !== 'excluded') {
+        const comp2 = state.companies.find(co => co.company_uid === b.companyUid);
+        const hasElec2 = comp2 && ELEC_KEYS.some(k => (comp2[k] || 0) > 0);
+        if (!hasElec2) {
+          c.save();
+          c.fillStyle = 'rgba(244, 67, 54, 0.15)';
+          fillBoothShape(c, b);
+          c.strokeStyle = '#F44336';
+          c.lineWidth = 2 / zoom;
+          c.setLineDash([4 / zoom, 3 / zoom]);
+          strokeBoothShape(c, b, zoom);
+          c.setLineDash([]);
+          c.restore();
+        }
+      }
+      if (!skipElec) drawElecBadges(c, b, zoom);
+      if (!skipOther) drawOtherBadges(c, b, zoom);
+      drawBoothWarnings(c, b, zoom);
+      return;
+    }
+  }
+
+  if (isConstruction) {
+    if (hasBoothNo) {
+      let fz = Math.min(calcFontSize(c, b.boothId, availW * 0.9), availH * 0.35);
+      fz = Math.max(2, Math.min(fz, 14));
+      c.font = `600 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(b.boothId, tr.x + tr.w / 2, tr.y + tr.h * 0.4);
+    }
+    const dimText = `${wm}×${hm}m`;
+    let dimFz = Math.min(calcFontSize(c, dimText, availW * 0.85), availH * 0.25);
+    dimFz = Math.max(1.5, Math.min(dimFz, 10));
+    c.font = `400 ${dimFz}px Pretendard, sans-serif`;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.globalAlpha = 0.6;
+    c.fillText(dimText, tr.x + tr.w / 2, tr.y + tr.h * 0.65);
+    c.globalAlpha = 1;
+    return;
+  }
+
+  if (hasCompany) {
+    const lines = wrapText(displayName);
+    const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
+
+    // 부스번호/사이즈 — 3m 부스 기준 고정 크기
+    const noFz  = hasBoothNo ? calcFontSize(c, b.boothId, 26) : 0;
+    const szFz  = showSize   ? Math.min(availH * 0.12, 10) : 0;
+    const topReserve    = hasBoothNo ? noFz + 2 : 0;
+    const bottomReserve = showSize   ? szFz + 2 : 0;
+    const textAreaH = availH - topReserve - bottomReserve;
+
+    // 업체명 폰트: 가로 기준으로 구하고 세로로도 제한
+    let fz = calcFontSize(c, longestLine || 'A', availW * 0.9);
+    if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
+    fz = Math.max(1.5, Math.min(fz, 16));
+
+    const lineH = fz * 1.25;
+    const blockH = lines.length * lineH;
+    const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
+
+    c.fillStyle = textColor;
+    c.font = `600 ${fz}px Pretendard, sans-serif`;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
+
+    // Booth No.: 좌상단 (고정 작은 폰트)
+    if (hasBoothNo) {
+      c.font = `500 ${noFz}px Pretendard, sans-serif`;
+      c.textAlign = 'left'; c.textBaseline = 'top';
+      c.globalAlpha = 0.65;
+      c.fillText(b.boothId, tr.x + pad, tr.y + pad);
+      c.globalAlpha = 1;
+    }
+
+    // 사이즈: 우하단 (고정 작은 폰트)
+    if (showSize) {
+      c.font = `400 ${szFz}px Pretendard, sans-serif`;
+      c.textAlign = 'right'; c.textBaseline = 'bottom';
+      c.globalAlpha = 0.45;
+      c.fillText(`${wm}×${hm}m`, tr.x + tr.w - pad, tr.y + tr.h - pad);
+      c.globalAlpha = 1;
+    }
+  } else if (hasBoothNo) {
+    // Booth No.만 → 좌상단 (기본부스번호와 공존)
+    const noFz = calcFontSize(c, b.boothId, 26);
+    c.font = `500 ${noFz}px Pretendard, sans-serif`;
+    c.textAlign = 'left'; c.textBaseline = 'top';
+    c.globalAlpha = 0.65;
+    c.fillText(b.boothId, tr.x + pad, tr.y + pad);
+    c.globalAlpha = 1;
+
+    if (showSize) {
+      const szText = `${wm}×${hm}m`;
+      let szFz = Math.max(1.5, noFz * 0.4);
+      szFz = Math.min(szFz, 8);
+      c.font = `400 ${szFz}px Pretendard, sans-serif`;
+      c.textAlign = 'right'; c.textBaseline = 'bottom';
+      c.globalAlpha = 0.45;
+      c.fillText(szText, tr.x + tr.w - pad, tr.y + tr.h - pad);
+      c.globalAlpha = 1;
+    }
+  }
+
+  // 전기 레이어 ON일 때 전기 데이터 없는 부스 빨간 표시 (업체 배정된 부스만)
+  if (!VIEWER_MODE && state.showElec && hasCompany && b.status !== 'facility' && b.status !== 'excluded') {
+    const comp = state.companies.find(co => co.company_uid === b.companyUid);
+    const hasElec = comp && ELEC_KEYS.some(k => (comp[k] || 0) > 0);
+    if (!hasElec) {
+      c.save();
+      c.fillStyle = 'rgba(244, 67, 54, 0.15)';
+      fillBoothShape(c, b);
+      c.strokeStyle = '#F44336';
+      c.lineWidth = 2 / zoom;
+      c.setLineDash([4 / zoom, 3 / zoom]);
+      strokeBoothShape(c, b, zoom);
+      c.setLineDash([]);
+      c.restore();
+    }
+  }
+
+  // 전기내역 원 뱃지
+  if (!skipElec) drawElecBadges(c, b, zoom);
+  // 기타 원 뱃지
+  if (!skipOther) drawOtherBadges(c, b, zoom);
+
+  // 메모 인디케이터 — 좌하단 ✎ (관리자 모드에서만, 메모 있을 때)
+  if (!VIEWER_MODE && b.memo) {
+    const memoFz = Math.max(3, Math.min(b.w, b.h) * 0.18);
+    c.font = `${memoFz}px sans-serif`;
+    c.textAlign = 'left'; c.textBaseline = 'bottom';
+    c.globalAlpha = 0.65;
+    c.fillStyle = textColor;
+    c.fillText('✎', b.x + 2, b.y + b.h - 2);
+    c.globalAlpha = 1;
+  }
+
+  // Lock indicator for booths
+  if (b.locked) {
+    const lockFz = Math.max(3, Math.min(b.w, b.h) * 0.25);
+    c.font = `${lockFz}px sans-serif`;
+    c.textAlign = 'right'; c.textBaseline = 'top';
+    c.fillText('🔒', b.x + b.w - 1, b.y + 1);
+  }
+
+  drawBoothWarnings(c, b, zoom);
+}
+
+// ─── 부스 경고 표시 (UID 미입력, 영문명 미입력) ───
+function drawBoothWarnings(c, b, zoom) {
+  if (VIEWER_MODE || state._exporting) return;
+  const tr = getTextRect(b);
+  // 배정완료인데 UID 없는 경우 — 빨간 테두리 + 우하단 ⚠ 경고
+  if (b.status === 'assigned' && !b.companyUid) {
+    c.strokeStyle = '#F44336';
+    c.lineWidth = 2 / zoom;
+    c.setLineDash([4 / zoom, 3 / zoom]);
+    strokeBoothShape(c, b, zoom);
+    c.setLineDash([]);
+    const warnFz = Math.max(4, Math.min(tr.w, tr.h) * 0.28);
+    c.font = `${warnFz}px sans-serif`;
+    c.textAlign = 'right'; c.textBaseline = 'bottom';
+    c.fillText('⚠️', tr.x + tr.w - 1, tr.y + tr.h - 1);
+  }
+  // 배정완료인데 영문 업체명 없는 경우 — 주황 테두리 + 좌하단 EN 경고
+  if (b.status === 'assigned' && b.companyName && !b.companyNameEn) {
+    c.strokeStyle = '#FF9800';
+    c.lineWidth = 1.5 / zoom;
+    c.setLineDash([3 / zoom, 2 / zoom]);
+    strokeBoothShape(c, b, zoom);
+    c.setLineDash([]);
+    const enFz = Math.max(3, Math.min(tr.w, tr.h) * 0.18);
+    c.font = `600 ${enFz}px sans-serif`;
+    c.fillStyle = '#FF9800';
+    c.textAlign = 'left'; c.textBaseline = 'bottom';
+    c.fillText('EN', tr.x + 1, tr.y + tr.h - 1);
+  }
+}
+
+// ─── 전기내역 원 뱃지 렌더 ───
+function drawElecBadges(c, b, zoom) {
+  if (VIEWER_MODE) return;
+  if (!state.showElec) return;
+  const comp = state.companies.find(co => co.company_uid === b.companyUid);
+  if (!comp) return;
+  const active = ELEC_TYPES.filter(t => (comp[t.key] || 0) > 0);
+  if (!active.length) return;
+
+  // 원 중심을 부스 테두리(변) 위에 걸쳐서 배치 — 업체명 침범 없음
+  const r = GRID_PX * 0.27;  // 10% 축소
+  const gap = r * 1.9;         // 5% 겹침 (diameter * 0.95)
+
+  // elecSide 명시 없으면 자동: 좁으면 우측, 넓으면 하단
+  const side = b.elecSide || (b.w <= GRID_PX * 2 ? 'right' : 'bottom');
+
+  active.forEach((t, i) => {
+    let cx, cy;
+    if (side === 'right') {
+      cx = b.x + b.w;
+      cy = b.y + r + 2 + i * gap;
+    } else if (side === 'left') {
+      cx = b.x;
+      cy = b.y + r + 2 + i * gap;
+    } else if (side === 'top') {
+      cx = b.x + r + 2 + i * gap;
+      cy = b.y;
+    } else { // bottom
+      cx = b.x + r + 2 + i * gap;
+      cy = b.y + b.h;
+    }
+
+    c.beginPath();
+    c.arc(cx, cy, r, 0, Math.PI * 2);
+    c.fillStyle = t.color;
+    c.fill();
+    c.strokeStyle = t.border;
+    c.lineWidth = 1 / zoom;
+    c.stroke();
+
+    const val = comp[t.key];
+    const numStr = val > 99 ? '+' : String(val);
+    const fz = r * 1.1; // world 기준 폰트 — zoom과 함께 커짐
+    c.fillStyle = t.textColor;
+    c.font = `700 ${fz}px Pretendard, sans-serif`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(numStr, cx, cy);
+  });
+}
+
+function drawOtherBadges(c, b, zoom) {
+  if (VIEWER_MODE) return;
+  if (!state.showOther) return;
+  const comp = state.companies.find(co => co.company_uid === b.companyUid);
+  if (!comp) return;
+
+  // 각 타입 값만큼 배지를 반복 생성
+  const badges = [];
+  OTHER_TYPES.forEach(t => {
+    const count = Math.floor(comp[t.key] || 0);
+    for (let i = 0; i < count; i++) badges.push(t);
+  });
+  if (!badges.length) return;
+
+  const r = GRID_PX * 0.24;
+  const gap = r * 1.9;
+  const pad = r + 2;
+
+  // otherSide: 자동이면 부스 가로/세로 크기로 결정
+  const side = b.otherSide || (b.w <= GRID_PX * 2 ? 'right' : 'bottom');
+
+  if (side === 'left' || side === 'right') {
+    // 세로 방향 배치 (외부 테두리)
+    badges.forEach((t, i) => {
+      const cx = side === 'right' ? b.x + b.w : b.x;
+      const cy = b.y + pad + i * gap;
+      c.beginPath();
+      c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.fillStyle = t.color;
+      c.fill();
+      c.strokeStyle = t.border;
+      c.lineWidth = 0.8 / zoom;
+      c.stroke();
+      const fz = r * 0.85;
+      c.fillStyle = t.textColor;
+      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(t.label, cx, cy);
+    });
+  } else if (side === 'top') {
+    // 가로 방향 배치 (상단 테두리)
+    badges.forEach((t, i) => {
+      const cx = b.x + pad + i * gap;
+      const cy = b.y;
+      c.beginPath();
+      c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.fillStyle = t.color;
+      c.fill();
+      c.strokeStyle = t.border;
+      c.lineWidth = 0.8 / zoom;
+      c.stroke();
+      const fz = r * 0.85;
+      c.fillStyle = t.textColor;
+      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(t.label, cx, cy);
+    });
+  } else {
+    // bottom (default) — 부스 내부 하단에서 위로 격자 배치
+    const maxPerRow = Math.max(1, Math.floor((b.w - pad * 2) / gap));
+    badges.forEach((t, i) => {
+      const col = i % maxPerRow;
+      const row = Math.floor(i / maxPerRow);
+      const cx = b.x + pad + col * gap;
+      const cy = b.y + b.h - pad - row * gap;
+      c.beginPath();
+      c.arc(cx, cy, r, 0, Math.PI * 2);
+      c.fillStyle = t.color;
+      c.fill();
+      c.strokeStyle = t.border;
+      c.lineWidth = 0.8 / zoom;
+      c.stroke();
+      const fz = r * 0.85;
+      c.fillStyle = t.textColor;
+      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(t.label, cx, cy);
+    });
+  }
+}
+
+// ─── Draw Structures (shared) ───
+function drawStructures(c, zoom, isConstruction) {
+  const isSel = (s) => s.id === state.selectedStructId;
+  c.globalAlpha = 1;  // 부스 반투명 상태에 영향받지 않도록
+  state.structures.forEach(s => {
+    const sel = isSel(s);
+    const col = isConstruction ? '#333' : (s.color || '#888');
+    const fillCol = isConstruction ? '#999' : (s.fillColor || '#5C5C5C');
+
+    if (s.type === 'column' || s.type === 'circle') {
+      c.beginPath();
+      c.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      c.fillStyle = fillCol;
+      c.fill();
+      c.strokeStyle = sel ? '#4F8CFF' : col;
+      c.lineWidth = (sel ? 2 : 1) / zoom;
+      c.stroke();
+    } else if (s.type === 'wall' || s.type === 'line') {
+      c.beginPath();
+      c.moveTo(s.x1, s.y1);
+      c.lineTo(s.x2, s.y2);
+      c.strokeStyle = sel ? '#4F8CFF' : col;
+      c.lineWidth = (s.thickness || 3) / zoom;
+      c.stroke();
+    } else if (s.type === 'arrow') {
+      c.beginPath();
+      c.moveTo(s.x1, s.y1);
+      c.lineTo(s.x2, s.y2);
+      c.strokeStyle = sel ? '#4F8CFF' : col;
+      c.lineWidth = (s.thickness || 2) / zoom;
+      c.stroke();
+      // arrowhead
+      const angle = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
+      const headLen = 10 / zoom;
+      c.beginPath();
+      c.moveTo(s.x2, s.y2);
+      c.lineTo(s.x2 - headLen * Math.cos(angle - 0.4), s.y2 - headLen * Math.sin(angle - 0.4));
+      c.moveTo(s.x2, s.y2);
+      c.lineTo(s.x2 - headLen * Math.cos(angle + 0.4), s.y2 - headLen * Math.sin(angle + 0.4));
+      c.stroke();
+    } else if (s.type === 'door') {
+      c.fillStyle = isConstruction ? '#CC7700' : (s.fillColor || '#CC7700');
+      c.fillRect(s.x, s.y, s.w, s.h);
+      c.strokeStyle = sel ? '#4F8CFF' : (isConstruction ? '#FF9800' : '#FF9800');
+      c.lineWidth = (sel ? 2 : 1) / zoom;
+      c.strokeRect(s.x, s.y, s.w, s.h);
+      c.beginPath();
+      c.arc(s.x, s.y + s.h, s.w, -Math.PI/2, 0);
+      c.lineWidth = 0.8 / zoom;
+      c.setLineDash([2/zoom, 2/zoom]);
+      c.stroke();
+      c.setLineDash([]);
+    } else if (s.type === 'rect') {
+      c.fillStyle = s.fillColor || 'rgba(100,100,100,0.3)';
+      c.fillRect(s.x, s.y, s.w, s.h);
+      c.strokeStyle = sel ? '#4F8CFF' : (s.color || '#888');
+      c.lineWidth = (sel ? 2 : 1) / zoom;
+      c.strokeRect(s.x, s.y, s.w, s.h);
+      // 텍스트 가운데 렌더링
+      if (s.text) {
+        const fz = Math.min(s.fontSize || 14, s.h * 0.6, s.w * 0.18);
+        c.font = `${s.fontWeight || 600} ${fz}px Pretendard, sans-serif`;
+        c.fillStyle = s.color || '#E8EAED';
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        // 줄바꿈 지원
+        const lines = s.text.split('</br>').map(l => l.trim());
+        const lineH = fz * 1.3;
+        const startY = s.y + s.h / 2 - (lines.length - 1) * lineH / 2;
+        lines.forEach((line, i) => c.fillText(line, s.x + s.w / 2, startY + i * lineH));
+      }
+    } else if (s.type === 'text') {
+      const fz = s.fontSize || 12;
+      c.font = `${s.fontWeight || 600} ${fz}px Pretendard, sans-serif`;
+      c.fillStyle = sel ? '#4F8CFF' : (s.color || '#E8EAED');
+      c.textAlign = 'left'; c.textBaseline = 'bottom';
+      c.fillText(s.text || '', s.x, s.y);
+      // measure for hit detection
+      s.w = c.measureText(s.text || '').width;
+      if (sel) {
+        c.strokeStyle = '#4F8CFF';
+        c.lineWidth = 1 / zoom;
+        c.setLineDash([3/zoom, 3/zoom]);
+        c.strokeRect(s.x, s.y - fz, s.w, fz + 4);
+        c.setLineDash([]);
+      }
+    }
+
+    // Lock indicator
+    if (s.locked) {
+      const center = getStructCenter(s);
+      c.font = `${10/zoom}px sans-serif`;
+      c.fillStyle = '#FF9800';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('🔒', center.x, center.y - 8/zoom);
+    }
+
+    // Resize handles (선택된 객체에만)
+    if (sel && !s.locked) {
+      const hs = 5 / zoom;
+      getStructHandles(s).forEach(h => {
+        c.fillStyle = '#fff';
+        c.fillRect(h.x - hs, h.y - hs, hs*2, hs*2);
+        c.strokeStyle = '#4F8CFF';
+        c.lineWidth = 1.5 / zoom;
+        c.strokeRect(h.x - hs, h.y - hs, hs*2, hs*2);
+      });
+    }
+  });
+}
+
+// ═══════════════════════════════════════
+// ─── 인접 블럭 거리 인디케이터 함수 ───
+function drawNeighborDistances(ctx, state) {
+  // 대상 바운딩 박스 결정
+  let bx1, by1, bx2, by2;
+  let excludeIds = new Set();
+
+  if (state.isDragging && state.selectedIds.size > 0) {
+    // 기존 부스 드래그
+    const sel = state.booths.filter(b => state.selectedIds.has(b.id));
+    if (!sel.length) return;
+    bx1 = Math.min(...sel.map(b => b.x));
+    by1 = Math.min(...sel.map(b => b.y));
+    bx2 = Math.max(...sel.map(b => b.x + b.w));
+    by2 = Math.max(...sel.map(b => b.y + b.h));
+    excludeIds = state.selectedIds;
+  } else if (state.baseNoDragging && state.selectedBaseNoIds.size > 0) {
+    // 기본부스 드래그
+    const sel = state.baseNumbers.filter(bn => state.selectedBaseNoIds.has(bn.id));
+    if (!sel.length) return;
+    bx1 = Math.min(...sel.map(b => b.x));
+    by1 = Math.min(...sel.map(b => b.y));
+    bx2 = Math.max(...sel.map(b => b.x + b.w));
+    by2 = Math.max(...sel.map(b => b.y + b.h));
+    // 기본부스가 아닌 일반 부스들을 이웃으로 사용
+  } else if (state.isDrawing || state.isBaseDrawing) {
+    // 새 부스 그리기 미리보기
+    const startX = state.isDrawing ? state.drawStartX : state.baseDrawStartX;
+    const startY = state.isDrawing ? state.drawStartY : state.baseDrawStartY;
+    const curX = state.isDrawing ? state.drawCurrentX : state.baseDrawCurrentX;
+    const curY = state.isDrawing ? state.drawCurrentY : state.baseDrawCurrentY;
+    const dx = curX - startX, dy = curY - startY;
+    if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+    bx1 = Math.min(startX, curX);
+    by1 = Math.min(startY, curY);
+    bx2 = Math.max(startX, curX);
+    by2 = Math.max(startY, curY);
+  } else {
+    return;
+  }
+
+  // 같은 종류끼리만 이웃으로 비교
+  const others = state.baseNoDragging
+    ? state.baseNumbers.filter(bn => !state.selectedBaseNoIds.has(bn.id))
+    : state.booths.filter(b => !excludeIds.has(b.id));
+  if (!others.length) return;
+
+  const midX = (bx1 + bx2) / 2, midY = (by1 + by2) / 2;
+  const z = state.zoom;
+
+  let distTop = Infinity, distBot = Infinity, distLeft = Infinity, distRight = Infinity;
+
+  for (const o of others) {
+    const ox2 = o.x + o.w, oy2 = o.y + o.h;
+    const hOverlap = bx1 < ox2 && bx2 > o.x;
+    const vOverlap = by1 < oy2 && by2 > o.y;
+
+    if (hOverlap) {
+      const dTop = by1 - oy2;
+      if (dTop >= 0 && dTop < distTop) distTop = dTop;
+      const dBot = o.y - by2;
+      if (dBot >= 0 && dBot < distBot) distBot = dBot;
+    }
+    if (vOverlap) {
+      const dLeft = bx1 - ox2;
+      if (dLeft >= 0 && dLeft < distLeft) distLeft = dLeft;
+      const dRight = o.x - bx2;
+      if (dRight >= 0 && dRight < distRight) distRight = dRight;
+    }
+  }
+
+  const fz = 9 / z;
+  const drawDistLine = (x1, y1, x2, y2, dist) => {
+    const dm = pxToM(dist);
+    ctx.strokeStyle = '#FF5252';
+    ctx.lineWidth = 1 / z;
+    ctx.setLineDash([3 / z, 2 / z]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const lx = (x1 + x2) / 2, ly = (y1 + y2) / 2;
+    const label = dm.toFixed(1) + 'm';
+    ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(255,82,82,0.9)';
+    ctx.fillRect(lx - tw / 2 - 2 / z, ly - fz / 2 - 1 / z, tw + 4 / z, fz + 2 / z);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, lx, ly);
+  };
+
+  if (distTop < Infinity) drawDistLine(midX, by1, midX, by1 - distTop, distTop);
+  if (distBot < Infinity) drawDistLine(midX, by2, midX, by2 + distBot, distBot);
+  if (distLeft < Infinity) drawDistLine(bx1, midY, bx1 - distLeft, midY, distLeft);
+  if (distRight < Infinity) drawDistLine(bx2, midY, bx2 + distRight, midY, distRight);
+}
+
+
+//  RENDER
+// ═══════════════════════════════════════
+function render() {
+  const w = canvas.width / (window.devicePixelRatio || 1);
+  const h = canvas.height / (window.devicePixelRatio || 1);
+  if (VIEWER_MODE) { renderViewer(w, h); updateStats(); return; }
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(state.panX, state.panY);
+  ctx.scale(state.zoom, state.zoom);
+
+  // ── 1. Grid (모눈 — 맨 아래)
+  drawGrid(w, h);
+
+  // ── 2. Background image (도면)
+  if (state.bg.img && state.bg.visible) {
+    const rot = (state.bg.rotation || 0) * Math.PI / 180;
+    if (rot !== 0) {
+      const cx = state.bg.x + state.bg.w / 2;
+      const cy = state.bg.y + state.bg.h / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.globalAlpha = state.bg.opacity;
+      ctx.drawImage(state.bg.img, -state.bg.w/2, -state.bg.h/2, state.bg.w, state.bg.h);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    } else {
+      ctx.globalAlpha = state.bg.opacity;
+      ctx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ── 3. Base Numbers
+  drawBaseNumbers(ctx, state.zoom);
+
+  // ── 4. Logos
+  drawLogos(ctx, state.zoom);
+
+  // ── 5. Booths
+  if (state.showBooths) {
+
+  // Wall/Line/Arrow start point preview
+  if ((state.structMode === 'wall' || state.structMode === 'line' || state.structMode === 'arrow') && state.wallStart) {
+    ctx.beginPath();
+    ctx.arc(state.wallStart.x, state.wallStart.y, 4 / state.zoom, 0, Math.PI * 2);
+    ctx.fillStyle = '#FF9800';
+    ctx.fill();
+    // preview line to cursor
+    ctx.beginPath();
+    ctx.moveTo(state.wallStart.x, state.wallStart.y);
+    ctx.lineTo(state.mouseX, state.mouseY);
+    ctx.strokeStyle = 'rgba(136,136,136,0.5)';
+    ctx.lineWidth = (state.structMode === 'wall' ? 3 : 2) / state.zoom;
+    ctx.setLineDash([4/state.zoom, 4/state.zoom]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Rect drawing preview
+  if (state.structMode === 'rect' && state.structDrawStart && state.structDrawCurrent) {
+    const rx = Math.min(state.structDrawStart.x, state.structDrawCurrent.x);
+    const ry = Math.min(state.structDrawStart.y, state.structDrawCurrent.y);
+    const rw = Math.abs(state.structDrawCurrent.x - state.structDrawStart.x);
+    const rh = Math.abs(state.structDrawCurrent.y - state.structDrawStart.y);
+    ctx.strokeStyle = 'rgba(100,100,255,0.6)';
+    ctx.lineWidth = 1.5 / state.zoom;
+    ctx.setLineDash([4/state.zoom, 4/state.zoom]);
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.setLineDash([]);
+  }
+
+  // Export region 드래그 프리뷰
+  if (state.exportRegionMode && state.exportRegionStart && state.exportRegionCurrent) {
+    const s = state.exportRegionStart, c = state.exportRegionCurrent;
+    const rx = Math.min(s.x, c.x), ry = Math.min(s.y, c.y);
+    const rw = Math.abs(c.x - s.x), rh = Math.abs(c.y - s.y);
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 2 / state.zoom;
+    ctx.setLineDash([6/state.zoom, 4/state.zoom]);
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.fillStyle = 'rgba(255,215,0,0.07)';
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.setLineDash([]);
+  }
+  // 저장된 export region 표시
+  if (state.exportRegion && !state.exportRegionMode) {
+    const r = state.exportRegion;
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 1.5 / state.zoom;
+    ctx.setLineDash([6/state.zoom, 4/state.zoom]);
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+    ctx.setLineDash([]);
+    ctx.font = `${11/state.zoom}px Pretendard, sans-serif`;
+    ctx.fillStyle = '#FFD700';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText('📤 Export', r.x + 4/state.zoom, r.y - 2/state.zoom);
+  }
+
+  // Group fills
+  state.groups.forEach(g => {
+    const bounds = getGroupBounds(g);
+    if (!bounds) return;
+    const isEditing = state.editingGroupId === g.id;
+    const pad = 4 / state.zoom;
+    ctx.fillStyle = isEditing ? 'rgba(79,140,255,0.05)' : 'rgba(79,140,255,0.04)';
+    ctx.fillRect(bounds.x - pad, bounds.y - pad, (bounds.x2 - bounds.x) + pad*2, (bounds.y2 - bounds.y) + pad*2);
+  });
+
+  // ── 5. 부스 (도면 위 — fill 반투명으로 도면이 비침)
+  for (const b of state.booths) {
+    const isSelected = state.selectedIds.has(b.id);
+    const colors = STATUS_COLORS[b.status] || STATUS_COLORS.available;
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = b.fillColor || colors.fill;
+    fillBoothShape(ctx, b);
+    ctx.globalAlpha = 1;
+    if (isSelected) {
+      ctx.fillStyle = 'rgba(79,140,255,0.15)';
+      fillBoothShape(ctx, b);
+    }
+    ctx.strokeStyle = isSelected ? SELECTED_STROKE : colors.stroke;
+    ctx.lineWidth = isSelected ? 2 / state.zoom : 1 / state.zoom;
+    strokeBoothShape(ctx, b, state.zoom);
+
+    // Resize handle for selected booths (bottom-right corner)
+    if (isSelected && state.selectedIds.size === 1) {
+      const handleSize = 8 / state.zoom;
+      ctx.fillStyle = '#4F8CFF';
+      ctx.fillRect(b.x + b.w - handleSize, b.y + b.h - handleSize, handleSize, handleSize);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1 / state.zoom;
+      ctx.strokeRect(b.x + b.w - handleSize, b.y + b.h - handleSize, handleSize, handleSize);
+    }
+
+    // 부스 타입 오버레이 (조립=노랑, 자체시공=주황)
+    if (state.showBoothType && b.boothType) {
+      const opt = BOOTH_TYPE_OPTIONS.find(o => o.key === b.boothType);
+      if (opt && opt.fill) {
+        const cov = (b.boothTypeCoverage ?? 100) / 100;
+        const dir = b.boothTypeDir || 'full';
+        let ox = b.x, oy = b.y, ow = b.w, oh = b.h;
+        if (dir === 'left')        { ow = b.w * cov; }
+        else if (dir === 'right')  { ox = b.x + b.w * (1 - cov); ow = b.w * cov; }
+        else if (dir === 'top')    { oh = b.h * cov; }
+        else if (dir === 'bottom') { oy = b.y + b.h * (1 - cov); oh = b.h * cov; }
+        ctx.fillStyle = opt.fill;
+        ctx.fillRect(ox, oy, ow, oh);
+        ctx.strokeStyle = opt.stroke;
+        ctx.lineWidth = 1.5 / state.zoom;
+        ctx.strokeRect(ox, oy, ow, oh);
+      }
+    }
+
+    // text content (always show)
+    drawBoothContent(ctx, b, state.zoom, colors.text, false);
+  }
+
+  // Group borders
+  state.groups.forEach(g => {
+    const bounds = getGroupBounds(g);
+    if (!bounds) return;
+    const isEditing = state.editingGroupId === g.id;
+    const pad = 4 / state.zoom;
+    ctx.strokeStyle = isEditing ? '#4F8CFF' : 'rgba(79,140,255,0.5)';
+    ctx.lineWidth = (isEditing ? 2 : 1.5) / state.zoom;
+    ctx.setLineDash([6 / state.zoom, 4 / state.zoom]);
+    ctx.strokeRect(bounds.x - pad, bounds.y - pad, (bounds.x2 - bounds.x) + pad*2, (bounds.y2 - bounds.y) + pad*2);
+    ctx.setLineDash([]);
+    if (state.zoom > 0.5) {
+      ctx.font = `600 ${10 / state.zoom}px Pretendard, sans-serif`;
+      ctx.fillStyle = '#4F8CFF';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(g.label, bounds.x - pad, bounds.y - pad - 1 / state.zoom);
+    }
+  });
+
+  // Alt drag clones
+  for (const b of state.altDragClones) {
+    ctx.fillStyle = 'rgba(79,140,255,0.25)';
+    fillBoothShape(ctx, b);
+    ctx.strokeStyle = SELECTED_STROKE;
+    ctx.lineWidth = 1.5 / state.zoom;
+    ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
+    strokeBoothShape(ctx, b, state.zoom);
+    ctx.setLineDash([]);
+  }
+  } // end if (state.showBooths)
+
+  // Calibration points
+  if (state.bgCalPoints.length > 0) {
+    state.bgCalPoints.forEach((p, i) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 6 / state.zoom, 0, Math.PI * 2);
+      ctx.fillStyle = '#FF9800';
+      ctx.fill();
+      ctx.font = `600 ${10 / state.zoom}px sans-serif`;
+      ctx.fillStyle = '#FF9800';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('P' + (i + 1), p.x + 8 / state.zoom, p.y);
+    });
+    if (state.bgCalPoints.length === 2) {
+      ctx.beginPath();
+      ctx.moveTo(state.bgCalPoints[0].x, state.bgCalPoints[0].y);
+      ctx.lineTo(state.bgCalPoints[1].x, state.bgCalPoints[1].y);
+      ctx.strokeStyle = '#FF9800';
+      ctx.lineWidth = 1.5 / state.zoom;
+      ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Draw preview / BaseNo preview / Discuss preview
+  if (state.isDrawing || state.isBaseDrawing || state.isDiscussDrawing) {
+    const dx = (state.isDrawing ? state.drawCurrentX : (state.isBaseDrawing ? state.baseDrawCurrentX : state.discussDrawCurrentX)) - (state.isDrawing ? state.drawStartX : (state.isBaseDrawing ? state.baseDrawStartX : state.discussDrawStartX));
+    const dy = (state.isDrawing ? state.drawCurrentY : (state.isBaseDrawing ? state.baseDrawCurrentY : state.discussDrawCurrentY)) - (state.isDrawing ? state.drawStartY : (state.isBaseDrawing ? state.baseDrawStartY : state.discussDrawStartY));
+    const sx = state.isDrawing ? state.drawStartX : (state.isBaseDrawing ? state.baseDrawStartX : state.discussDrawStartX);
+    const sy = state.isDrawing ? state.drawStartY : (state.isBaseDrawing ? state.baseDrawStartY : state.discussDrawStartY);
+    const rx = dx >= 0 ? sx : (state.isDrawing ? state.drawCurrentX : (state.isBaseDrawing ? state.baseDrawCurrentX : state.discussDrawCurrentX));
+    const ry = dy >= 0 ? sy : (state.isDrawing ? state.drawCurrentY : (state.isBaseDrawing ? state.baseDrawCurrentY : state.discussDrawCurrentY));
+    const rw = Math.abs(dx), rh = Math.abs(dy);
+    ctx.fillStyle = state.isDiscussDrawing ? 'rgba(255,214,0,0.12)' : 'rgba(79,140,255,0.15)';
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeStyle = state.isDiscussDrawing ? '#FFD600' : '#4F8CFF';
+    ctx.lineWidth = 1.5 / state.zoom;
+    ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.setLineDash([]);
+    if (rw > 5 && rh > 5) {
+      ctx.font = `600 ${11 / state.zoom}px Pretendard, sans-serif`;
+      ctx.fillStyle = state.isDiscussDrawing ? '#FFD600' : '#4F8CFF';
+      ctx.textAlign = 'center';
+      const label = state.isDrawing ? `${pxToM(rw)}m × ${pxToM(rh)}m` : (state.isBaseDrawing ? 'BaseNo' : '배정논의');
+      ctx.fillText(label, rx + rw / 2, ry - 8 / state.zoom);
+    }
+  }
+
+  // Marquee selection
+  if (state.isMarquee) {
+    const mx = Math.min(state.marqueeStartX, state.marqueeEndX);
+    const my = Math.min(state.marqueeStartY, state.marqueeEndY);
+    const mw = Math.abs(state.marqueeEndX - state.marqueeStartX);
+    const mh = Math.abs(state.marqueeEndY - state.marqueeStartY);
+    ctx.fillStyle = 'rgba(79,140,255,0.1)';
+    ctx.fillRect(mx, my, mw, mh);
+    ctx.strokeStyle = '#4F8CFF';
+    ctx.lineWidth = 1 / state.zoom;
+    ctx.setLineDash([4 / state.zoom, 4 / state.zoom]);
+    ctx.strokeRect(mx, my, mw, mh);
+    ctx.setLineDash([]);
+  }
+
+  // ── Structures (부스 위에 항상 렌더링)
+  drawStructures(ctx, state.zoom, false);
+
+  // ─── 배정논의 오버레이 레이어 ───
+  drawDiscussOverlays(ctx, state.zoom);
+
+  // ─── 인접 블럭 거리 인디케이터 (드래그 + 부스 그리기) ───
+  drawNeighborDistances(ctx, state);
+
+  // ─── 실측 레이어 ───
+  drawMeasureLayer(ctx, state.zoom);
+
+  ctx.restore();
+
+  // Show/hide assignGuideMode hint
+  const hintEl = document.getElementById('assignGuideModeHint');
+  if (state.assignGuideMode) {
+    hintEl.style.display = 'block';
+  } else {
+    hintEl.style.display = 'none';
+  }
+
+  drawRemoteCursors();
+  renderLayers();
+  updateStats();
+}
+
+// ─── Viewer Render ───
+function renderViewer(w, h) {
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(state.panX, state.panY);
+  ctx.scale(state.zoom, state.zoom);
+
+  // 1. Background image — full opacity
+  if (state.bg.img && state.bg.visible) {
+    const rot = (state.bg.rotation || 0) * Math.PI / 180;
+    if (rot !== 0) {
+      const cx = state.bg.x + state.bg.w / 2;
+      const cy = state.bg.y + state.bg.h / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.drawImage(state.bg.img, -state.bg.w/2, -state.bg.h/2, state.bg.w, state.bg.h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+    }
+  }
+
+  // 2. Logos
+  drawLogos(ctx, state.zoom);
+
+  // 3. Booths — 상태 구분 없이 단일 스타일
+  const searchEl = document.getElementById('viewerSearch');
+  const searchTerm = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const _vAvail = VIEWER_STATUS_COLORS.available;
+  for (const b of state.booths) {
+    const isHighlighted = searchTerm && (
+      b.boothId.toLowerCase().includes(searchTerm) ||
+      b.companyName.toLowerCase().includes(searchTerm) ||
+      (b.companyNameEn || '').toLowerCase().includes(searchTerm) ||
+      b.companyUid.toLowerCase().includes(searchTerm)
+    );
+    const isHovered = state.viewerHoverId === b.id;
+
+    // 공개도면: 모든 부스 기본 컬러 #f9e5de
+    // showViewerAvailable ON → available 부스 노란색 / 클릭된 available 부스도 노란색
+    // facility → 연한회색 #EFEFEF
+    const isSelected = isHovered && b.status === 'spot';
+    const isAvailableHighlight = state.showViewerAvailable && b.status === 'spot';
+    let fill = b.status === 'facility' ? '#EFEFEF' : _vAvail.fill;
+    let stroke = b.status === 'facility' ? '#111111' : _vAvail.stroke;
+    if (isHighlighted) { fill = '#FFF9C4'; stroke = '#F57F17'; }
+    else if (isSelected || isAvailableHighlight) { fill = '#FFD600'; stroke = '#F9A825'; }
+
+    ctx.fillStyle = fill;
+    fillBoothShape(ctx, b);
+
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = (isSelected || isHighlighted) ? 2 / state.zoom : 1 / state.zoom;
+    strokeBoothShape(ctx, b, state.zoom);
+
+    // 부스 타입 오버레이 (viewer에서도 표시)
+    if (state.showBoothType && b.boothType) {
+      const opt = BOOTH_TYPE_OPTIONS.find(o => o.key === b.boothType);
+      if (opt && opt.fill) {
+        const cov = (b.boothTypeCoverage ?? 100) / 100;
+        const dir = b.boothTypeDir || 'full';
+        let ox = b.x, oy = b.y, ow = b.w, oh = b.h;
+        if (dir === 'left')        { ow = b.w * cov; }
+        else if (dir === 'right')  { ox = b.x + b.w * (1 - cov); ow = b.w * cov; }
+        else if (dir === 'top')    { oh = b.h * cov; }
+        else if (dir === 'bottom') { oy = b.y + b.h * (1 - cov); oh = b.h * cov; }
+        ctx.fillStyle = opt.fill;
+        ctx.fillRect(ox, oy, ow, oh);
+        ctx.strokeStyle = opt.stroke;
+        ctx.lineWidth = 1.5 / state.zoom;
+        ctx.strokeRect(ox, oy, ow, oh);
+      }
+    }
+
+    const textColor = isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#111111';
+    drawBoothContent(ctx, b, state.zoom, textColor, false);
+  }
+
+  // BaseNumbers text only (outline hidden in viewer mode)
+  drawBaseNumbers(ctx, state.zoom);
+
+  // Structures (부스 위에 항상 렌더링)
+  drawStructures(ctx, state.zoom, false);
+
+  ctx.restore();
+  drawRemoteCursors();
+  const vzd = document.getElementById('viewerZoomDisplay');
+  if (vzd) vzd.textContent = Math.round(state.zoom * 100) + '%';
+}
+
+function showViewerPopup(b, screenX, screenY) {
+  const popup = document.getElementById('viewerPopup');
+  document.getElementById('vpNo').textContent = b.boothId || '—';
+  const vpDisplayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
+  document.getElementById('vpName').textContent = (vpDisplayName || '(미배정)').replace(/<\/br>/g, ' ');
+  document.getElementById('vpStatus').innerHTML = '';
+  const bw = pxToM(b.w), bh = pxToM(b.h);
+  document.getElementById('vpSize').textContent = `${bw}m × ${bh}m (${(bw * bh).toFixed(0)}㎡)`;
+  if (b.companyUid) {
+    document.getElementById('vpUidRow').style.display = '';
+    document.getElementById('vpUid').textContent = b.companyUid;
+  } else {
+    document.getElementById('vpUidRow').style.display = 'none';
+  }
+  const vpW = 290, vpH = 170;
+  let left = screenX + 14;
+  let top = screenY - 20;
+  if (left + vpW > window.innerWidth - 10) left = screenX - vpW - 14;
+  if (top + vpH > window.innerHeight - 10) top = window.innerHeight - vpH - 10;
+  if (top < 60) top = 60;
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+  popup.classList.add('open');
+}
+
+function closeViewerPopup() {
+  document.getElementById('viewerPopup').classList.remove('open');
+  state.viewerHoverId = null;
+  render();
+}
+
+function drawGrid(screenW, screenH) {
+  const tl = screenToWorld(0, 0);
+  const br = screenToWorld(screenW, screenH);
+  if (state.zoom > 0.8) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 0.5 / state.zoom;
+    const step = HALF_GRID_PX;
+    const sx = Math.floor(tl.x / step) * step, sy = Math.floor(tl.y / step) * step;
+    ctx.beginPath();
+    for (let x = sx; x < br.x; x += step) { ctx.moveTo(x, tl.y); ctx.lineTo(x, br.y); }
+    for (let y = sy; y < br.y; y += step) { ctx.moveTo(tl.x, y); ctx.lineTo(br.x, y); }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 0.5 / state.zoom;
+  const sx2 = Math.floor(tl.x / GRID_PX) * GRID_PX, sy2 = Math.floor(tl.y / GRID_PX) * GRID_PX;
+  ctx.beginPath();
+  for (let x = sx2; x < br.x; x += GRID_PX) { ctx.moveTo(x, tl.y); ctx.lineTo(x, br.y); }
+  for (let y = sy2; y < br.y; y += GRID_PX) { ctx.moveTo(tl.x, y); ctx.lineTo(br.x, y); }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(79,140,255,0.2)';
+  ctx.lineWidth = 1 / state.zoom;
+  ctx.beginPath();
+  ctx.moveTo(0, tl.y); ctx.lineTo(0, br.y);
+  ctx.moveTo(tl.x, 0); ctx.lineTo(br.x, 0);
+  ctx.stroke();
+}
+
+// ═══════════════════════════════════════

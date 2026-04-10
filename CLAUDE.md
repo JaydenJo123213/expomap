@@ -42,8 +42,31 @@
 21. 레이어 시스템 (6개)
 22. 스냅샷/버전 관리
 
+## 파일 구조 (작업 전 참조)
+
+| 파일 | 담당 기능 |
+|------|----------|
+| `js/state.js` | state 객체, 상수, EXHIBITIONS, 색상 정의 |
+| `js/supabase.js` | Supabase 연결, save/load, Presence 커서 |
+| `js/booth-ops.js` | 부스 CRUD, merge/divide/copy, 구조물 편집, BG이미지, 로고, 번호부여, Excel import |
+| `js/render.js` | render(), renderViewer(), 부스·구조물 렌더 헬퍼, drawGrid() |
+| `js/measure.js` | 실측 레이어 (drawMeasureLayer, 치수선 함수) |
+| `js/pdf-export.js` | PDF 3종 (exportFloorplanPDF, exportAvailablePDF, renderForAssignGuideExport) |
+| `js/events.js` | 마우스·키보드·터치 이벤트 핸들러 |
+| `js/ui.js` | 툴바, 레이어 패널, 속성 패널, 통계, DB 모달 |
+| `js/init.js` | showExpoSelector, applyExhibitionBranding, init() |
+
+**작업별 읽을 파일**:
+- PDF 수정 → `js/pdf-export.js` 먼저
+- 렌더링 버그 → `js/render.js` 먼저
+- 실측 레이어 → `js/measure.js` 먼저
+- 부스 조작(merge/divide 등) → `js/booth-ops.js` 먼저
+- UI/패널 수정 → `js/ui.js` 먼저
+
+**skills**: `/expomap-pdf`, `/expomap-render`, `/expomap-measure`, `/expomap-supabase`
+
 ## 기술 스택
-- **현재**: 단일 HTML + vanilla JS (프로토타입)
+- **현재**: HTML + vanilla JS, 파일 분리 (`js/*.js`)
 - **목표**: Next.js + TypeScript + Konva.js + Supabase + Tailwind
 
 ## 코딩 컨벤션
