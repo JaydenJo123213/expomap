@@ -4241,34 +4241,32 @@ function drawDimensionVertical(ctx, x1, y1, x2, y2, label, zoom) {
   ctx.restore();
 }
 
-// 서브1: 각 부스의 가로/세로 치수선
-// 좌측에 붙어있는 동일 너비 부스 → 가로 스킵 (leftmost만 표시)
-// 상단에 붙어있는 동일 높이 부스 → 세로 스킵 (topmost만 표시)
+// 서브1: 각 부스의 가로/세로 치수선 — 외곽에만 표시
+// 위에 붙은 부스 있으면 가로 스킵 (topmost row만 표시)
+// 좌측에 붙은 부스 있으면 세로 스킵 (leftmost column만 표시)
 function drawMeasureBooths(ctx, zoom) {
   const OFFSET = 8;
-  const EPS = 0.5; // 픽셀 오차 허용
+  const EPS = 0.5;
   for (const b of state.booths) {
     const r = getBoothOuterRect(b);
 
-    // 가로: 좌측에 동일 너비의 부스가 붙어있으면 스킵
+    // 가로: 바로 위에 붙어있는 부스가 있으면 스킵 (x 범위 겹침)
     const skipW = state.booths.some(o => {
       if (o.id === b.id) return false;
       const or = getBoothOuterRect(o);
-      return Math.abs((or.x + or.w) - r.x) < EPS &&   // 바로 왼쪽에 붙어있고
-             Math.abs(or.w - r.w) < EPS &&              // 너비가 같고
-             or.y < r.y + r.h && or.y + or.h > r.y;    // y 범위 겹침
+      return Math.abs((or.y + or.h) - r.y) < EPS &&
+             or.x < r.x + r.w && or.x + or.w > r.x;
     });
     if (!skipW) {
       drawDimension(ctx, r.x, r.y - OFFSET, r.x + r.w, r.y - OFFSET, pxToM(r.w).toFixed(1) + 'm', zoom);
     }
 
-    // 세로: 상단에 동일 높이의 부스가 붙어있으면 스킵
+    // 세로: 바로 좌측에 붙어있는 부스가 있으면 스킵 (y 범위 겹침)
     const skipH = state.booths.some(o => {
       if (o.id === b.id) return false;
       const or = getBoothOuterRect(o);
-      return Math.abs((or.y + or.h) - r.y) < EPS &&    // 바로 위에 붙어있고
-             Math.abs(or.h - r.h) < EPS &&              // 높이가 같고
-             or.x < r.x + r.w && or.x + or.w > r.x;    // x 범위 겹침
+      return Math.abs((or.x + or.w) - r.x) < EPS &&
+             or.y < r.y + r.h && or.y + or.h > r.y;
     });
     if (!skipH) {
       drawDimensionVertical(ctx, r.x - OFFSET, r.y, r.x - OFFSET, r.y + r.h, pxToM(r.h).toFixed(1) + 'm', zoom);
@@ -4277,88 +4275,87 @@ function drawMeasureBooths(ctx, zoom) {
 }
 
 // 서브2: 부스 간 통로 폭
-// - 수직 통로(상하): 블럭 사이를 수직으로 잇는 선, 통로의 좌끝/우끝에만 표시
-// - 수평 통로(좌우): 블럭 사이를 수평으로 잇는 선, 통로의 위끝/아래끝에만 표시
+// - 수평 통로(상하 gap): 수직선으로 gap 표시, 통로에 면한 부스 전체의 좌끝/우끝에 배치
+// - 수직 통로(좌우 gap): 수평선으로 gap 표시, 통로에 면한 부스 전체의 위끝/아래끝에 배치
 function drawMeasurePassageways(ctx, zoom) {
-  const MAX_GAP = 100; // 10m 이내만
+  const MAX_GAP = 100;
   const booths = state.booths;
   if (booths.length < 2) return;
 
-  // Step 1: 각 부스의 south/east 방향 nearest 이웃 수집
-  const vSegs = []; // 수직 gap 세그먼트 {gapY1, gapY2, gap, oxs, oxe}
-  const hSegs = []; // 수평 gap 세그먼트 {gapX1, gapX2, gap, oys, oye}
+  // vGroups: 수평 통로 (상하 gap). key = "gapY1:gap"
+  //   minX/maxX = 이 통로에 면한 모든 부스의 전체 X 범위 (끝-끝)
+  // hGroups: 수직 통로 (좌우 gap). key = "gapX1:gap"
+  //   minY/maxY = 이 통로에 면한 모든 부스의 전체 Y 범위 (끝-끝)
+  const vGroups = {};
+  const hGroups = {};
 
   for (let i = 0; i < booths.length; i++) {
     const a = getBoothOuterRect(booths[i]);
     const ax1 = a.x, ax2 = a.x + a.w, ay1 = a.y, ay2 = a.y + a.h;
-    let nearSgap = Infinity, nearSseg = null;
-    let nearEgap = Infinity, nearEseg = null;
+    let nearSgap = Infinity, nearSb = null;
+    let nearEgap = Infinity, nearEb = null;
 
     for (let j = 0; j < booths.length; j++) {
       if (i === j) continue;
       const b = getBoothOuterRect(booths[j]);
-      const bx1 = b.x, bx2 = b.x + b.w, by1 = b.y;
+      const bx1 = b.x, bx2 = b.x + b.w, by1 = b.y, by2 = b.y + b.h;
 
-      // 수평 겹침 → 상하 통로 (b가 a 아래)
-      const oxs = Math.max(ax1, bx1), oxe = Math.min(ax2, bx2);
-      if (oxe > oxs) {
+      // 수평 겹침 → 수평 통로 (b가 a 아래)
+      if (Math.min(ax2, bx2) > Math.max(ax1, bx1)) {
         const gap = by1 - ay2;
         if (gap > 0 && gap <= MAX_GAP && gap < nearSgap) {
-          nearSgap = gap;
-          nearSseg = { gapY1: ay2, gapY2: by1, gap, oxs, oxe };
+          nearSgap = gap; nearSb = b;
         }
       }
-
-      // 수직 겹침 → 좌우 통로 (b가 a 오른쪽)
-      const oys = Math.max(ay1, b.y), oye = Math.min(ay2, b.y + b.h);
-      if (oye > oys) {
+      // 수직 겹침 → 수직 통로 (b가 a 오른쪽)
+      if (Math.min(ay2, by2) > Math.max(ay1, by1)) {
         const gap = bx1 - ax2;
         if (gap > 0 && gap <= MAX_GAP && gap < nearEgap) {
-          nearEgap = gap;
-          nearEseg = { gapX1: ax2, gapX2: bx1, gap, oys, oye };
+          nearEgap = gap; nearEb = b;
         }
       }
     }
 
-    if (nearSseg) vSegs.push(nearSseg);
-    if (nearEseg) hSegs.push(nearEseg);
-  }
+    // 수평 통로: 통로에 면한 두 부스의 X 전체 범위를 그룹에 누적
+    if (nearSb) {
+      const key = `${Math.round(ay2)}:${Math.round(nearSgap)}`;
+      const fullXmin = Math.min(ax1, nearSb.x);
+      const fullXmax = Math.max(ax2, nearSb.x + nearSb.w);
+      if (!vGroups[key]) {
+        vGroups[key] = { gapY1: ay2, gapY2: ay2 + nearSgap, gap: nearSgap, minX: fullXmin, maxX: fullXmax };
+      } else {
+        vGroups[key].minX = Math.min(vGroups[key].minX, fullXmin);
+        vGroups[key].maxX = Math.max(vGroups[key].maxX, fullXmax);
+      }
+    }
 
-  // Step 2: 수직 gap → 코리더 그룹핑 (같은 gapY1 + gap 값 = 같은 수평 통로)
-  // 그룹 내 oxs/oxe 범위 집계 → 전체 좌끝(minX), 우끝(maxX)에만 치수선
-  const vGroups = {}; // key: "round(gapY1):round(gap)"
-  for (const s of vSegs) {
-    const key = `${Math.round(s.gapY1)}:${Math.round(s.gap)}`;
-    if (!vGroups[key]) vGroups[key] = { ...s, minX: s.oxs, maxX: s.oxe };
-    else {
-      vGroups[key].minX = Math.min(vGroups[key].minX, s.oxs);
-      vGroups[key].maxX = Math.max(vGroups[key].maxX, s.oxe);
+    // 수직 통로: 통로에 면한 두 부스의 Y 전체 범위를 그룹에 누적
+    if (nearEb) {
+      const key = `${Math.round(ax2)}:${Math.round(nearEgap)}`;
+      const fullYmin = Math.min(ay1, nearEb.y);
+      const fullYmax = Math.max(ay2, nearEb.y + nearEb.h);
+      if (!hGroups[key]) {
+        hGroups[key] = { gapX1: ax2, gapX2: ax2 + nearEgap, gap: nearEgap, minY: fullYmin, maxY: fullYmax };
+      } else {
+        hGroups[key].minY = Math.min(hGroups[key].minY, fullYmin);
+        hGroups[key].maxY = Math.max(hGroups[key].maxY, fullYmax);
+      }
     }
   }
+
+  // 수평 통로: 수직선으로 gap, 전체 X 범위의 좌끝/우끝에 배치
   for (const grp of Object.values(vGroups)) {
     const label = pxToM(grp.gap).toFixed(1) + 'm';
-    // 수직선: 블럭 아랫면(gapY1) → 윗면(gapY2), 좌끝/우끝에 배치
     drawDimensionVertical(ctx, grp.minX, grp.gapY1, grp.minX, grp.gapY2, label, zoom);
-    if (grp.maxX !== grp.minX)
+    if (Math.abs(grp.maxX - grp.minX) > 1)
       drawDimensionVertical(ctx, grp.maxX, grp.gapY1, grp.maxX, grp.gapY2, label, zoom);
   }
 
-  // Step 3: 수평 gap → 코리더 그룹핑 (같은 gapX1 + gap 값 = 같은 수직 통로)
-  // 그룹 내 oys/oye 범위 집계 → 전체 위끝(minY), 아래끝(maxY)에만 치수선
-  const hGroups = {}; // key: "round(gapX1):round(gap)"
-  for (const s of hSegs) {
-    const key = `${Math.round(s.gapX1)}:${Math.round(s.gap)}`;
-    if (!hGroups[key]) hGroups[key] = { ...s, minY: s.oys, maxY: s.oye };
-    else {
-      hGroups[key].minY = Math.min(hGroups[key].minY, s.oys);
-      hGroups[key].maxY = Math.max(hGroups[key].maxY, s.oye);
-    }
-  }
+  // 수직 통로: 수평선으로 gap, 전체 Y 범위의 위끝/아래끝에 배치
   for (const grp of Object.values(hGroups)) {
     const label = pxToM(grp.gap).toFixed(1) + 'm';
-    // 수평선: 블럭 우측면(gapX1) → 좌측면(gapX2), 위끝/아래끝에 배치
     drawDimension(ctx, grp.gapX1, grp.minY, grp.gapX2, grp.minY, label, zoom);
-    if (grp.maxY !== grp.minY)
+    if (Math.abs(grp.maxY - grp.minY) > 1)
       drawDimension(ctx, grp.gapX1, grp.maxY, grp.gapX2, grp.maxY, label, zoom);
   }
 }
