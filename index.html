@@ -3275,9 +3275,6 @@ function renderForExport(ectx, W, H, preset) {
     }
   }
 
-  // Structures
-  drawStructures(ectx, zoom, isConstruction);
-
   // Booths
   booths.forEach(b => {
     let fill, stroke, textColor;
@@ -3301,6 +3298,9 @@ function renderForExport(ectx, W, H, preset) {
 
     drawBoothContent(ectx, b, zoom, textColor, isConstruction);
   });
+
+  // Structures (부스 위에)
+  drawStructures(ectx, zoom, isConstruction);
 
   ectx.restore();
   ectx.fillStyle = 'rgba(79,140,255,0.4)';
@@ -3363,9 +3363,6 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
     ectx.globalAlpha = 1;
   }
 
-  // 구조물
-  drawStructures(ectx, zoom, false);
-
   // 부스 렌더링 — 도면출력/배정가능위치와 동일 디자인
   for (const b of booths) {
     const isFacility = b.status === 'facility' || b.status === 'excluded';
@@ -3397,6 +3394,9 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
     ectx.textBaseline = 'middle';
     ectx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
+
+  // 구조물 (부스 위에)
+  drawStructures(ectx, zoom, false);
 
   // 배정논의 오버레이 (불투명 처리 - 아래 블럭이 안보이게)
   selectedOverlays.forEach(ov => {
@@ -3970,6 +3970,7 @@ function drawOtherBadges(c, b, zoom) {
 // ─── Draw Structures (shared) ───
 function drawStructures(c, zoom, isConstruction) {
   const isSel = (s) => s.id === state.selectedStructId;
+  c.globalAlpha = 1;  // 부스 반투명 상태에 영향받지 않도록
   state.structures.forEach(s => {
     const sel = isSel(s);
     const col = isConstruction ? '#333' : (s.color || '#888');
@@ -6821,9 +6822,6 @@ function exportFloorplanPDF() {
     ctx.globalAlpha = 1;
   }
 
-  // 구조물 렌더링
-  drawStructures(ctx, scale, false);
-
   // 부스 렌더링 — L자 부스 지원, 전시회별 색상
   for (const booth of state.booths) {
     const isFacility = booth.status === 'facility' || booth.status === 'excluded';
@@ -6852,6 +6850,9 @@ function exportFloorplanPDF() {
     ctx.textBaseline = 'middle';
     ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
+
+  // 구조물 렌더링 (부스 위에)
+  drawStructures(ctx, scale, false);
 
   ctx.restore();
 
@@ -6935,9 +6936,6 @@ function exportAvailablePDF() {
     ctx.globalAlpha = 1;
   }
 
-  // 구조물 렌더링
-  drawStructures(ctx, scale, false);
-
   // 부스 렌더링 — 배정가능위치(spot)만 노란색, 나머지 전시회별 색상, L자 지원
   for (const booth of state.booths) {
     const isFacility = booth.status === 'facility' || booth.status === 'excluded';
@@ -6975,6 +6973,9 @@ function exportAvailablePDF() {
     ctx.textBaseline = 'middle';
     ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
+
+  // 구조물 렌더링 (부스 위에)
+  drawStructures(ctx, scale, false);
 
   ctx.restore();
 
