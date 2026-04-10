@@ -1362,7 +1362,7 @@ const EXHIBITIONS = {
     nameShort: 'K-PRINT',
     pdfPrefix: 'K-PRINT 2026',
     boothColor: '#f6f9e8',
-    pdfOrientation: 'landscape',
+    pdfMode: 'bgFill',  // BG 이미지를 A3에 꽉 채워서 출력 (방향은 BG 비율로 자동 결정)
   },
   // 새 전시회 추가 시 여기에 한 블럭 추가
 };
@@ -3179,8 +3179,12 @@ function executeAssignGuideExport() {
   const assignLang = document.querySelector('input[name="assignLang"]:checked')?.value || 'ko';
   const prevLang = state.lang;
   state.lang = assignLang;
-  // A3 portrait: 297×420mm → 3508×4961px @300dpi
-  const offW = 3508, offH = 4961;
+  // bgFill: BG 이미지 비율로 방향 자동 결정
+  const _bgFillAG = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+  const _orientAG = _bgFillAG ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
+  // A3 @300dpi: portrait=3508×4961, landscape=4961×3508
+  const offW = _orientAG === 'landscape' ? 4961 : 3508;
+  const offH = _orientAG === 'landscape' ? 3508 : 4961;
   const off = document.createElement('canvas');
   off.width = offW; off.height = offH;
   const octx = off.getContext('2d');
@@ -3189,7 +3193,7 @@ function executeAssignGuideExport() {
   const imgData = off.toDataURL('image/jpeg', 0.95);
   try {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: (_currentExpo && _currentExpo.pdfOrientation) || 'portrait', unit: 'mm', format: 'a3' });
+    const doc = new jsPDF({ orientation: _orientAG, unit: 'mm', format: 'a3' });
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
     doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
@@ -3325,88 +3329,73 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
   }
 
   const sceneW = maxX - minX, sceneH = maxY - minY;
-  const zoom = Math.min(W / sceneW, H / sceneH) * 0.97;
+  // bgFill 모드면 꽉 채움, 아니면 0.97 여백
+  const _bgFillAGR = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+  const zoom = Math.min(W / sceneW, H / sceneH) * (_bgFillAGR ? 1.0 : 0.97);
   const panX = (W - sceneW * zoom) / 2 - minX * zoom;
   const panY = (H - sceneH * zoom) / 2 - minY * zoom;
 
-  // 흰 배경 (공개도면 스타일)
-  ectx.fillStyle = '#fff';
+  // 흰 배경
+  ectx.fillStyle = '#FFFFFF';
   ectx.fillRect(0, 0, W, H);
   ectx.save();
   ectx.translate(panX, panY);
   ectx.scale(zoom, zoom);
 
-  // 배경 이미지
+  // 배경 이미지 (PDF 출력 시 항상 100% opacity)
   if (state.bg.img && state.bg.visible) {
     const rot = (state.bg.rotation || 0) * Math.PI / 180;
+    ectx.globalAlpha = 1;
     if (rot !== 0) {
       const cx = state.bg.x + state.bg.w / 2, cy = state.bg.y + state.bg.h / 2;
       ectx.save();
       ectx.translate(cx, cy);
       ectx.rotate(rot);
-      ectx.globalAlpha = state.bg.opacity;
       ectx.drawImage(state.bg.img, -state.bg.w/2, -state.bg.h/2, state.bg.w, state.bg.h);
-      ectx.globalAlpha = 1;
       ectx.restore();
     } else {
-      ectx.globalAlpha = state.bg.opacity;
       ectx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
-      ectx.globalAlpha = 1;
     }
   }
 
   // 구조물
   drawStructures(ectx, zoom, false);
 
-  // 부스 (전시회별 색상, facility/excluded만 회색)
-  booths.forEach(b => {
+  // 부스 렌더링 — 도면출력/배정가능위치와 동일 디자인
+  for (const b of booths) {
     const isFacility = b.status === 'facility' || b.status === 'excluded';
-
-    if (isFacility) {
-      ectx.fillStyle = '#EFEFEF';
-      ectx.strokeStyle = '#999999';
-    } else {
-      ectx.fillStyle = VIEWER_STATUS_COLORS.available.fill;
-      ectx.strokeStyle = VIEWER_STATUS_COLORS.available.stroke;
-    }
+    const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
+    const stroke = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
+    ectx.fillStyle = fill;
     fillBoothShape(ectx, b);
+    ectx.strokeStyle = stroke;
     ectx.lineWidth = 1 / zoom;
     strokeBoothShape(ectx, b, zoom);
 
-    // 업체명 표기 여부
+    // 업체명 표기
     if (showNames) {
-      drawBoothContent(ectx, b, zoom, '#333333', false);
-
-      // 업체명이 없으면 겹치는 baseNumber의 baseNo를 표시
-      const agDisplayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
-      if (!agDisplayName) {
-        // 부스 영역과 교차하는 모든 baseNumber 찾기
-        const overlappingBaseNos = state.baseNumbers.filter(bn =>
-          // 두 사각형이 교차하는지 확인
-          !(bn.x + bn.w <= b.x || bn.x >= b.x + b.w ||
-            bn.y + bn.h <= b.y || bn.y >= b.y + b.h)
-        );
-
-        if (overlappingBaseNos.length > 0) {
-          // 첫 번째 baseNumber 사용 (또는 가장 크게 교차하는 것)
-          const baseNo = overlappingBaseNos[0];
-          if (baseNo && baseNo.baseNo) {
-            const pad = 2;
-            const availW = b.w - pad * 2;
-            const availH = b.h - pad * 2;
-            let fz = Math.min((availW / (baseNo.baseNo.length * 6)) * 100, availH * 0.5);
-            fz = fz * 0.8;  // 20% 줄임
-            fz = Math.max(2, Math.min(fz, 14));
-            ectx.font = `600 ${fz}px Pretendard, sans-serif`;
-            ectx.fillStyle = '#333333';
-            ectx.textAlign = 'center';
-            ectx.textBaseline = 'middle';
-            ectx.fillText(baseNo.baseNo, b.x + b.w / 2, b.y + b.h / 2);
-          }
-        }
-      }
+      drawBoothContent(ectx, b, zoom, '#111111', false);
     }
-  });
+  }
+
+  // 기본부스번호 렌더링 (도면출력과 동일 로직)
+  if (showNames) {
+    for (const bn of state.baseNumbers) {
+      if (!bn.baseNo) continue;
+      const covering = booths.find(b =>
+        b.x < bn.x + bn.w && b.x + b.w > bn.x &&
+        b.y < bn.y + bn.h && b.y + b.h > bn.y &&
+        (b.companyName || b.companyNameEn)
+      );
+      if (covering) continue;
+      ectx.fillStyle = '#333';
+      const bnFz = Math.min(bn.w, bn.h) * 0.35;
+      ectx.font = `600 ${bnFz}px Pretendard, sans-serif`;
+      ectx.textAlign = 'center';
+      ectx.textBaseline = 'middle';
+      ectx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
+    }
+  }
 
   // 배정논의 오버레이 (불투명 처리 - 아래 블럭이 안보이게)
   selectedOverlays.forEach(ov => {
@@ -6762,12 +6751,15 @@ function exportFloorplanPDF() {
     return;
   }
 
-  // A3 세로형 (297 × 420mm)
+  // PDF 방향/스케일 결정
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: (_currentExpo && _currentExpo.pdfOrientation) || 'portrait', unit: 'mm', format: 'a3' });
-  const pageWidth = pdf.internal.pageSize.getWidth();    // 297mm
-  const pageHeight = pdf.internal.pageSize.getHeight();   // 420mm
-  const margin = 10;
+  const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+  // bgFill: BG 이미지 비율로 방향 결정, 아니면 portrait
+  const _pdfOrient = _bgFill ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
+  const pdf = new jsPDF({ orientation: _pdfOrient, unit: 'mm', format: 'a3' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = _bgFill ? 0 : 10;  // bgFill은 여백 없이 꽉 채움
   const contentWidth = pageWidth - 2 * margin;
   const contentHeight = pageHeight - 2 * margin;
 
@@ -6783,26 +6775,31 @@ function exportFloorplanPDF() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // 도면 범위 계산
-  let bounds = state.bounds || { x1: 0, y1: 0, x2: 1200, y2: 800 };
-  if (!state.bounds) {
-    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
-    for (const b of state.booths) {
-      bounds.x1 = Math.min(bounds.x1, b.x);
-      bounds.y1 = Math.min(bounds.y1, b.y);
-      bounds.x2 = Math.max(bounds.x2, b.x + b.w);
-      bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+  let bounds;
+  if (_bgFill) {
+    // BG 이미지 영역 기준 — BG가 A3를 꽉 채움
+    bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
+  } else {
+    bounds = state.bounds || { x1: 0, y1: 0, x2: 1200, y2: 800 };
+    if (!state.bounds) {
+      bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+      for (const b of state.booths) {
+        bounds.x1 = Math.min(bounds.x1, b.x);
+        bounds.y1 = Math.min(bounds.y1, b.y);
+        bounds.x2 = Math.max(bounds.x2, b.x + b.w);
+        bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+      }
+      bounds.x1 -= 50;
+      bounds.y1 -= 100;
+      bounds.x2 += 50;
+      bounds.y2 += 50;
     }
-    bounds.x1 -= 50;
-    bounds.y1 -= 100;
-    bounds.x2 += 50;
-    bounds.y2 += 50;
   }
 
   // 도면 렌더링 (모든 부스, 모든 업체명 표시)
-  const _isLandscape = (_currentExpo && _currentExpo.pdfOrientation) === 'landscape';
   const scaleX = canvas.width / (bounds.x2 - bounds.x1);
   const scaleY = canvas.height / (bounds.y2 - bounds.y1);
-  const scale = _isLandscape ? Math.min(scaleX, scaleY) : scaleX;
+  const scale = _bgFill ? Math.min(scaleX, scaleY) : scaleX;
   ctx.save();
   ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
   ctx.scale(scale, scale);
@@ -6826,19 +6823,16 @@ function exportFloorplanPDF() {
   // 구조물 렌더링
   drawStructures(ctx, scale, false);
 
-  // 부스 렌더링 — 연분홍색 통일, 검정 폰트
+  // 부스 렌더링 — L자 부스 지원, 전시회별 색상
   for (const booth of state.booths) {
     const isFacility = booth.status === 'facility' || booth.status === 'excluded';
-    const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
-    const stroke = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
-    ctx.fillStyle = fill;
-    ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(booth.x, booth.y, booth.w, booth.h);
+    ctx.fillStyle = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
+    fillBoothShape(ctx, booth);
+    ctx.strokeStyle = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
+    ctx.lineWidth = 1 / scale;
+    strokeBoothShape(ctx, booth, scale);
 
-    const textColor = '#111111';
-    drawBoothContent(ctx, booth, scale, textColor, false);
+    drawBoothContent(ctx, booth, scale, '#111111', false);
   }
 
   // 기본부스번호 렌더링 (부스에 업체명/부스번호 있으면 숨김)
@@ -6881,10 +6875,12 @@ function exportAvailablePDF() {
   }
 
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: (_currentExpo && _currentExpo.pdfOrientation) || 'portrait', unit: 'mm', format: 'a3' });
+  const _bgFill2 = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+  const _pdfOrient2 = _bgFill2 ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
+  const pdf = new jsPDF({ orientation: _pdfOrient2, unit: 'mm', format: 'a3' });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 10;
+  const margin = _bgFill2 ? 0 : 10;
   const contentWidth = pageWidth - 2 * margin;
   const contentHeight = pageHeight - 2 * margin;
 
@@ -6898,22 +6894,26 @@ function exportAvailablePDF() {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  let bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
-  for (const b of state.booths) {
-    bounds.x1 = Math.min(bounds.x1, b.x);
-    bounds.y1 = Math.min(bounds.y1, b.y);
-    bounds.x2 = Math.max(bounds.x2, b.x + b.w);
-    bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+  let bounds;
+  if (_bgFill2) {
+    bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
+  } else {
+    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+    for (const b of state.booths) {
+      bounds.x1 = Math.min(bounds.x1, b.x);
+      bounds.y1 = Math.min(bounds.y1, b.y);
+      bounds.x2 = Math.max(bounds.x2, b.x + b.w);
+      bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+    }
+    bounds.x1 -= 50;
+    bounds.y1 -= 100;
+    bounds.x2 += 50;
+    bounds.y2 += 50;
   }
-  bounds.x1 -= 50;
-  bounds.y1 -= 100;
-  bounds.x2 += 50;
-  bounds.y2 += 50;
 
-  const _isLandscape2 = (_currentExpo && _currentExpo.pdfOrientation) === 'landscape';
   const scaleX2 = canvas.width / (bounds.x2 - bounds.x1);
   const scaleY2 = canvas.height / (bounds.y2 - bounds.y1);
-  const scale = _isLandscape2 ? Math.min(scaleX2, scaleY2) : scaleX2;
+  const scale = _bgFill2 ? Math.min(scaleX2, scaleY2) : scaleX2;
   ctx.save();
   ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
   ctx.scale(scale, scale);
@@ -6937,7 +6937,7 @@ function exportAvailablePDF() {
   // 구조물 렌더링
   drawStructures(ctx, scale, false);
 
-  // 부스 렌더링 — 배정가능위치(spot)만 노란색, 나머지 연분홍색
+  // 부스 렌더링 — 배정가능위치(spot)만 노란색, 나머지 전시회별 색상, L자 지원
   for (const booth of state.booths) {
     const isFacility = booth.status === 'facility' || booth.status === 'excluded';
     const isSpot = booth.status === 'spot';
@@ -6950,13 +6950,12 @@ function exportAvailablePDF() {
       fill = VIEWER_STATUS_COLORS.available.fill; stroke = VIEWER_STATUS_COLORS.available.stroke;
     }
     ctx.fillStyle = fill;
-    ctx.fillRect(booth.x, booth.y, booth.w, booth.h);
+    fillBoothShape(ctx, booth);
     ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(booth.x, booth.y, booth.w, booth.h);
+    ctx.lineWidth = 1 / scale;
+    strokeBoothShape(ctx, booth, scale);
 
-    const textColor = '#111111';
-    drawBoothContent(ctx, booth, scale, textColor, false);
+    drawBoothContent(ctx, booth, scale, '#111111', false);
   }
 
   // 기본부스번호 렌더링 (부스에 업체명/부스번호 있으면 숨김)
