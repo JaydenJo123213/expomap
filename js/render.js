@@ -492,13 +492,20 @@ function drawStructures(c, zoom, isConstruction) {
     const fillCol = isConstruction ? '#999' : (s.fillColor || '#5C5C5C');
 
     if (s.type === 'column' || s.type === 'circle') {
-      c.beginPath();
-      c.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
       c.fillStyle = fillCol;
-      c.fill();
       c.strokeStyle = sel ? '#4F8CFF' : col;
       c.lineWidth = (sel ? 2 : 1) / zoom;
-      c.stroke();
+      if (s.type === 'column' && s.columnShape === 'square') {
+        const hw = (s.w || s.radius * 2) / 2;
+        const hh = (s.h || s.radius * 2) / 2;
+        c.fillRect(s.x - hw, s.y - hh, hw * 2, hh * 2);
+        c.strokeRect(s.x - hw, s.y - hh, hw * 2, hh * 2);
+      } else {
+        c.beginPath();
+        c.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+      }
     } else if (s.type === 'wall' || s.type === 'line') {
       c.beginPath();
       c.moveTo(s.x1, s.y1);

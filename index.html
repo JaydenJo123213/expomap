@@ -792,9 +792,24 @@
         <div class="prop-row"><span class="prop-label">W (m)</span><input class="prop-input" id="sPropW" type="number" step="0.1" style="width:70px"></div>
         <div class="prop-row"><span class="prop-label">H (m)</span><input class="prop-input" id="sPropH" type="number" step="0.1" style="width:70px"></div>
       </div>
-      <!-- Radius: for circle, column -->
+      <!-- Column shape toggle (column 전용) -->
+      <div id="sRowColumnShape" style="display:none">
+        <div class="prop-row">
+          <span class="prop-label">형태</span>
+          <div style="display:flex;gap:4px">
+            <button class="tool-btn" id="btnColumnCircle" style="flex:1;font-size:11px">원형</button>
+            <button class="tool-btn" id="btnColumnSquare" style="flex:1;font-size:11px">사각형</button>
+          </div>
+        </div>
+      </div>
+      <!-- Radius: for circle, column(원형) -->
       <div id="sRowR" style="display:none">
         <div class="prop-row"><span class="prop-label">R (m)</span><input class="prop-input" id="sPropR" type="number" step="0.1" min="0.1" style="width:70px"></div>
+      </div>
+      <!-- W/H: for column(사각형) -->
+      <div id="sRowColumnWH" style="display:none">
+        <div class="prop-row"><span class="prop-label">W (m)</span><input class="prop-input" id="sPropColW" type="number" step="0.1" min="0.1" style="width:70px"></div>
+        <div class="prop-row"><span class="prop-label">H (m)</span><input class="prop-input" id="sPropColH" type="number" step="0.1" min="0.1" style="width:70px"></div>
       </div>
       <!-- Line endpoints: for wall, line, arrow -->
       <div id="sRowLine" style="display:none">

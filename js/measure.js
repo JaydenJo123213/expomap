@@ -14,11 +14,12 @@ function distanceToSegment(px, py, x1, y1, x2, y2) {
 }
 
 // ─── 헬퍼: 시작점용 근접 스냅 ───
-// 마우스 위치 근처(15px) 부스 엣지에 붙임 (시작점 전용)
+// 부스 엣지 및 기둥 엣지 근처(15px)에 붙임 (시작점 전용)
 function snapToBoothEdge(wx, wy) {
   const SNAP = 15;
   let sx = wx, sy = wy;
 
+  // 부스 엣지
   for (const booth of state.booths) {
     const r = getBoothOuterRect(booth);
     const left = r.x, right = r.x + r.w, top = r.y, bottom = r.y + r.h;
@@ -29,7 +30,28 @@ function snapToBoothEdge(wx, wy) {
     if (Math.abs(wy - bottom) < SNAP && Math.abs(wy - bottom) < Math.abs(sy - bottom)) sy = bottom;
   }
 
+  // 기둥 엣지 (원형: 4방향 끝점, 사각형: 4면 엣지)
+  for (const s of state.structures) {
+    if (s.type !== 'column') continue;
+    const edges = getColumnEdges(s);
+    if (Math.abs(wx - edges.left)   < SNAP && Math.abs(wx - edges.left)   < Math.abs(sx - edges.left))   sx = edges.left;
+    if (Math.abs(wx - edges.right)  < SNAP && Math.abs(wx - edges.right)  < Math.abs(sx - edges.right))  sx = edges.right;
+    if (Math.abs(wy - edges.top)    < SNAP && Math.abs(wy - edges.top)    < Math.abs(sy - edges.top))    sy = edges.top;
+    if (Math.abs(wy - edges.bottom) < SNAP && Math.abs(wy - edges.bottom) < Math.abs(sy - edges.bottom)) sy = edges.bottom;
+  }
+
   return { x: sx, y: sy };
+}
+
+// 기둥의 4방향 엣지 좌표 반환 (원형: 중심±반지름, 사각형: 중심±반크기)
+function getColumnEdges(s) {
+  if (s.columnShape === 'square') {
+    const hw = (s.w || s.radius * 2) / 2;
+    const hh = (s.h || s.radius * 2) / 2;
+    return { left: s.x - hw, right: s.x + hw, top: s.y - hh, bottom: s.y + hh };
+  }
+  const r = s.radius || 5;
+  return { left: s.x - r, right: s.x + r, top: s.y - r, bottom: s.y + r };
 }
 
 // ─── 헬퍼: 끝점용 교차 스냅 ───
@@ -68,9 +90,31 @@ function snapEndAlongAxis(start, end) {
     }
   }
 
+  // 기둥 교차 스냅 (부스와 동일 로직, bounding box 기준)
+  for (const s of state.structures) {
+    if (s.type !== 'column') continue;
+    const ce = getColumnEdges(s);
+
+    if (isHoriz) {
+      if (start.y < ce.top - EPS || start.y > ce.bottom + EPS) continue;
+      for (const ex of [ce.left, ce.right]) {
+        if (ex < minX - EPS || ex > maxX + EPS) continue;
+        const dist = Math.abs(ex - end.x);
+        if (dist < bestDist) { bestDist = dist; bestEdge = { x: ex, y: start.y }; }
+      }
+    } else {
+      if (start.x < ce.left - EPS || start.x > ce.right + EPS) continue;
+      for (const ey of [ce.top, ce.bottom]) {
+        if (ey < minY - EPS || ey > maxY + EPS) continue;
+        const dist = Math.abs(ey - end.y);
+        if (dist < bestDist) { bestDist = dist; bestEdge = { x: start.x, y: ey }; }
+      }
+    }
+  }
+
   if (bestEdge) return bestEdge;
 
-  // 폴백: 근접 스냅 (축 방향 엣지만)
+  // 폴백: 근접 스냅 (부스 + 기둥 엣지)
   for (const booth of state.booths) {
     const r = getBoothOuterRect(booth);
     if (isHoriz) {
@@ -81,6 +125,21 @@ function snapEndAlongAxis(start, end) {
     } else {
       if (start.x < r.x - EPS || start.x > r.x + r.w + EPS) continue;
       for (const ey of [r.y, r.y + r.h]) {
+        if (Math.abs(ey - end.y) < PROX) return { x: start.x, y: ey };
+      }
+    }
+  }
+  for (const s of state.structures) {
+    if (s.type !== 'column') continue;
+    const ce = getColumnEdges(s);
+    if (isHoriz) {
+      if (start.y < ce.top - EPS || start.y > ce.bottom + EPS) continue;
+      for (const ex of [ce.left, ce.right]) {
+        if (Math.abs(ex - end.x) < PROX) return { x: ex, y: start.y };
+      }
+    } else {
+      if (start.x < ce.left - EPS || start.x > ce.right + EPS) continue;
+      for (const ey of [ce.top, ce.bottom]) {
         if (Math.abs(ey - end.y) < PROX) return { x: start.x, y: ey };
       }
     }

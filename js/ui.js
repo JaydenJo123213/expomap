@@ -881,19 +881,29 @@ function populateStructProps() {
 
   const isXY = ['rect','door','circle','column','text'].includes(s.type);
   const isWH = ['rect','door'].includes(s.type);
-  const isR = ['circle','column'].includes(s.type);
+  const isColumnSquare = s.type === 'column' && s.columnShape === 'square';
+  const isR = (s.type === 'circle') || (s.type === 'column' && !isColumnSquare);
   const isLine = ['wall','line','arrow'].includes(s.type);
   const isText = s.type === 'text' || s.type === 'rect';
   const hasFill = ['rect','circle','column','door'].includes(s.type);
   const hasThick = ['wall','line','arrow'].includes(s.type);
+  const isColumn = s.type === 'column';
 
   document.getElementById('sRowXY').style.display = isXY ? '' : 'none';
   document.getElementById('sRowWH').style.display = isWH ? '' : 'none';
+  document.getElementById('sRowColumnShape').style.display = isColumn ? '' : 'none';
   document.getElementById('sRowR').style.display = isR ? '' : 'none';
+  document.getElementById('sRowColumnWH').style.display = isColumnSquare ? '' : 'none';
   document.getElementById('sRowLine').style.display = isLine ? '' : 'none';
   document.getElementById('sRowText').style.display = isText ? '' : 'none';
   document.getElementById('sRowFill').style.display = hasFill ? '' : 'none';
   document.getElementById('sRowThick').style.display = hasThick ? '' : 'none';
+
+  // Column 형태 버튼 active 상태
+  if (isColumn) {
+    document.getElementById('btnColumnCircle').classList.toggle('active', !isColumnSquare);
+    document.getElementById('btnColumnSquare').classList.toggle('active', isColumnSquare);
+  }
 
   if (isXY) {
     document.getElementById('sPropX').value = pxToM(s.x).toFixed(1);
@@ -905,6 +915,10 @@ function populateStructProps() {
   }
   if (isR) {
     document.getElementById('sPropR').value = pxToM(s.radius).toFixed(1);
+  }
+  if (isColumnSquare) {
+    document.getElementById('sPropColW').value = pxToM(s.w || s.radius * 2).toFixed(1);
+    document.getElementById('sPropColH').value = pxToM(s.h || s.radius * 2).toFixed(1);
   }
   if (isLine) {
     document.getElementById('sPropX1').value = pxToM(s.x1).toFixed(1);
@@ -960,6 +974,27 @@ document.getElementById('sPropY').addEventListener('change', e => applyStructPro
 document.getElementById('sPropW').addEventListener('change', e => applyStructProp(s => s.w = mToPx(parseFloat(e.target.value)||1)));
 document.getElementById('sPropH').addEventListener('change', e => applyStructProp(s => s.h = mToPx(parseFloat(e.target.value)||1)));
 document.getElementById('sPropR').addEventListener('change', e => applyStructProp(s => s.radius = mToPx(parseFloat(e.target.value)||1)));
+document.getElementById('sPropColW').addEventListener('change', e => applyStructProp(s => { s.w = mToPx(parseFloat(e.target.value)||0.5); scheduleSave(); }));
+document.getElementById('sPropColH').addEventListener('change', e => applyStructProp(s => { s.h = mToPx(parseFloat(e.target.value)||0.5); scheduleSave(); }));
+
+document.getElementById('btnColumnCircle').addEventListener('click', () => {
+  const s = state.structures.find(s => s.id === state.selectedStructId);
+  if (!s || s.type !== 'column' || s.columnShape !== 'square') return;
+  saveUndo();
+  s.columnShape = 'circle';
+  s.radius = Math.max(s.w || 10, s.h || 10) / 2;
+  delete s.w; delete s.h;
+  scheduleSave(); render(); updateProps();
+});
+document.getElementById('btnColumnSquare').addEventListener('click', () => {
+  const s = state.structures.find(s => s.id === state.selectedStructId);
+  if (!s || s.type !== 'column' || s.columnShape === 'square') return;
+  saveUndo();
+  const side = (s.radius || 5) * 2;
+  s.columnShape = 'square';
+  s.w = side; s.h = side;
+  scheduleSave(); render(); updateProps();
+});
 document.getElementById('sPropX1').addEventListener('change', e => applyStructProp(s => s.x1 = mToPx(parseFloat(e.target.value)||0)));
 document.getElementById('sPropY1').addEventListener('change', e => applyStructProp(s => s.y1 = mToPx(parseFloat(e.target.value)||0)));
 document.getElementById('sPropX2').addEventListener('change', e => applyStructProp(s => s.x2 = mToPx(parseFloat(e.target.value)||0)));
