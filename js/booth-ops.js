@@ -44,6 +44,10 @@ function selectSidebarTab(tabId) {
   if (activeTab) activeTab.classList.add('active');
   // 패널 표시
   document.getElementById('sidebarPanel').classList.add('visible');
+  // 버전 히스토리 탭: 목록 로드
+  if (tabId === 'history') {
+    loadVersionList().then(renderVersionList);
+  }
 }
 
 function cancelAssignGuideMode() {

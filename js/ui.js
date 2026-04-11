@@ -1,3 +1,6 @@
+// ─── Version History ───
+document.getElementById('btnSaveVersion').addEventListener('click', saveVersion);
+
 // ─── Toolbar Buttons ───
 document.querySelectorAll('#modeGroup .tool-btn').forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
 document.querySelectorAll('#snapGroup .tool-btn').forEach(btn => btn.addEventListener('click', () => setSnap(btn.dataset.snap)));

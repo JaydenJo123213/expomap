@@ -376,6 +376,7 @@
     <button class="sidebar-icon-btn" id="sidebarBtn-design" onclick="selectSidebarTab('design')" title="디자인">🏗</button>
     <div class="sidebar-icon-divider"></div>
     <button class="sidebar-icon-btn" id="sidebarBtn-setting" onclick="selectSidebarTab('setting')" title="설정">⚙️</button>
+    <button class="sidebar-icon-btn" id="sidebarBtn-history" onclick="selectSidebarTab('history')" title="버전 히스토리">🕑</button>
   </div>
 
   <!-- Sidebar Slide Panel -->
@@ -565,6 +566,18 @@
           <b>Ctrl+Z/Shift+Z</b> — Undo/Redo<br>
           <b>Space+Drag</b> — Pan<br>
           <b>Scroll</b> — Zoom
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭: 버전 히스토리 -->
+    <div class="sidebar-tab" id="sidebarTab-history">
+      <div class="panel-section">
+        <div class="panel-title">버전 히스토리</div>
+        <button class="panel-btn" id="btnSaveVersion" style="background:var(--accent);color:#fff;text-align:center">+ 버전 저장</button>
+        <div id="versionListContainer" style="margin-top:8px;">
+          <div id="versionListEmpty" style="font-size:11px;color:var(--text-dim);">저장된 버전이 없습니다</div>
+          <div id="versionList" style="display:flex;flex-direction:column;gap:4px;"></div>
         </div>
       </div>
     </div>
@@ -1255,6 +1268,21 @@ CREATE POLICY "anon_all" ON expomap_state
   </div>
 </div>
 
+<!-- ─── 버전 Diff 모달 ─── -->
+<div class="modal-overlay" id="modalVersionDiff">
+  <div class="modal" style="min-width:600px;max-width:720px">
+    <div class="modal-header">
+      <span class="modal-title" id="versionDiffTitle">버전 변경내역</span>
+      <button class="modal-close" onclick="closeModal('modalVersionDiff')">×</button>
+    </div>
+    <div class="modal-body" id="versionDiffBody" style="max-height:460px;overflow-y:auto;padding:16px 20px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal('modalVersionDiff')">닫기</button>
+      <button class="btn btn-ok" id="btnRestoreVersion">이 버전으로 복원</button>
+    </div>
+  </div>
+</div>
+
 <!-- ─── 배정 안내 PDF 모달 ─── -->
 <!-- ─── BoothType DB Modal ─── -->
 <div class="modal-overlay" id="modalBoothTypeDB" style="align-items:flex-start;padding:24px;overflow:auto">
@@ -1365,6 +1393,7 @@ CREATE POLICY "anon_all" ON expomap_state
 <script src="js/measure.js"></script>
 <script src="js/pdf-export.js"></script>
 <script src="js/events.js"></script>
+<script src="js/versions.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/init.js"></script>
 </body>
