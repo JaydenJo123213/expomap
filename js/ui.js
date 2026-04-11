@@ -156,6 +156,8 @@ document.getElementById('btnSendBack').addEventListener('click', sendToBack);
 document.querySelectorAll('#structGroup .tool-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const type = btn.dataset.struct;
+    // 실측 버튼: 레이어가 꺼져 있으면 클릭 무시
+    if (type === 'measureLine' && !state.showMeasure) return;
     if (state.structMode === type) {
       // toggle off
       state.structMode = null;
@@ -236,6 +238,15 @@ function renderLayers() {
         </div>
       `;
     }).join('');
+  }
+
+  // 실측 버튼 활성화 상태 동기화
+  const measureBtn = document.querySelector('#structGroup .tool-btn[data-struct="measureLine"]');
+  if (measureBtn) {
+    const on = state.showMeasure;
+    measureBtn.disabled = !on;
+    measureBtn.style.opacity = on ? '' : '0.35';
+    measureBtn.title = on ? '' : '실측 레이어를 켜야 사용할 수 있습니다';
   }
 }
 
@@ -333,6 +344,20 @@ function toggleLayerVisibility(layerId) {
       panel.classList.add('visible');
       document.getElementById('otherLegendSection').style.display = '';
       updateOtherLegend();
+    }
+  }
+
+  // 실측 레이어 꺼지면 실측 버튼 비활성화 + 모드 해제
+  const measureBtn = document.querySelector('#structGroup .tool-btn[data-struct="measureLine"]');
+  if (measureBtn) {
+    const measureVisible = state.showMeasure;
+    measureBtn.disabled = !measureVisible;
+    measureBtn.style.opacity = measureVisible ? '' : '0.35';
+    measureBtn.title = measureVisible ? '' : '실측 레이어를 켜야 사용할 수 있습니다';
+    if (!measureVisible && state.structMode === 'measureLine') {
+      state.structMode = null;
+      clearStructButtons();
+      hideStructHint();
     }
   }
 
