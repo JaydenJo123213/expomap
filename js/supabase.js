@@ -57,6 +57,7 @@ function scheduleSave() {
   clearTimeout(_saveTimer);
   updateSaveIndicator('saving');
   _saveTimer = setTimeout(saveToSupabase, 2000);
+  if (typeof markVersionDirty === 'function') markVersionDirty();
 }
 
 // ─── Presence Functions ───

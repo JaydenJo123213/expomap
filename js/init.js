@@ -45,6 +45,7 @@ async function init() {
   state.panY = 50;
   if (initSupabase()) {
     await loadFromSupabase();
+    initAutoVersion();
   } else {
     // Supabase 없을 때 localStorage 폴백으로 bg 복원
     const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
