@@ -1,23 +1,29 @@
-PDF 출력 관련 작업을 시작합니다.
+당신은 ExpoMap PDF 에이전트입니다.
 
-## 읽어야 할 파일
-- `js/pdf-export.js` — 모든 PDF 함수 (374줄)
-  - `exportFloorplanPDF()` — 도면 출력 PDF
-  - `exportAvailablePDF()` — 배정가능위치 PDF
-  - `executeAssignGuideExport()` — 배정안내 PDF 실행
-  - `renderForAssignGuideExport()` — 배정안내 렌더링
-  - `renderForExport()` — 일반 PDF 렌더
-  - `executeExport()` — PDF 내보내기 실행
+## 담당 파일 (이 파일들만 먼저 읽으세요)
+- `js/pdf-export.js` — selectPreset, executeExport, executeAssignGuideExport, exportFloorplanPDF, exportAvailablePDF, renderForExport, renderForAssignGuideExport
 
-## 의존 함수 (수정 필요 시 참조)
-- `js/render.js` — `fillBoothShape`, `strokeBoothShape`, `drawBoothContent`, `drawStructures`
-- `js/measure.js` — `drawMeasureLayer` (showMeasure ON 시 PDF에도 반영)
-- `js/state.js` — `state`, `_currentExpo`, `VIEWER_STATUS_COLORS`
+## 참조 전용 (수정 금지, 필요 시 읽기만)
+- `js/render.js` — pxToM, getBoothOuterRect, drawBoothContent, drawStructures 등 렌더 헬퍼
 
-## 주요 규칙
-- PDF 방향: `_bgFill` 모드 = BG 이미지 비율로 자동 결정 (portrait/landscape)
-- 여백: bgFill 모드는 margin=0, 일반은 margin=10
-- 포맷: A3, 300dpi
-- 실측 레이어: `state.showMeasure === true`일 때 PDF에도 표시됨
+## 담당하지 않는 파일
+state.js(참조만), supabase.js, booth-ops.js, events.js, ui.js, index.html
 
-이제 `js/pdf-export.js`를 읽고 작업을 시작하세요.
+## PDF 프리셋 구조
+| 프리셋 | 특징 |
+|--------|------|
+| `construction` | 치수 표시, 회사명 숨김, 회색톤 |
+| `sales` | 풀컬러, 회사명 + 배정 상태 |
+| `company` | 모든 부스 회색, 선택 부스만 강조 |
+| `large` | 고해상도 대형 인쇄용 |
+
+## 라이브러리
+- jsPDF: `window.jspdf.jsPDF` (CDN으로 이미 로드됨)
+- 오프스크린 캔버스에 `renderForExport()` 호출 → `canvas.toDataURL('image/jpeg', 0.92)` → `pdf.addImage()`
+
+## 스케일 규칙
+- 10px = 1m (3×3m 부스 = 30×30px)
+- PDF 출력 시 world 좌표 → mm 변환 필요
+
+## 업무
+$ARGUMENTS

@@ -56,14 +56,24 @@
 | `js/ui.js` | 툴바, 레이어 패널, 속성 패널, 통계, DB 모달 |
 | `js/init.js` | showExpoSelector, applyExhibitionBranding, init() |
 
-**작업별 읽을 파일**:
-- PDF 수정 → `js/pdf-export.js` 먼저
-- 렌더링 버그 → `js/render.js` 먼저
-- 실측 레이어 → `js/measure.js` 먼저
-- 부스 조작(merge/divide 등) → `js/booth-ops.js` 먼저
-- UI/패널 수정 → `js/ui.js` 먼저
+## 작업 전 필독: 에이전트 라우팅 규칙
 
-**skills**: `/expomap-pdf`, `/expomap-render`, `/expomap-measure`, `/expomap-supabase`
+업무 지시를 받으면 아래 표를 먼저 확인하고, **해당 파일들만** 읽어서 작업하세요. 불필요한 파일은 읽지 마세요.
+
+| 업무 유형 | 읽을 파일 | Skill 명령 |
+|---------|---------|-----------|
+| DB 저장/로드, state 구조 변경, Undo/Redo, 전시회 추가 | state.js, supabase.js, booth-ops.js, init.js | `/expomap-backend` |
+| 렌더링 버그, 스냅 로직, 마우스/키보드 이벤트, 실측선 | render.js, measure.js, events.js | `/expomap-canvas` |
+| 패널 UI, 모달, 속성창, 레이어, CSS, 버튼 | ui.js, index.html | `/expomap-ui` |
+| PDF 내보내기, 프리셋 수정 | pdf-export.js | `/expomap-pdf` |
+
+두 영역에 걸치는 작업만 여러 파일을 읽을 것.
+
+**Skill 명령 사용 예시:**
+- `/expomap-backend measureLines 저장 누락 확인`
+- `/expomap-canvas 부스 클릭 감지 안 되는 버그 수정`
+- `/expomap-ui 우측 패널에 새 속성 섹션 추가`
+- `/expomap-pdf sales 프리셋 회사명 표시 안 되는 버그`
 
 ## 기술 스택
 - **현재**: HTML + vanilla JS, 파일 분리 (`js/*.js`)
