@@ -14,30 +14,61 @@ function distanceToSegment(px, py, x1, y1, x2, y2) {
 }
 
 // ─── 헬퍼: 시작점용 근접 스냅 ───
-// 부스 엣지 및 기둥 엣지 근처(15px)에 붙임 (시작점 전용)
+// 1순위: 모서리(corner) 스냅 — 가장 가까운 모서리가 SNAP 이내면 x·y 동시 고정
+// 2순위: 엣지(edge) 스냅  — x·y 독립적으로 근접 엣지에 붙임
 function snapToBoothEdge(wx, wy) {
   const SNAP = 15;
-  let sx = wx, sy = wy;
 
-  // 부스 엣지
+  // ── 1순위: 모서리 스냅 (부스 + 사각형 기둥) ──
+  let bestCornerDist = SNAP;
+  let cornerSnap = null;
+
+  const checkCorners = (corners) => {
+    for (const [cx, cy] of corners) {
+      const d = Math.hypot(wx - cx, wy - cy);
+      if (d < bestCornerDist) { bestCornerDist = d; cornerSnap = { x: cx, y: cy }; }
+    }
+  };
+
   for (const booth of state.booths) {
     const r = getBoothOuterRect(booth);
-    const left = r.x, right = r.x + r.w, top = r.y, bottom = r.y + r.h;
-
-    if (Math.abs(wx - left)   < SNAP && Math.abs(wx - left)   < Math.abs(sx - left))   sx = left;
-    if (Math.abs(wx - right)  < SNAP && Math.abs(wx - right)  < Math.abs(sx - right))  sx = right;
-    if (Math.abs(wy - top)    < SNAP && Math.abs(wy - top)    < Math.abs(sy - top))    sy = top;
-    if (Math.abs(wy - bottom) < SNAP && Math.abs(wy - bottom) < Math.abs(sy - bottom)) sy = bottom;
+    checkCorners([
+      [r.x,       r.y      ],
+      [r.x + r.w, r.y      ],
+      [r.x,       r.y + r.h],
+      [r.x + r.w, r.y + r.h],
+    ]);
   }
-
-  // 기둥 엣지 (원형: 4방향 끝점, 사각형: 4면 엣지)
   for (const s of state.structures) {
     if (s.type !== 'column') continue;
-    const edges = getColumnEdges(s);
-    if (Math.abs(wx - edges.left)   < SNAP && Math.abs(wx - edges.left)   < Math.abs(sx - edges.left))   sx = edges.left;
-    if (Math.abs(wx - edges.right)  < SNAP && Math.abs(wx - edges.right)  < Math.abs(sx - edges.right))  sx = edges.right;
-    if (Math.abs(wy - edges.top)    < SNAP && Math.abs(wy - edges.top)    < Math.abs(sy - edges.top))    sy = edges.top;
-    if (Math.abs(wy - edges.bottom) < SNAP && Math.abs(wy - edges.bottom) < Math.abs(sy - edges.bottom)) sy = edges.bottom;
+    const e = getColumnEdges(s);
+    checkCorners([
+      [e.left,  e.top   ],
+      [e.right, e.top   ],
+      [e.left,  e.bottom],
+      [e.right, e.bottom],
+    ]);
+  }
+
+  if (cornerSnap) return cornerSnap;
+
+  // ── 2순위: 엣지 스냅 (x·y 독립) ──
+  let sx = wx, sy = wy;
+
+  for (const booth of state.booths) {
+    const r = getBoothOuterRect(booth);
+    if (Math.abs(wx - r.x)       < SNAP && Math.abs(wx - r.x)       < Math.abs(sx - r.x))       sx = r.x;
+    if (Math.abs(wx - r.x - r.w) < SNAP && Math.abs(wx - r.x - r.w) < Math.abs(sx - r.x - r.w)) sx = r.x + r.w;
+    if (Math.abs(wy - r.y)       < SNAP && Math.abs(wy - r.y)       < Math.abs(sy - r.y))       sy = r.y;
+    if (Math.abs(wy - r.y - r.h) < SNAP && Math.abs(wy - r.y - r.h) < Math.abs(sy - r.y - r.h)) sy = r.y + r.h;
+  }
+  for (const s of state.structures) {
+    if (s.type !== 'column') continue;
+    const e = getColumnEdges(s);
+    if (Math.abs(wx - e.left)   < SNAP && Math.abs(wx - e.left)   < Math.abs(sx - e.left))   sx = e.left;
+    if (Math.abs(wx - e.right)  < SNAP && Math.abs(wx - e.right)  < Math.abs(sx - e.right))  sx = e.right;
+    if (Math.abs(wy - e.top)    < SNAP && Math.abs(wy - e.top)    < Math.abs(sy - e.top))    sy = e.top;
+    if (Math.abs(wy - e.bottom) < SNAP && Math.abs(wy - e.bottom) < Math.abs(sy - e.bottom)) sy = e.bottom;
   }
 
   return { x: sx, y: sy };
