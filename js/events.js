@@ -512,8 +512,8 @@ canvas.addEventListener('mousemove', (e) => {
 
   // 실측 선 드래그 프리뷰
   if (state.measureLineDrawStart) {
-    const snappedEnd = snapToBoothEdge(world.x, world.y);
-    state.measureLinePreviewEnd = constrainToAxis(state.measureLineDrawStart, snappedEnd);
+    const constrained = constrainToAxis(state.measureLineDrawStart, { x: world.x, y: world.y });
+    state.measureLinePreviewEnd = snapEndAlongAxis(state.measureLineDrawStart, constrained);
     render(); return;
   }
 
@@ -752,9 +752,9 @@ canvas.addEventListener('mouseup', (e) => {
 
   // 실측 선 확정
   if (state.measureLineDrawStart) {
-    // mouseup 시점 좌표로 다시 스냅+축 제한 적용 (가장 정확한 끝점 확정)
-    const snappedEnd = snapToBoothEdge(world.x, world.y);
-    const end = constrainToAxis(state.measureLineDrawStart, snappedEnd);
+    // mouseup 시점: 축 제한 → 부스 엣지 교차 스냅 순서로 끝점 확정
+    const constrained = constrainToAxis(state.measureLineDrawStart, { x: world.x, y: world.y });
+    const end = snapEndAlongAxis(state.measureLineDrawStart, constrained);
     const dx = end.x - state.measureLineDrawStart.x;
     const dy = end.y - state.measureLineDrawStart.y;
     const len = Math.hypot(dx, dy);

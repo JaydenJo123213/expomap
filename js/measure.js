@@ -13,10 +13,10 @@ function distanceToSegment(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - (x1 + t*dx), py - (y1 + t*dy));
 }
 
-// ─── 헬퍼: 부스 엣지 스냅 ───
-// 가장 가까운 부스 left/right/top/bottom 엣지에 자동으로 붙임
+// ─── 헬퍼: 시작점용 근접 스냅 ───
+// 마우스 위치 근처(15px) 부스 엣지에 붙임 (시작점 전용)
 function snapToBoothEdge(wx, wy) {
-  const SNAP = 15; // world px
+  const SNAP = 15;
   let sx = wx, sy = wy;
 
   for (const booth of state.booths) {
@@ -30,6 +30,63 @@ function snapToBoothEdge(wx, wy) {
   }
 
   return { x: sx, y: sy };
+}
+
+// ─── 헬퍼: 끝점용 교차 스냅 ───
+// start→end 선분이 지나가는 부스 엣지 중 end(마우스)에 가장 가까운 것으로 스냅.
+// 교차 엣지 없으면 근접 스냅(15px) 폴백.
+function snapEndAlongAxis(start, end) {
+  const isHoriz = Math.abs(end.y - start.y) < 0.5;
+  const EPS = 0.5;
+  const PROX = 15;
+
+  let bestEdge = null;
+  let bestDist = Infinity;
+
+  const minX = Math.min(start.x, end.x), maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y), maxY = Math.max(start.y, end.y);
+
+  for (const booth of state.booths) {
+    const r = getBoothOuterRect(booth);
+
+    if (isHoriz) {
+      // 선의 y가 부스 y범위 안에 있어야 교차 가능
+      if (start.y < r.y - EPS || start.y > r.y + r.h + EPS) continue;
+      for (const ex of [r.x, r.x + r.w]) {
+        if (ex < minX - EPS || ex > maxX + EPS) continue; // 선분 범위 밖
+        const dist = Math.abs(ex - end.x);
+        if (dist < bestDist) { bestDist = dist; bestEdge = { x: ex, y: start.y }; }
+      }
+    } else {
+      // 선의 x가 부스 x범위 안에 있어야 교차 가능
+      if (start.x < r.x - EPS || start.x > r.x + r.w + EPS) continue;
+      for (const ey of [r.y, r.y + r.h]) {
+        if (ey < minY - EPS || ey > maxY + EPS) continue;
+        const dist = Math.abs(ey - end.y);
+        if (dist < bestDist) { bestDist = dist; bestEdge = { x: start.x, y: ey }; }
+      }
+    }
+  }
+
+  if (bestEdge) return bestEdge;
+
+  // 폴백: 근접 스냅 (축 방향 엣지만)
+  for (const booth of state.booths) {
+    const r = getBoothOuterRect(booth);
+    if (isHoriz) {
+      if (start.y < r.y - EPS || start.y > r.y + r.h + EPS) continue;
+      for (const ex of [r.x, r.x + r.w]) {
+        if (Math.abs(ex - end.x) < PROX) return { x: ex, y: start.y };
+      }
+    } else {
+      if (start.x < r.x - EPS || start.x > r.x + r.w + EPS) continue;
+      for (const ey of [r.y, r.y + r.h]) {
+        if (Math.abs(ey - end.y) < PROX) return { x: start.x, y: ey };
+      }
+    }
+  }
+
+  return end;
 }
 
 // ─── 헬퍼: 수직/수평 강제 ───
