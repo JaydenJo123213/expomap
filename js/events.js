@@ -752,7 +752,9 @@ canvas.addEventListener('mouseup', (e) => {
 
   // 실측 선 확정
   if (state.measureLineDrawStart) {
-    const end = state.measureLinePreviewEnd || state.measureLineDrawStart;
+    // mouseup 시점 좌표로 다시 스냅+축 제한 적용 (가장 정확한 끝점 확정)
+    const snappedEnd = snapToBoothEdge(world.x, world.y);
+    const end = constrainToAxis(state.measureLineDrawStart, snappedEnd);
     const dx = end.x - state.measureLineDrawStart.x;
     const dy = end.y - state.measureLineDrawStart.y;
     const len = Math.hypot(dx, dy);
