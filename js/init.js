@@ -15,8 +15,8 @@ function showExpoSelector() {
 // ─── 동적 브랜딩 ───
 function applyExhibitionBranding(expo) {
   document.title = 'ExpoMap — ' + expo.name;
-  const topLogo = document.querySelector('.topbar-logo');
-  if (topLogo) topLogo.innerHTML = 'ExpoMap <span>' + expo.nameShort + '</span>';
+  const topExpoName = document.getElementById('topbarExpoName');
+  if (topExpoName) topExpoName.textContent = expo.nameShort;
   const viewerLogo = document.querySelector('.viewer-logo');
   if (viewerLogo) viewerLogo.innerHTML = 'ExpoMap <span>' + expo.nameShort + ' 공개도면</span>';
   // 전시회별 부스 색상 오버라이드
