@@ -98,7 +98,7 @@
   .bottombar { position: fixed; bottom: 0; left: 0; right: 0; height: 26px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: var(--text-dim); gap: 14px; z-index: 100; }
   .bottombar span { font-variant-numeric: tabular-nums; }
   .repeat-badge { background: rgba(79,140,255,0.2); color: var(--accent); border-radius: 3px; padding: 1px 6px; font-size: 10px; font-weight: 600; }
-  .save-indicator { font-size: 10px; font-weight: 500; }
+  .save-indicator { margin-left: auto; font-size: 10px; font-weight: 500; }
   .save-indicator.saved { color: #3DAF6E; }
   .save-indicator.saving { color: #F5A623; }
   .save-indicator.error { color: #f87171; }
@@ -852,10 +852,8 @@
   <span id="gridInfo">Grid: 3m</span>
   <span id="boothInfo"></span>
   <span id="repeatBadge" style="display:none" class="repeat-badge">Repeat mode — Ctrl+D</span>
+  <span class="save-indicator offline" id="saveIndicator" style="margin-left:auto">● offline</span>
 </div>
-
-<!-- Save Indicator (fixed bottom-right) -->
-<span class="save-indicator offline" id="saveIndicator" style="position:fixed;bottom:28px;right:14px;z-index:200;background:var(--surface);padding:2px 8px;border-radius:4px;border:1px solid var(--border);">● offline</span>
 
 <!-- Tooltip -->
 <div class="tooltip" id="tooltip"></div>
