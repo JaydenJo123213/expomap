@@ -87,6 +87,14 @@ canvas.addEventListener('mousedown', (e) => {
       if (text) {
         createStructure('text', { x: snapped.x, y: snapped.y, text: text, fontSize: 12, color: '#333' });
       }
+    } else if (state.structMode === 'measureLine') {
+      // 레이어 잠금 또는 숨김 상태면 그리기 불가
+      if (state.layerLocked.measure || !state.showMeasure) return;
+      const snap = snapToBoothEdge(world.x, world.y);
+      state.measureLineDrawStart = { x: snap.x, y: snap.y };
+      state.measureLinePreviewEnd = { x: snap.x, y: snap.y };
+      render();
+      return;
     }
     render();
     return;
@@ -120,6 +128,25 @@ canvas.addEventListener('mousedown', (e) => {
   }
 
   if (state.mode === 'select' && e.button === 0) {
+    // ─── 측정선 클릭 감지 (레이어 표시 중이고 잠금 아닐 때만) ───
+    state.selectedMeasureLineId = null;
+    if (state.showMeasure && !state.layerLocked.measure) {
+      const HIT = 5; // world px
+      const hit = state.measureLines.find(l =>
+        distanceToSegment(world.x, world.y, l.x1, l.y1, l.x2, l.y2) < HIT
+      );
+      if (hit) {
+        state.selectedMeasureLineId = hit.id;
+        state.selectedIds.clear();
+        state.selectedStructId = null;
+        state.selectedBaseNoIds.clear();
+        state.selectedDiscussIds.clear();
+        state.selectedLogoId = null;
+        render(); updateProps();
+        return;
+      }
+    }
+
     // Structure resize handle check (선택된 struct가 있을 때 먼저 체크)
     if (state.selectedStructId) {
       const selS = state.structures.find(s => s.id === state.selectedStructId);
@@ -483,6 +510,13 @@ canvas.addEventListener('mousemove', (e) => {
     render(); return;
   }
 
+  // 실측 선 드래그 프리뷰
+  if (state.measureLineDrawStart) {
+    const snappedEnd = snapToBoothEdge(world.x, world.y);
+    state.measureLinePreviewEnd = constrainToAxis(state.measureLineDrawStart, snappedEnd);
+    render(); return;
+  }
+
   if (state.isDrawing) {
     const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
     state.drawCurrentX = snapped.x; state.drawCurrentY = snapped.y;
@@ -716,6 +750,29 @@ canvas.addEventListener('mouseup', (e) => {
     return;
   }
 
+  // 실측 선 확정
+  if (state.measureLineDrawStart) {
+    const end = state.measureLinePreviewEnd || state.measureLineDrawStart;
+    const dx = end.x - state.measureLineDrawStart.x;
+    const dy = end.y - state.measureLineDrawStart.y;
+    const len = Math.hypot(dx, dy);
+    if (len >= 5) { // 최소 0.5m
+      saveUndo();
+      const line = {
+        id: state.nextMeasureLineId++,
+        x1: state.measureLineDrawStart.x, y1: state.measureLineDrawStart.y,
+        x2: end.x, y2: end.y
+      };
+      state.measureLines.push(line);
+      state.selectedMeasureLineId = line.id;
+      scheduleSave();
+    }
+    state.measureLineDrawStart = null;
+    state.measureLinePreviewEnd = null;
+    render(); updateProps();
+    return;
+  }
+
   // Rect struct drawing end
   if (state.structMode === 'rect' && state.structDrawStart) {
     const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
@@ -782,6 +839,7 @@ canvas.addEventListener('mouseup', (e) => {
     saveUndo(); scheduleSave();
     state.boothResizeHandle = null;
     state.boothResizeOrigins = [];
+    if (state.measureLines.length > 0) showMeasureAlert();
     render(); updateProps(); return;
   }
 
@@ -804,6 +862,7 @@ canvas.addEventListener('mouseup', (e) => {
   if (state.isDragging) {
     state.isDragging = false;
     state.dragReady = false;
+    if (state.measureLines.length > 0) showMeasureAlert();
     render(); updateProps(); return;
   }
   if (state.dragReady) { state.dragReady = false; }
@@ -824,6 +883,7 @@ canvas.addEventListener('mouseup', (e) => {
       newBooths.forEach(nb => state.selectedIds.add(nb.id));
       state.lastCopyOp = { dx, dy };
       updateRepeatBadge();
+      if (state.measureLines.length > 0) showMeasureAlert();
       render(); updateProps();
     }
   }
@@ -977,6 +1037,7 @@ document.addEventListener('keydown', (e) => {
       if (state.bgCalMode) { cancelCalibration(); return; }
       if (state.bgMoveMode) { state.bgMoveMode = false; document.getElementById('btnBgMove').classList.remove('active'); container.classList.remove('bg-move'); hideStructHint(); return; }
       if (state.exportRegionMode) { state.exportRegionMode = false; state.exportRegionStart = null; state.exportRegionCurrent = null; hideStructHint(); render(); return; }
+      if (state.measureLineDrawStart) { state.measureLineDrawStart = null; state.measureLinePreviewEnd = null; render(); return; }
       if (state.structMode) { state.structMode = null; state.wallStart = null; state.structDrawStart = null; state.structDrawCurrent = null; clearStructButtons(); hideStructHint(); render(); return; }
       if (state.editingGroupId) { state.editingGroupId = null; render(); return; }
       if (state.lastCopyOp) { state.lastCopyOp = null; updateRepeatBadge(); return; }
@@ -986,6 +1047,13 @@ document.addEventListener('keydown', (e) => {
 
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if (document.activeElement !== document.body) return;
+    if (state.selectedMeasureLineId !== null) {
+      saveUndo();
+      state.measureLines = state.measureLines.filter(l => l.id !== state.selectedMeasureLineId);
+      state.selectedMeasureLineId = null;
+      scheduleSave(); render(); updateProps();
+      return;
+    }
     if (state.selectedDiscussIds.size) {
       saveUndo();
       const ids = new Set(state.selectedDiscussIds);
@@ -1059,6 +1127,7 @@ document.addEventListener('keydown', (e) => {
         }
       }
     }
+    if (state.selectedIds.size > 0 && state.measureLines.length > 0) showMeasureAlert();
     scheduleSave(); render(); updateProps();
     return;
   }

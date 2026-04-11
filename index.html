@@ -431,6 +431,7 @@
           <button class="tool-btn" data-struct="line" style="flex:1;min-width:55px">Line</button>
           <button class="tool-btn" data-struct="arrow" style="flex:1;min-width:55px">Arrow</button>
           <button class="tool-btn" data-struct="text" style="flex:1;min-width:55px">Text</button>
+          <button class="tool-btn" data-struct="measureLine" style="flex:1;min-width:55px">실측</button>
         </div>
       </div>
 
@@ -769,6 +770,15 @@
       <div class="prop-row"><span class="prop-label">그룹 ID</span><span id="propDiscussGroupId" style="font-size:12px;color:var(--text-dim)">—</span></div>
       <button class="panel-btn" id="btnDiscussConnect" style="margin-top:8px;width:100%">선택항목 연결 (그룹)</button>
       <button class="panel-btn danger" id="btnDiscussDelete" style="margin-top:6px;width:100%">삭제</button>
+    </div>
+    <!-- 실측선 속성 -->
+    <div id="measureLinePropsSection" style="display:none">
+      <div class="panel-title">실측 선</div>
+      <div class="prop-row">
+        <span class="prop-label">길이</span>
+        <span id="propMeasureLineLength" style="font-size:17px;font-weight:700;color:#1E88E5">—</span>
+      </div>
+      <button class="panel-btn danger" id="btnDeleteMeasureLine" style="margin-top:10px;width:100%">삭제</button>
     </div>
     <div id="panelStructProps" style="display:none">
       <div class="panel-title" id="structPropTitle">Object</div>

@@ -179,8 +179,9 @@ document.querySelectorAll('#structGroup .tool-btn').forEach(btn => {
         line: 'Click two points to draw a line. Escape to exit.',
         arrow: 'Click two points to draw an arrow. Escape to exit.',
         text: 'Click to place text label. Escape to exit.',
+        measureLine: '실측 선을 드래그해서 그리세요. 부스 끝 라인에 자동으로 붙습니다. Escape로 종료.',
       };
-      showStructHint(hints[type]);
+      showStructHint(hints[type] || '');
     }
     render();
   });
@@ -352,8 +353,27 @@ function updateProps() {
   const structSection = document.getElementById('panelStructProps');
   const baseNoSection = document.getElementById('baseNoPropsSection');
   const discussSection = document.getElementById('discussPropsSection');
-
+  const measureLineSection = document.getElementById('measureLinePropsSection');
   const multiSection = document.getElementById('multiSelectSection');
+
+  // ─── 실측선 선택 ───
+  if (state.selectedMeasureLineId !== null) {
+    const line = state.measureLines.find(l => l.id === state.selectedMeasureLineId);
+    panel.classList.add('visible');
+    multiSection.style.display = 'none';
+    boothSection.style.display = 'none';
+    structSection.style.display = 'none';
+    baseNoSection.style.display = 'none';
+    discussSection.style.display = 'none';
+    measureLineSection.style.display = 'block';
+    if (line) {
+      const isH = Math.abs(line.y2 - line.y1) < 0.5;
+      const lengthPx = Math.abs(isH ? line.x2 - line.x1 : line.y2 - line.y1);
+      document.getElementById('propMeasureLineLength').textContent = pxToM(lengthPx).toFixed(2) + 'm';
+    }
+    return;
+  }
+  if (measureLineSection) measureLineSection.style.display = 'none';
 
   if (state.selectedDiscussIds.size === 1) {
     panel.classList.add('visible');
@@ -690,6 +710,14 @@ document.getElementById('propDiscussLabel').addEventListener('input', (e) => {
     else if (prop === 'h') ov.h = newVal;
     scheduleSave(); render();
   });
+});
+
+document.getElementById('btnDeleteMeasureLine').addEventListener('click', () => {
+  if (state.selectedMeasureLineId === null) return;
+  saveUndo();
+  state.measureLines = state.measureLines.filter(l => l.id !== state.selectedMeasureLineId);
+  state.selectedMeasureLineId = null;
+  scheduleSave(); render(); updateProps();
 });
 
 document.getElementById('btnDiscussConnect').addEventListener('click', () => {

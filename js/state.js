@@ -120,6 +120,12 @@ let state = {
   exportRegionMode: false,   // 영역 드래그 선택 중
   exportRegionStart: null,
   structResizing: false, structResizeHandle: null,
+  // ─── 실측 선 ───
+  measureLines: [],           // [{id, x1, y1, x2, y2}] world px 절대 좌표
+  nextMeasureLineId: 1,
+  selectedMeasureLineId: null,
+  measureLineDrawStart: null,  // 드래그 시작점 {x, y}
+  measureLinePreviewEnd: null, // 드래그 현재 끝점 {x, y} (constrained + snapped)
   // logos/images
   logos: [],       // [{id, x, y, w, h, dataUrl, name, _img}]
   nextLogoId: 1,

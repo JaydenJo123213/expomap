@@ -194,6 +194,8 @@ async function saveToSupabase() {
     nextDiscussGroupId: state.nextDiscussGroupId,
     freeBooths: state.freeBooths,
     bg: { x: state.bg.x, y: state.bg.y, w: state.bg.w, h: state.bg.h, natW: state.bg.natW, natH: state.bg.natH, opacity: state.bg.opacity, visible: state.bg.visible, rotation: state.bg.rotation || 0, dataUrl: state.bg.dataUrl || null },
+    measureLines: state.measureLines,
+    nextMeasureLineId: state.nextMeasureLineId,
   };
   try {
     const { error } = await _supaClient
@@ -248,6 +250,8 @@ async function loadFromSupabase() {
       state.nextDiscussOverlayId = s.nextDiscussOverlayId || 1;
       state.nextDiscussGroupId = s.nextDiscussGroupId || 1;
       state.freeBooths = s.freeBooths || [];
+      state.measureLines = s.measureLines || [];
+      state.nextMeasureLineId = s.nextMeasureLineId || 1;
       restoreLogos(s.logos || []);
       if (s.bg) {
         state.bg.x = s.bg.x || 0;
@@ -702,6 +706,20 @@ function showStructHint(msg) {
 function hideStructHint() {
   const hint = document.getElementById('structHint');
   if (hint) hint.style.display = 'none';
+}
+function showMeasureAlert() {
+  if (document.getElementById('measureAlert')) return; // 중복 방지
+  const el = document.createElement('div');
+  el.id = 'measureAlert';
+  el.style.cssText = [
+    'position:fixed', 'bottom:28px', 'left:50%', 'transform:translateX(-50%)',
+    'background:#1565C0', 'color:#fff', 'padding:10px 22px', 'border-radius:8px',
+    'font-size:13px', 'z-index:9999', 'box-shadow:0 4px 16px rgba(0,0,0,0.25)',
+    'pointer-events:none', 'white-space:nowrap'
+  ].join(';');
+  el.textContent = '실측 레이어를 켜시고 실측 라인을 확인해주세요.';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
 }
 function cancelCalibration() {
   hideCalHint();
