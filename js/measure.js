@@ -52,23 +52,28 @@ function snapToBoothEdge(wx, wy) {
 
   if (cornerSnap) return cornerSnap;
 
-  // ── 2순위: 엣지 스냅 (x·y 독립) ──
+  // ── 2순위: 엣지 스냅 (x·y 독립, 각 축별 가장 가까운 엣지) ──
   let sx = wx, sy = wy;
+  let bestXDist = SNAP, bestYDist = SNAP;
 
   for (const booth of state.booths) {
     const r = getBoothOuterRect(booth);
-    if (Math.abs(wx - r.x)       < SNAP && Math.abs(wx - r.x)       < Math.abs(sx - r.x))       sx = r.x;
-    if (Math.abs(wx - r.x - r.w) < SNAP && Math.abs(wx - r.x - r.w) < Math.abs(sx - r.x - r.w)) sx = r.x + r.w;
-    if (Math.abs(wy - r.y)       < SNAP && Math.abs(wy - r.y)       < Math.abs(sy - r.y))       sy = r.y;
-    if (Math.abs(wy - r.y - r.h) < SNAP && Math.abs(wy - r.y - r.h) < Math.abs(sy - r.y - r.h)) sy = r.y + r.h;
+    const dL = Math.abs(wx - r.x),       dR = Math.abs(wx - r.x - r.w);
+    const dT = Math.abs(wy - r.y),       dB = Math.abs(wy - r.y - r.h);
+    if (dL < bestXDist) { bestXDist = dL; sx = r.x; }
+    if (dR < bestXDist) { bestXDist = dR; sx = r.x + r.w; }
+    if (dT < bestYDist) { bestYDist = dT; sy = r.y; }
+    if (dB < bestYDist) { bestYDist = dB; sy = r.y + r.h; }
   }
   for (const s of state.structures) {
     if (s.type !== 'column') continue;
     const e = getColumnEdges(s);
-    if (Math.abs(wx - e.left)   < SNAP && Math.abs(wx - e.left)   < Math.abs(sx - e.left))   sx = e.left;
-    if (Math.abs(wx - e.right)  < SNAP && Math.abs(wx - e.right)  < Math.abs(sx - e.right))  sx = e.right;
-    if (Math.abs(wy - e.top)    < SNAP && Math.abs(wy - e.top)    < Math.abs(sy - e.top))    sy = e.top;
-    if (Math.abs(wy - e.bottom) < SNAP && Math.abs(wy - e.bottom) < Math.abs(sy - e.bottom)) sy = e.bottom;
+    const dL = Math.abs(wx - e.left),   dR = Math.abs(wx - e.right);
+    const dT = Math.abs(wy - e.top),    dB = Math.abs(wy - e.bottom);
+    if (dL < bestXDist) { bestXDist = dL; sx = e.left; }
+    if (dR < bestXDist) { bestXDist = dR; sx = e.right; }
+    if (dT < bestYDist) { bestYDist = dT; sy = e.top; }
+    if (dB < bestYDist) { bestYDist = dB; sy = e.bottom; }
   }
 
   return { x: sx, y: sy };
