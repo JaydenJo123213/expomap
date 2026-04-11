@@ -1,27 +1,29 @@
 // ─── Version History ───
 
 // ─── 자동 저장 상태 ───
-let _autoVersionDirty = false;
-const AUTO_VERSION_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4시간
+// "첫 변경 발생 후 4시간 뒤 저장" 방식
+// → 변경이 생기면 타이머를 한 번만 걸고, 4시간 후 실행. 그 사이 추가 변경은 무시(타이머 재설정 안 함).
+let _autoVersionTimer = null;
+const AUTO_VERSION_DELAY_MS = 4 * 60 * 60 * 1000; // 4시간
 const VERSION_MAX_DAYS = 7;
 
-// scheduleSave() 호출 시 booth-ops.js에서 이 함수를 호출
+// scheduleSave() 호출 시 이 함수가 호출됨 (supabase.js)
 function markVersionDirty() {
-  _autoVersionDirty = true;
-}
-
-// 자동 저장 인터벌 시작 (init.js에서 Supabase 연결 후 호출)
-function initAutoVersion() {
-  setInterval(async () => {
-    if (!_autoVersionDirty || !_supaClient) return;
-    _autoVersionDirty = false;
+  if (_autoVersionTimer !== null) return; // 이미 타이머 걸려 있으면 무시
+  _autoVersionTimer = setTimeout(async () => {
+    _autoVersionTimer = null;
+    if (!_supaClient) return;
     await _insertVersionRow('자동저장 ' + formatKoreanDateTime(new Date()));
     await runVersionCleanup();
-    // 히스토리 탭이 열려 있으면 목록 갱신
     if (document.getElementById('sidebarTab-history')?.classList.contains('active')) {
       renderVersionList(await loadVersionList());
     }
-  }, AUTO_VERSION_INTERVAL_MS);
+  }, AUTO_VERSION_DELAY_MS);
+}
+
+// init.js에서 호출 — 현재는 markVersionDirty()가 자체적으로 타이머를 관리하므로 빈 함수
+function initAutoVersion() {
+  // no-op: markVersionDirty()가 직접 타이머를 스케줄함
 }
 
 // ─── 유틸 ───
