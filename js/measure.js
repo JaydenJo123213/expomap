@@ -226,7 +226,7 @@ function _drawMeasureLine(ctx, x1, y1, x2, y2, zoom, color) {
   const mx = (x1 + x2) / 2;
   const my = (y1 + y2) / 2;
   const lengthPx = isHoriz ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
-  const label = pxToM(lengthPx).toFixed(2) + 'm';
+  const label = pxToM(lengthPx).toFixed(1) + 'm';
   const fz = Math.max(9 / zoom, 5);
 
   ctx.font = `600 ${fz}px Pretendard, sans-serif`;

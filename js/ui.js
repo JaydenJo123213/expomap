@@ -369,7 +369,7 @@ function updateProps() {
     if (line) {
       const isH = Math.abs(line.y2 - line.y1) < 0.5;
       const lengthPx = Math.abs(isH ? line.x2 - line.x1 : line.y2 - line.y1);
-      document.getElementById('propMeasureLineLength').textContent = pxToM(lengthPx).toFixed(2) + 'm';
+      document.getElementById('propMeasureLineLength').textContent = pxToM(lengthPx).toFixed(1) + 'm';
     }
     return;
   }
