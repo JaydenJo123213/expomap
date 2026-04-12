@@ -61,7 +61,7 @@ const CURSOR_COLORS = [
   '#DA77F2','#20C997','#F06595','#74C0FC','#A9E34B'
 ];
 const CURSOR_STALE_MS = 5000;
-const CURSOR_THROTTLE_MS = 5000;
+const CURSOR_THROTTLE_MS = 2000;
 
 // ─── State ───
 let state = {
