@@ -60,13 +60,8 @@ function scheduleSave() {
   if (typeof markVersionDirty === 'function') markVersionDirty();
 }
 
-// ─── 5초 폴링 기반 협업 동기화 (Realtime 대체) ───
-let _pollTimer = null;
-let _lastKnownUpdatedAt = null;
-const POLL_INTERVAL_MS = 5000;
-
+// ─── Presence Functions ───
 function initPresenceIdentity() {
-  // 커서 표시용 identity는 유지 (로컬 렌더링에 사용)
   let stored = null;
   try { stored = JSON.parse(sessionStorage.getItem('expomap_presence')); } catch {}
   if (stored && stored.userId && stored.name && stored.color) {
@@ -81,41 +76,57 @@ function initPresenceIdentity() {
 }
 
 function initPresenceChannel() {
-  // Realtime 채널 사용 안 함 — 5초 폴링으로 대체
-  _presenceChannel = null;
-  startSyncPolling();
+  if (!_supaClient || !_myUserId) return;
+  if (_presenceChannel) { _presenceChannel.unsubscribe(); _presenceChannel = null; }
+
+  const channelName = `expomap-cursors-${_supaProjectId}`;
+  _presenceChannel = _supaClient.channel(channelName, { config: { broadcast: { self: false } } });
+
+  _presenceChannel
+    .on('broadcast', { event: 'cursor' }, ({ payload }) => {
+      if (!payload || !payload.userId) return;
+      const uid = payload.userId;
+      if (payload.type === 'leave') { delete state.remoteCursors[uid]; render(); return; }
+      state.remoteCursors[uid] = { name: payload.name, color: payload.color, wx: payload.wx, wy: payload.wy, lastSeen: Date.now() };
+      render();
+    })
+    .on('broadcast', { event: 'save' }, async ({ payload }) => {
+      if (payload?.userId === _myUserId) return;
+      const prevSelected = new Set(state.selectedIds);
+      await loadFromSupabase();
+      state.selectedIds = prevSelected;
+      render();
+    })
+    .subscribe();
 }
 
-function startSyncPolling() {
-  if (_pollTimer) clearInterval(_pollTimer);
-  _pollTimer = setInterval(async () => {
-    if (!_supaClient) return;
-    try {
-      const { data } = await _supaClient
-        .from('expomap_state')
-        .select('updated_at')
-        .eq('id', _supaProjectId)
-        .maybeSingle();
-      if (!data) return;
-      if (_lastKnownUpdatedAt && data.updated_at !== _lastKnownUpdatedAt) {
-        // 다른 사람이 저장함 → 리로드
-        const prevSelected = new Set(state.selectedIds);
-        await loadFromSupabase();
-        state.selectedIds = prevSelected;
-        render();
-      }
-      _lastKnownUpdatedAt = data.updated_at;
-    } catch { /* 무시 */ }
-  }, POLL_INTERVAL_MS);
+// 5초 throttle 커서 브로드캐스트
+const CURSOR_THROTTLE_MS = 5000;
+let _lastCursorSent = 0;
+
+function broadcastCursorPosition(wx, wy) {
+  if (!_presenceChannel || !_myUserId) return;
+  const now = Date.now();
+  if (now - _lastCursorSent < CURSOR_THROTTLE_MS) return;
+  _lastCursorSent = now;
+  _presenceChannel.send({ type: 'broadcast', event: 'cursor', payload: { type: 'move', userId: _myUserId, name: _myName, color: _myColor, wx, wy } });
 }
 
-// 커서 브로드캐스트 — 폴링 방식에서는 사용 안 함
-function broadcastCursorPosition(wx, wy) { /* no-op */ }
-function broadcastCursorLeave() { /* no-op */ }
+function broadcastCursorLeave() {
+  if (!_presenceChannel || !_myUserId) return;
+  _presenceChannel.send({ type: 'broadcast', event: 'cursor', payload: { type: 'leave', userId: _myUserId } });
+}
 
 function pruneStaleRemoteCursors() {
-  // 원격 커서 없음
-  state.remoteCursors = {};
+  const now = Date.now();
+  let changed = false;
+  for (const uid in state.remoteCursors) {
+    if (now - state.remoteCursors[uid].lastSeen > CURSOR_STALE_MS) {
+      delete state.remoteCursors[uid];
+      changed = true;
+    }
+  }
+  if (changed) render();
 }
 
 function drawRemoteCursors() {

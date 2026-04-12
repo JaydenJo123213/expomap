@@ -202,13 +202,14 @@ async function saveToSupabase() {
     nextMeasureLineId: state.nextMeasureLineId,
   };
   try {
-    const now = new Date().toISOString();
     const { error } = await _supaClient
       .from('expomap_state')
-      .upsert({ id: _supaProjectId, state_json: data, updated_at: now });
+      .upsert({ id: _supaProjectId, state_json: data, updated_at: new Date().toISOString() });
     if (error) throw error;
-    _lastKnownUpdatedAt = now; // 내 저장은 폴링에서 무시
     updateSaveIndicator('saved');
+    if (_presenceChannel && _myUserId) {
+      _presenceChannel.send({ type: 'broadcast', event: 'save', payload: { userId: _myUserId } });
+    }
   } catch (e) {
     console.error('Save failed:', e);
     updateSaveIndicator('error');
