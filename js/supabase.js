@@ -100,8 +100,7 @@ function initPresenceChannel() {
     .subscribe();
 }
 
-// 5초 throttle 커서 브로드캐스트
-const CURSOR_THROTTLE_MS = 5000;
+// 커서 브로드캐스트 (CURSOR_THROTTLE_MS는 state.js에서 정의)
 let _lastCursorSent = 0;
 
 function broadcastCursorPosition(wx, wy) {
