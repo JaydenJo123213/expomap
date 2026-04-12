@@ -197,19 +197,18 @@ async function saveToSupabase() {
     nextDiscussOverlayId: state.nextDiscussOverlayId,
     nextDiscussGroupId: state.nextDiscussGroupId,
     freeBooths: state.freeBooths,
-    bg: { x: state.bg.x, y: state.bg.y, w: state.bg.w, h: state.bg.h, natW: state.bg.natW, natH: state.bg.natH, opacity: state.bg.opacity, visible: state.bg.visible, rotation: state.bg.rotation || 0, dataUrl: state.bg.dataUrl || null },
+    bg: { x: state.bg.x, y: state.bg.y, w: state.bg.w, h: state.bg.h, natW: state.bg.natW, natH: state.bg.natH, opacity: state.bg.opacity, visible: state.bg.visible, rotation: state.bg.rotation || 0, storageUrl: state.bg.storageUrl || null },
     measureLines: state.measureLines,
     nextMeasureLineId: state.nextMeasureLineId,
   };
   try {
+    const now = new Date().toISOString();
     const { error } = await _supaClient
       .from('expomap_state')
-      .upsert({ id: _supaProjectId, state_json: data, updated_at: new Date().toISOString() });
+      .upsert({ id: _supaProjectId, state_json: data, updated_at: now });
     if (error) throw error;
+    _lastKnownUpdatedAt = now; // 내 저장은 폴링에서 무시
     updateSaveIndicator('saved');
-    if (_presenceChannel && _myUserId) {
-      _presenceChannel.send({ type: 'broadcast', event: 'save', payload: { userId: _myUserId } });
-    }
   } catch (e) {
     console.error('Save failed:', e);
     updateSaveIndicator('error');
@@ -267,8 +266,22 @@ async function loadFromSupabase() {
         state.bg.opacity = s.bg.opacity ?? 0.5;
         state.bg.visible = s.bg.visible ?? true;
         state.bg.rotation = s.bg.rotation || 0;
-        if (s.bg.dataUrl) {
+        if (s.bg.storageUrl) {
+          state.bg.storageUrl = s.bg.storageUrl;
+          restoreBgImage(s.bg.storageUrl);
+        } else if (s.bg.dataUrl) {
+          // 레거시 dataUrl → Storage 자동 마이그레이션
           restoreBgImage(s.bg.dataUrl);
+          if (_supaClient) {
+            _uploadBgDataUrlToStorage(s.bg.dataUrl)
+              .then(url => {
+                state.bg.storageUrl = url;
+                state.bg.dataUrl = null;
+                scheduleSave();
+                console.log('BG 마이그레이션 완료:', url);
+              })
+              .catch(err => console.warn('BG 마이그레이션 실패:', err));
+          }
         }
       }
       state.selectedIds = new Set();
@@ -614,17 +627,52 @@ function ungroupSelected() {
   render();
 }
 
+// ─── Background Image Storage helpers ───
+async function _uploadBgFileToStorage(file) {
+  const path = `${_supaProjectId}/background`;
+  const { error } = await _supaClient.storage
+    .from('expomap-backgrounds')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  const { data: { publicUrl } } = _supaClient.storage
+    .from('expomap-backgrounds')
+    .getPublicUrl(path);
+  return publicUrl + '?t=' + Date.now(); // cache-bust
+}
+
+function _dataUrlToBlob(dataUrl) {
+  const [header, b64] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const binary = atob(b64);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+async function _uploadBgDataUrlToStorage(dataUrl) {
+  const blob = _dataUrlToBlob(dataUrl);
+  const path = `${_supaProjectId}/background`;
+  console.log('[BG Migration] 업로드 시작:', path, blob.size, 'bytes');
+  const { error } = await _supaClient.storage
+    .from('expomap-backgrounds')
+    .upload(path, blob, { upsert: true, contentType: blob.type });
+  if (error) { console.error('[BG Migration] 업로드 실패:', error); throw error; }
+  const { data: { publicUrl } } = _supaClient.storage
+    .from('expomap-backgrounds')
+    .getPublicUrl(path);
+  return publicUrl + '?t=' + Date.now();
+}
+
 // ─── Background Image ───
-document.getElementById('bgUpload').addEventListener('change', (e) => {
+document.getElementById('bgUpload').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const dataUrl = ev.target.result;
+  e.target.value = '';
+
+  const applyBg = (src) => {
     const img = new Image();
     img.onload = () => {
       state.bg.img = img;
-      state.bg.dataUrl = dataUrl;
       state.bg.natW = img.naturalWidth;
       state.bg.natH = img.naturalHeight;
       state.bg.w = img.naturalWidth;
@@ -633,16 +681,37 @@ document.getElementById('bgUpload').addEventListener('change', (e) => {
       state.bg.y = 0;
       state.bg.visible = true;
       state.bg.rotation = 0;
-      // 로컬 폴백 저장
-      try { localStorage.setItem('expomap_bg_dataurl_' + _supaProjectId, dataUrl); } catch(err) { console.warn('BG localStorage 저장 실패 (용량 초과일 수 있음):', err); }
       scheduleSave();
       updateBgFineTuneInputs();
       render();
     };
-    img.src = dataUrl;
+    img.src = src;
+  };
+
+  if (_supaClient) {
+    updateSaveIndicator('saving');
+    try {
+      const url = await _uploadBgFileToStorage(file);
+      state.bg.storageUrl = url;
+      state.bg.dataUrl = null;
+      localStorage.removeItem('expomap_bg_dataurl_' + _supaProjectId);
+      applyBg(url);
+      return;
+    } catch (err) {
+      console.warn('Storage 업로드 실패, 로컬 폴백 사용:', err);
+    }
+  }
+
+  // Storage 실패 or 미연결 시 기존 dataUrl 방식 폴백
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const dataUrl = ev.target.result;
+    state.bg.dataUrl = dataUrl;
+    state.bg.storageUrl = null;
+    try { localStorage.setItem('expomap_bg_dataurl_' + _supaProjectId, dataUrl); } catch(err) { console.warn('BG localStorage 저장 실패:', err); }
+    applyBg(dataUrl);
   };
   reader.readAsDataURL(file);
-  e.target.value = '';
 });
 document.getElementById('bgOpacity').addEventListener('input', (e) => {
   state.bg.opacity = e.target.value / 100;
@@ -654,9 +723,17 @@ document.getElementById('btnBgToggle').addEventListener('click', () => {
   document.getElementById('btnBgToggle').textContent = state.bg.visible ? 'Hide' : 'Show';
   render();
 });
-document.getElementById('btnBgRemove').addEventListener('click', () => {
+document.getElementById('btnBgRemove').addEventListener('click', async () => {
+  if (_supaClient && state.bg.storageUrl) {
+    try {
+      await _supaClient.storage
+        .from('expomap-backgrounds')
+        .remove([`${_supaProjectId}/background`]);
+    } catch (err) { console.warn('Storage 파일 삭제 실패:', err); }
+  }
   state.bg.img = null;
   state.bg.dataUrl = null;
+  state.bg.storageUrl = null;
   localStorage.removeItem('expomap_bg_dataurl_' + _supaProjectId);
   scheduleSave();
   render();

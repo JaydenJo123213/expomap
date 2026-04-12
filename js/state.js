@@ -15,7 +15,7 @@ const VIEWER_MODE = APP_MODE !== 'admin';
 // ─── 전시회 레지스트리 ───
 const EXHIBITIONS = {
   'kimes-busan-2026': {
-    id: 'pxlredqyzfffirxbmeuw',  // 기존 데이터 row — 하위호환
+    id: 'kimes-busan-2026',
     name: 'KIMES BUSAN 2026',
     nameShort: 'KIMES BUSAN',
     pdfPrefix: 'KIMES BUSAN 2026',
@@ -99,7 +99,7 @@ let state = {
   marqueeStartX: 0, marqueeStartY: 0,
   marqueeEndX: 0, marqueeEndY: 0,
   // background
-  bg: { img: null, x: 0, y: 0, w: 0, h: 0, natW: 0, natH: 0, opacity: 0.5, visible: true, rotation: 0, dataUrl: null },
+  bg: { img: null, x: 0, y: 0, w: 0, h: 0, natW: 0, natH: 0, opacity: 0.5, visible: true, rotation: 0, dataUrl: null, storageUrl: null },
   bgCalMode: false,
   bgCalPoints: [],
   bgMoveMode: false,
