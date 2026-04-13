@@ -116,8 +116,8 @@ async function executeAssignGuideExport() {
     const octx = off.getContext('2d');
     if (!octx) throw new Error('캔버스 컨텍스트 생성 실패 (캔버스 크기 초과?)');
     renderForAssignGuideExport(octx, offW, offH, showNames);
-    const imgData = off.toDataURL('image/jpeg', 0.95);
-    doc.addImage(imgData, 'JPEG', agMargin, agMargin, agContentW, agContentH);
+    const imgData = off.toDataURL('image/png');
+    doc.addImage(imgData, 'PNG', agMargin, agMargin, agContentW, agContentH, undefined, 'SLOW');
     const now = new Date();
     const dateStr = String(now.getFullYear()).slice(2) +
       String(now.getMonth() + 1).padStart(2, '0') +
@@ -539,7 +539,7 @@ async function exportFloorplanPDF() {
 
   // PDF에 이미지 추가
   const imgData = canvas.toDataURL('image/png');
-  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight, undefined, 'SLOW');
 
   const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
   const today = new Date();
@@ -663,8 +663,8 @@ async function exportAvailablePDF() {
 
   ctx.restore();
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.92);
-  pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentHeight);
+  const imgData = canvas.toDataURL('image/png');
+  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight, undefined, 'SLOW');
 
   const today = new Date();
   const dateStr = String(today.getFullYear()).slice(2) + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
