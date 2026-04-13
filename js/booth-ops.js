@@ -1049,14 +1049,15 @@ document.getElementById('logoUpload').addEventListener('change', (e) => {
   e.target.value = '';
 });
 
-function restoreBgImage(dataUrl) {
+function restoreBgImage(src) {
   const img = new Image();
+  if (src && src.startsWith('http')) img.crossOrigin = 'anonymous';
   img.onload = () => {
     state.bg.img = img;
-    state.bg.dataUrl = dataUrl;
+    if (!src.startsWith('http')) state.bg.dataUrl = src;
     render();
   };
-  img.src = dataUrl;
+  img.src = src;
 }
 
 function restoreLogos(logoData) {
