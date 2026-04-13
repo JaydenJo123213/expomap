@@ -496,27 +496,40 @@ function createLBooth() {
   const bx = Math.round((center.x - W / 2) / GRID_PX) * GRID_PX;
   const by = Math.round((center.y - H / 2) / GRID_PX) * GRID_PX;
 
-  // 방향별 cells (world 절대 좌표 2개 직사각형)
+  // 방향별 cells (3개 셀 — 변이 완전히 맞닿아야 hasAdjacentEdge가 내부선 제거 가능)
+  // TL=좌상단 결락, TR=우상단 결락, BL=좌하단 결락, BR=우하단 결락
   let cells;
   if (dir === 'TL') {
+    // [NOTCH][top-right strip]
+    // [bot-left][bot-right   ]
     cells = [
-      { x: bx,        y: by + bHpx, w: W,        h: aHpx },
-      { x: bx + bWpx, y: by,        w: W - bWpx, h: bHpx },
+      { x: bx + bWpx, y: by,          w: W - bWpx, h: bHpx  },  // top strip (우측)
+      { x: bx,        y: by + bHpx,   w: bWpx,     h: aHpx  },  // bottom left
+      { x: bx + bWpx, y: by + bHpx,   w: W - bWpx, h: aHpx  },  // bottom right
     ];
   } else if (dir === 'TR') {
+    // [top-left strip][NOTCH]
+    // [bot-left  ][bot-right]
     cells = [
-      { x: bx,        y: by + bHpx, w: W,        h: aHpx },
-      { x: bx,        y: by,        w: W - bWpx, h: bHpx },
+      { x: bx,          y: by,        w: W - bWpx, h: bHpx  },  // top strip (좌측)
+      { x: bx,          y: by + bHpx, w: W - bWpx, h: aHpx  },  // bottom left
+      { x: bx + W-bWpx, y: by + bHpx, w: bWpx,     h: aHpx  },  // bottom right
     ];
   } else if (dir === 'BL') {
+    // [top-left][top-right  ]
+    // [NOTCH   ][bot strip  ]
     cells = [
-      { x: bx,        y: by,        w: W,        h: aHpx },
-      { x: bx + bWpx, y: by + aHpx, w: W - bWpx, h: bHpx },
+      { x: bx,          y: by,        w: bWpx,     h: aHpx  },  // top left
+      { x: bx + bWpx,   y: by,        w: W - bWpx, h: aHpx  },  // top right
+      { x: bx + bWpx,   y: by + aHpx, w: W - bWpx, h: bHpx  },  // bottom strip (우측)
     ];
   } else { // BR
+    // [top-left  ][top-right]
+    // [bot strip ][NOTCH    ]
     cells = [
-      { x: bx,        y: by,        w: W,        h: aHpx },
-      { x: bx,        y: by + aHpx, w: W - bWpx, h: bHpx },
+      { x: bx,          y: by,        w: W - bWpx, h: aHpx  },  // top left
+      { x: bx + W-bWpx, y: by,        w: bWpx,     h: aHpx  },  // top right
+      { x: bx,          y: by + aHpx, w: W - bWpx, h: bHpx  },  // bottom strip (좌측)
     ];
   }
 
