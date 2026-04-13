@@ -796,6 +796,7 @@ async function exportSVG() {
 
     // ⑤ 부스 콘텐츠 (로고 + 번호 + 업체명)
     p.push('<g id="booth-content">');
+    const mc = document.createElement('canvas').getContext('2d');
     for (const b of booths) {
       const displayName = state.lang === 'en' ? (b.companyNameEn || '') : (b.companyName || '');
       const pad = 2;
@@ -828,20 +829,28 @@ async function exportSVG() {
         }
       }
 
-      // 부스번호
+      // 부스번호 (render.js:163과 동일하게 maxW=26 고정)
       if (b.boothId) {
-        const noFz = Math.max(Math.min(tr.w, tr.h) * 0.18, 3);
+        let noFz = (typeof calcFontSize === 'function')
+          ? calcFontSize(mc, b.boothId, 26)
+          : Math.max(Math.min(tr.w, tr.h) * 0.18, 3);
+        noFz = Math.max(2, Math.min(noFz, Math.min(tr.w, tr.h) * 0.35));
         p.push(`<text x="${tr.x + pad}" y="${tr.y + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="500" fill="#111111" opacity="0.65">${_escXml(b.boothId)}</text>`);
       }
 
-      // 업체명
+      // 업체명 (render.js:145-150과 동일한 패턴, clamp [1.5, 12])
       if (displayName) {
         const lines = (typeof wrapText === 'function') ? wrapText(displayName) : [displayName];
-        const maxLen = Math.max(...lines.map(l => l.length), 1);
-        const fz = Math.max(Math.min(tr.w * 0.82 / maxLen * 1.6, tr.h * 0.22), 3);
+        const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
+        const availW = tr.w - pad * 2;
+        const areaH = hasLogo ? tr.h * 0.34 : tr.h * 0.40;
+        let fz = (typeof calcFontSize === 'function')
+          ? calcFontSize(mc, longestLine || 'A', availW * 0.85)
+          : 5;
+        if (areaH > 0) fz = Math.min(fz, (areaH / lines.length) / 1.25);
+        fz = Math.max(1.5, Math.min(fz, 12));
         const lineH = fz * 1.25;
         const areaY = hasLogo ? tr.y + tr.h * 0.60 : tr.y + tr.h * 0.30;
-        const areaH = hasLogo ? tr.h * 0.34 : tr.h * 0.40;
         const startY = areaY + (areaH - lines.length * lineH) / 2 + fz * 0.5;
         lines.forEach((line, i) => {
           p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle" dominant-baseline="middle">${_escXml(line)}</text>`);
