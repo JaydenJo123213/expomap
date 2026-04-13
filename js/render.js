@@ -162,7 +162,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       if (hasBoothNo) {
         const noFz = calcFontSize(c, b.boothId, 26);
         c.fillStyle = boothNoColor ?? textColor;
-        c.font = `400 ${noFz}px Pretendard, sans-serif`;
+        c.font = `600 ${noFz}px Pretendard, sans-serif`;
         c.textAlign = 'left'; c.textBaseline = 'top';
         c.globalAlpha = 0.65;
         c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -238,7 +238,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     // Booth No.: 좌상단 (고정 작은 폰트)
     if (hasBoothNo) {
       c.fillStyle = boothNoColor ?? textColor;
-      c.font = `400 ${noFz}px Pretendard, sans-serif`;
+      c.font = `600 ${noFz}px Pretendard, sans-serif`;
       c.textAlign = 'left'; c.textBaseline = 'top';
       c.globalAlpha = 0.65;
       c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -257,7 +257,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     // Booth No.만 → 좌상단 (기본부스번호와 공존)
     const noFz = calcFontSize(c, b.boothId, 26);
     c.fillStyle = boothNoColor ?? textColor;
-    c.font = `400 ${noFz}px Pretendard, sans-serif`;
+    c.font = `600 ${noFz}px Pretendard, sans-serif`;
     c.textAlign = 'left'; c.textBaseline = 'top';
     c.globalAlpha = 0.65;
     c.fillText(b.boothId, tr.x + pad, tr.y + pad);

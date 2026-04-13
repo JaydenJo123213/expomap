@@ -793,7 +793,7 @@ async function exportSVG(lang = 'ko') {
       const hasBoothNo = !!b.boothId;
 
       const addBoothNo = (noFz) => {
-        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="400" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
+        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="600" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
       };
 
       // Case 1: 로고 있음 (render.js:106-190)
