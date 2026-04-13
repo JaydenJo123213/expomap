@@ -160,9 +160,9 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       const lines = wrapText(displayName);
       const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
-      let fz = calcFontSize(c, longestLine || 'A', availW * 0.85);
-      if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
-      fz = Math.max(1.5, Math.min(fz, 12));
+      let fz = (b.fontSize != null)
+        ? Math.max(1.5, Math.min(b.fontSize, 60))
+        : (() => { let v = calcFontSize(c, longestLine || 'A', availW * 0.85); if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25); return Math.max(1.5, Math.min(v, 12)); })();
 
       const lineH = fz * 1.25;
       const blockH = lines.length * lineH;
@@ -246,10 +246,10 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const bottomReserve = showSize   ? szFz + 2 : 0;
     const textAreaH = availH - topReserve - bottomReserve;
 
-    // 업체명 폰트: 가로 기준으로 구하고 세로로도 제한
-    let fz = calcFontSize(c, longestLine || 'A', availW * 0.9);
-    if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
-    fz = Math.max(1.5, Math.min(fz, 16));
+    // 업체명 폰트: 가로 기준으로 구하고 세로로도 제한 (수동 설정 시 우선)
+    let fz = (b.fontSize != null)
+      ? Math.max(1.5, Math.min(b.fontSize, 60))
+      : (() => { let v = calcFontSize(c, longestLine || 'A', availW * 0.9); if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25); return Math.max(1.5, Math.min(v, 16)); })();
 
     const lineH = fz * 1.25;
     const blockH = lines.length * lineH;

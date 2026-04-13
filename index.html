@@ -682,6 +682,15 @@
           <option value="tall">세로 긴 쪽</option>
         </select>
       </div>
+      <!-- Font Size (모든 부스, 기본 자동) -->
+      <div class="prop-row" id="rowFontSize">
+        <span class="prop-label">폰트 크기</span>
+        <div style="display:flex;align-items:center;gap:4px;flex:1">
+          <input type="range" id="propFontSize" min="4" max="32" value="12" step="1" style="flex:1;height:4px">
+          <span id="propFontSizeVal" style="font-size:11px;color:var(--text-dim);width:28px;text-align:right">자동</span>
+          <button id="propFontSizeAuto" style="font-size:10px;padding:1px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg2);cursor:pointer;color:var(--text-dim)" title="자동 폰트 크기로 초기화">자동</button>
+        </div>
+      </div>
       <!-- Fill Color -->
       <div style="margin-top:10px;margin-bottom:10px">
         <div class="panel-title">Fill</div>

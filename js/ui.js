@@ -15,6 +15,29 @@ document.getElementById('propTextPlacement').addEventListener('change', (e) => {
   const b = getSelectedBooth();
   if (b) { saveUndo(); b.textPlacement = e.target.value; render(); }
 });
+
+// 폰트 크기 슬라이더 (드래그하며 실시간 조정)
+document.getElementById('propFontSize').addEventListener('input', (e) => {
+  const b = getSelectedBooth();
+  if (!b) return;
+  b.fontSize = parseInt(e.target.value);
+  document.getElementById('propFontSizeVal').textContent = b.fontSize + 'px';
+  document.getElementById('propFontSizeAuto').style.display = '';
+  render();
+});
+document.getElementById('propFontSize').addEventListener('change', () => { saveUndo(); scheduleSave(); });
+
+// 자동 버튼: 수동 폰트 크기 초기화
+document.getElementById('propFontSizeAuto').addEventListener('click', () => {
+  const b = getSelectedBooth();
+  if (!b) return;
+  saveUndo();
+  delete b.fontSize;
+  document.getElementById('propFontSizeVal').textContent = '자동';
+  document.getElementById('propFontSizeAuto').style.display = 'none';
+  render();
+  scheduleSave();
+});
 document.getElementById('btnArrayCopy').addEventListener('click', () => {
   if (!state.selectedIds.size) { alert('Select booths to array-copy.'); return; }
   openModal('modalArrayCopy');
@@ -506,6 +529,11 @@ function updateProps() {
     const isIrregular = !!(b.cells && b.cells.length > 1);
     document.getElementById('rowTextPlacement').style.display = isIrregular ? '' : 'none';
     if (isIrregular) document.getElementById('propTextPlacement').value = b.textPlacement || 'auto';
+    // 폰트 크기
+    const hasFontOverride = b.fontSize != null;
+    document.getElementById('propFontSize').value = hasFontOverride ? b.fontSize : 12;
+    document.getElementById('propFontSizeVal').textContent = hasFontOverride ? b.fontSize + 'px' : '자동';
+    document.getElementById('propFontSizeAuto').style.display = hasFontOverride ? '' : 'none';
     document.getElementById('propStatus').value = b.status;
     const colors = STATUS_COLORS[b.status] || STATUS_COLORS.available;
     document.getElementById('propFillColor').value = b.fillColor || rgbToHex(colors.fill) || '#3D4255';
