@@ -63,16 +63,27 @@ function hasAdjacentEdge(cells, c, side) {
   }
   return false;
 }
-// 텍스트 배치용 셀 반환 — textPlacement: 'auto'(면적최대) | 'wide'(너비최대) | 'tall'(높이최대)
+// 텍스트 배치용 rect 반환
+// textPlacement: 'auto'(면적최대 cell) | 'wide'(가로 암 전체) | 'tall'(세로 암 전체)
 function getTextRect(b) {
   if (!b.cells || b.cells.length <= 1) return { x: b.x, y: b.y, w: b.w, h: b.h };
   const placement = b.textPlacement || 'auto';
-  let best = b.cells[0], bestVal = 0;
+  // L자 부스에 저장된 arm rect 활용 (wide/tall)
+  if (b.textRects) {
+    if (placement === 'wide' && b.textRects.wide) return b.textRects.wide;
+    if (placement === 'tall' && b.textRects.tall) return b.textRects.tall;
+    // auto: 면적 더 큰 암 선택
+    if (b.textRects.wide && b.textRects.tall) {
+      const wa = b.textRects.wide.w * b.textRects.wide.h;
+      const ta = b.textRects.tall.w * b.textRects.tall.h;
+      return wa >= ta ? b.textRects.wide : b.textRects.tall;
+    }
+  }
+  // fallback: cells 중 면적 최대 cell
+  let best = b.cells[0], bestArea = 0;
   for (const c of b.cells) {
-    const val = placement === 'wide' ? c.w
-              : placement === 'tall' ? c.h
-              : c.w * c.h;
-    if (val > bestVal) { bestVal = val; best = c; }
+    const a = c.w * c.h;
+    if (a > bestArea) { bestArea = a; best = c; }
   }
   return best;
 }

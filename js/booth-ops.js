@@ -543,8 +543,33 @@ function createLBooth() {
     ];
   }
 
+  // 텍스트 배치용 암(arm) rect — 개별 cell이 아닌 가로/세로 암 전체 영역
+  // wide = 전폭 row, tall = 전고 column (각 방향별로 L shape 내부에 완전히 포함됨)
+  let textRects;
+  if (dir === 'TL') {
+    textRects = {
+      wide: { x: bx,        y: by + cHpx, w: W,   h: mH },  // 하단 전체 행 (전폭)
+      tall: { x: bx + cWpx, y: by,        w: mW,  h: H  },  // 우측 전체 열 (전고)
+    };
+  } else if (dir === 'TR') {
+    textRects = {
+      wide: { x: bx,        y: by + cHpx, w: W,   h: mH },  // 하단 전체 행 (전폭)
+      tall: { x: bx,        y: by,        w: mW,  h: H  },  // 좌측 전체 열 (전고)
+    };
+  } else if (dir === 'BL') {
+    textRects = {
+      wide: { x: bx,        y: by,        w: W,   h: mH },  // 상단 전체 행 (전폭)
+      tall: { x: bx + cWpx, y: by,        w: mW,  h: H  },  // 우측 전체 열 (전고)
+    };
+  } else { // BR
+    textRects = {
+      wide: { x: bx,        y: by,        w: W,   h: mH },  // 상단 전체 행 (전폭)
+      tall: { x: bx,        y: by,        w: mW,  h: H  },  // 좌측 전체 열 (전고)
+    };
+  }
+
   saveUndo();
-  const booth = { id: state.nextId++, x: bx, y: by, w: W, h: H, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells, textPlacement: 'auto' };
+  const booth = { id: state.nextId++, x: bx, y: by, w: W, h: H, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells, textPlacement: 'auto', textRects };
   state.booths.push(booth);
   state.selectedIds.clear();
   state.selectedIds.add(booth.id);
