@@ -184,7 +184,8 @@ function renderForExport(ectx, W, H, preset) {
       stroke = isHighlight ? '#3DAF6E' : STATUS_COLORS.available.stroke;
       textColor = isHighlight ? '#fff' : STATUS_COLORS.available.text;
     } else {
-      const c = STATUS_COLORS[b.status] || STATUS_COLORS.available;
+      const statusKey = b.status === 'excluded' ? 'available' : b.status;
+      const c = STATUS_COLORS[statusKey] || STATUS_COLORS.available;
       fill = c.fill; stroke = c.stroke; textColor = c.text;
     }
 
@@ -263,7 +264,7 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
 
   // 부스 렌더링 — 도면출력/배정가능위치와 동일 디자인
   for (const b of booths) {
-    const isFacility = b.status === 'facility' || b.status === 'excluded';
+    const isFacility = b.status === 'facility';
     const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
     ectx.fillStyle = fill;
     fillBoothShape(ectx, b);
@@ -472,7 +473,7 @@ async function exportFloorplanPDF() {
 
   // 부스 렌더링 — L자 부스 지원, 전시회별 색상
   for (const booth of state.booths) {
-    const isFacility = booth.status === 'facility' || booth.status === 'excluded';
+    const isFacility = booth.status === 'facility';
     ctx.fillStyle = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
     fillBoothShape(ctx, booth);
     ctx.strokeStyle = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
@@ -589,7 +590,7 @@ async function exportAvailablePDF() {
 
   // 부스 렌더링 — 배정가능위치(spot)만 노란색, 나머지 전시회별 색상, L자 지원
   for (const booth of state.booths) {
-    const isFacility = booth.status === 'facility' || booth.status === 'excluded';
+    const isFacility = booth.status === 'facility';
     const isSpot = booth.status === 'spot';
     let fill, stroke;
     if (isFacility) {
@@ -712,7 +713,7 @@ async function exportSVG(lang = 'ko') {
     // ① 부스 (벡터 rect)
     p.push('<g id="booths">');
     for (const b of booths) {
-      const isFacility = b.status === 'facility' || b.status === 'excluded';
+      const isFacility = b.status === 'facility';
       const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
       if (b.cells && b.cells.length > 1) {
         // L자 부스: 셀은 fill만, 바운딩박스에 테두리
