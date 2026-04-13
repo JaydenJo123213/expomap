@@ -11,6 +11,10 @@ document.getElementById('btnDivide').addEventListener('click', openDivideDialog)
 // document.getElementById('btnUngroup').addEventListener('click', ungroupSelected);
 document.getElementById('btnNumCopy').addEventListener('click', openNumericCopyDialog);
 document.getElementById('btnLBooth').addEventListener('click', openLBoothDialog);
+document.getElementById('propTextPlacement').addEventListener('change', (e) => {
+  const b = getSelectedBooth();
+  if (b) { saveUndo(); b.textPlacement = e.target.value; render(); }
+});
 document.getElementById('btnArrayCopy').addEventListener('click', () => {
   if (!state.selectedIds.size) { alert('Select booths to array-copy.'); return; }
   openModal('modalArrayCopy');
@@ -499,6 +503,9 @@ function updateProps() {
     document.getElementById('propW').value = pxToM(b.w).toFixed(1);
     document.getElementById('propH').value = pxToM(b.h).toFixed(1);
     document.getElementById('propArea').textContent = getBoothAreaM2(b).toFixed(1) + '㎡';
+    const isIrregular = !!(b.cells && b.cells.length > 1);
+    document.getElementById('rowTextPlacement').style.display = isIrregular ? '' : 'none';
+    if (isIrregular) document.getElementById('propTextPlacement').value = b.textPlacement || 'auto';
     document.getElementById('propStatus').value = b.status;
     const colors = STATUS_COLORS[b.status] || STATUS_COLORS.available;
     document.getElementById('propFillColor').value = b.fillColor || rgbToHex(colors.fill) || '#3D4255';

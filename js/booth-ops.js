@@ -467,7 +467,7 @@ function mergeSelected() {
     cells.every(c => c.x >= minX && c.y >= minY && c.x + c.w <= maxX && c.y + c.h <= maxY) &&
     cells.reduce((s, c) => s + c.w * c.h, 0) === (maxX - minX) * (maxY - minY)
   );
-  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells: isRect ? null : cells };
+  const merged = { id: state.nextId++, x: minX, y: minY, w: maxX - minX, h: maxY - minY, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', groupId: null, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells: isRect ? null : cells, textPlacement: 'auto' };
   state.booths.push(merged);
   state.selectedIds.clear();
   state.selectedIds.add(merged.id);
@@ -544,7 +544,7 @@ function createLBooth() {
   }
 
   saveUndo();
-  const booth = { id: state.nextId++, x: bx, y: by, w: W, h: H, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells };
+  const booth = { id: state.nextId++, x: bx, y: by, w: W, h: H, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells, textPlacement: 'auto' };
   state.booths.push(booth);
   state.selectedIds.clear();
   state.selectedIds.add(booth.id);

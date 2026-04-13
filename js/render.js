@@ -63,14 +63,16 @@ function hasAdjacentEdge(cells, c, side) {
   }
   return false;
 }
-// 텍스트 배치용 가장 큰 셀 반환
+// 텍스트 배치용 셀 반환 — textPlacement: 'auto'(면적최대) | 'wide'(너비최대) | 'tall'(높이최대)
 function getTextRect(b) {
   if (!b.cells || b.cells.length <= 1) return { x: b.x, y: b.y, w: b.w, h: b.h };
-  let best = b.cells[0];
-  let bestArea = best.w * best.h;
-  for (let i = 1; i < b.cells.length; i++) {
-    const a = b.cells[i].w * b.cells[i].h;
-    if (a > bestArea) { bestArea = a; best = b.cells[i]; }
+  const placement = b.textPlacement || 'auto';
+  let best = b.cells[0], bestVal = 0;
+  for (const c of b.cells) {
+    const val = placement === 'wide' ? c.w
+              : placement === 'tall' ? c.h
+              : c.w * c.h;
+    if (val > bestVal) { bestVal = val; best = c; }
   }
   return best;
 }
