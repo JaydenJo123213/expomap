@@ -68,15 +68,16 @@ function hasAdjacentEdge(cells, c, side) {
 function getTextRect(b) {
   if (!b.cells || b.cells.length <= 1) return { x: b.x, y: b.y, w: b.w, h: b.h };
   const placement = b.textPlacement || 'auto';
-  // L자 부스에 저장된 arm rect 활용 (wide/tall)
+  // L자 부스에 저장된 arm rect 활용 (dx/dy는 b.x/b.y 기준 상대 좌표)
   if (b.textRects) {
-    if (placement === 'wide' && b.textRects.wide) return b.textRects.wide;
-    if (placement === 'tall' && b.textRects.tall) return b.textRects.tall;
+    const toAbs = r => ({ x: b.x + r.dx, y: b.y + r.dy, w: r.w, h: r.h });
+    if (placement === 'wide' && b.textRects.wide) return toAbs(b.textRects.wide);
+    if (placement === 'tall' && b.textRects.tall) return toAbs(b.textRects.tall);
     // auto: 면적 더 큰 암 선택
     if (b.textRects.wide && b.textRects.tall) {
       const wa = b.textRects.wide.w * b.textRects.wide.h;
       const ta = b.textRects.tall.w * b.textRects.tall.h;
-      return wa >= ta ? b.textRects.wide : b.textRects.tall;
+      return toAbs(wa >= ta ? b.textRects.wide : b.textRects.tall);
     }
   }
   // fallback: cells 중 면적 최대 cell

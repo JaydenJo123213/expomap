@@ -543,28 +543,29 @@ function createLBooth() {
     ];
   }
 
-  // 텍스트 배치용 암(arm) rect — 개별 cell이 아닌 가로/세로 암 전체 영역
-  // wide = 전폭 row, tall = 전고 column (각 방향별로 L shape 내부에 완전히 포함됨)
+  // 텍스트 배치용 암(arm) rect — b.x/b.y 기준 상대 좌표(dx, dy) 저장
+  // 절대 좌표 저장 시 부스 이동 후 어긋나므로 반드시 상대값 사용
+  // wide = 전폭 row, tall = 전고 column
   let textRects;
   if (dir === 'TL') {
     textRects = {
-      wide: { x: bx,        y: by + cHpx, w: W,   h: mH },  // 하단 전체 행 (전폭)
-      tall: { x: bx + cWpx, y: by,        w: mW,  h: H  },  // 우측 전체 열 (전고)
+      wide: { dx: 0,    dy: cHpx, w: W,  h: mH },  // 하단 전체 행 (전폭)
+      tall: { dx: cWpx, dy: 0,    w: mW, h: H  },  // 우측 전체 열 (전고)
     };
   } else if (dir === 'TR') {
     textRects = {
-      wide: { x: bx,        y: by + cHpx, w: W,   h: mH },  // 하단 전체 행 (전폭)
-      tall: { x: bx,        y: by,        w: mW,  h: H  },  // 좌측 전체 열 (전고)
+      wide: { dx: 0, dy: cHpx, w: W,  h: mH },    // 하단 전체 행 (전폭)
+      tall: { dx: 0, dy: 0,    w: mW, h: H  },    // 좌측 전체 열 (전고)
     };
   } else if (dir === 'BL') {
     textRects = {
-      wide: { x: bx,        y: by,        w: W,   h: mH },  // 상단 전체 행 (전폭)
-      tall: { x: bx + cWpx, y: by,        w: mW,  h: H  },  // 우측 전체 열 (전고)
+      wide: { dx: 0,    dy: 0, w: W,  h: mH },    // 상단 전체 행 (전폭)
+      tall: { dx: cWpx, dy: 0, w: mW, h: H  },    // 우측 전체 열 (전고)
     };
   } else { // BR
     textRects = {
-      wide: { x: bx,        y: by,        w: W,   h: mH },  // 상단 전체 행 (전폭)
-      tall: { x: bx,        y: by,        w: mW,  h: H  },  // 좌측 전체 열 (전고)
+      wide: { dx: 0, dy: 0, w: W,  h: mH },       // 상단 전체 행 (전폭)
+      tall: { dx: 0, dy: 0, w: mW, h: H  },       // 좌측 전체 열 (전고)
     };
   }
 
