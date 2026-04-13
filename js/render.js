@@ -198,6 +198,17 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
           c.restore();
         }
       }
+      // 사이즈 텍스트: 우하단 — 일반 직사각형 부스만, L자(cells) 제외
+      const isIrregularBooth = !!(b.cells && b.cells.length > 1);
+      if (showSize && !isIrregularBooth) {
+        const szFz = Math.max(1.5, Math.min(availH * 0.12, 10));
+        c.fillStyle = textColor;
+        c.font = `400 ${szFz}px Pretendard, sans-serif`;
+        c.textAlign = 'right'; c.textBaseline = 'bottom';
+        c.globalAlpha = 0.45;
+        c.fillText(`${wm}×${hm}m`, tr.x + tr.w - pad, tr.y + tr.h - pad);
+        c.globalAlpha = 1;
+      }
       if (!skipElec) drawElecBadges(c, b, zoom);
       if (!skipOther) drawOtherBadges(c, b, zoom);
       drawBoothWarnings(c, b, zoom);
