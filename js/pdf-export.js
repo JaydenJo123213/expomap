@@ -716,7 +716,23 @@ async function exportSVG(lang = 'ko') {
 
     // ① 배경 이미지
     if (state.bg.img) {
-      const bgDataUrl = state.bg.dataUrl || _imgToDataUrl(state.bg.img);
+      let bgDataUrl = state.bg.dataUrl || null;
+      if (!bgDataUrl) {
+        // HTTP URL (Supabase 저장소): canvas taint 우회 → fetch → blob → base64
+        const src = state.bg.img.src;
+        if (src && src.startsWith('http')) {
+          try {
+            const resp = await fetch(src);
+            const blob = await resp.blob();
+            bgDataUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+          } catch (e) { /* fallback */ }
+        }
+        if (!bgDataUrl) bgDataUrl = _imgToDataUrl(state.bg.img);
+      }
       if (bgDataUrl) {
         const rot = state.bg.rotation || 0;
         const cx = state.bg.x + state.bg.w / 2;
