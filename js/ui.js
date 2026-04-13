@@ -43,6 +43,7 @@ document.getElementById('btnExport').addEventListener('click', () => {
   selectPreset(document.querySelector('.preset-card[data-preset="sales"]'));
   openModal('modalExport');
 });
+document.getElementById('btnExportSVG').addEventListener('click', () => { exportSVG(); });
 document.getElementById('btnAssignGuide').addEventListener('click', () => {
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();

@@ -644,3 +644,232 @@ async function exportAvailablePDF() {
   await _savePDF(pdf, `${_pdfPre2}_Floor Plan_${dateStr}_Available${langSuffix}.pdf`);
   state._exporting = false;
 }
+
+// ─── SVG 대형출력 Export ───
+
+function _escXml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _imgToDataUrl(img) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || img.width || 1;
+    c.height = img.naturalHeight || img.height || 1;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return c.toDataURL('image/png');
+  } catch (e) {
+    return null;
+  }
+}
+
+async function _saveSVG(svgString, filename) {
+  const blob = new Blob([svgString], { type: 'image/svg+xml' });
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'SVG 파일', accept: { 'image/svg+xml': ['.svg'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportSVG() {
+  state._exporting = true;
+  try {
+    const booths = state.booths;
+
+    // bounds 계산 (exportFloorplanPDF와 동일 로직)
+    const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+    let bounds;
+    if (_bgFill) {
+      bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
+    } else {
+      bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+      if (booths.length) {
+        for (const b of booths) {
+          bounds.x1 = Math.min(bounds.x1, b.x);
+          bounds.y1 = Math.min(bounds.y1, b.y);
+          bounds.x2 = Math.max(bounds.x2, b.x + b.w);
+          bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+        }
+        bounds.x1 -= 50; bounds.y1 -= 100;
+        bounds.x2 += 50; bounds.y2 += 50;
+      }
+    }
+    const vw = bounds.x2 - bounds.x1;
+    const vh = bounds.y2 - bounds.y1;
+
+    const p = [];
+    p.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${bounds.x1} ${bounds.y1} ${vw} ${vh}" width="${vw}" height="${vh}">`);
+
+    // ① 배경 이미지
+    if (state.bg.img) {
+      const bgDataUrl = state.bg.dataUrl || _imgToDataUrl(state.bg.img);
+      if (bgDataUrl) {
+        const rot = state.bg.rotation || 0;
+        const cx = state.bg.x + state.bg.w / 2;
+        const cy = state.bg.y + state.bg.h / 2;
+        const xfm = rot ? ` transform="rotate(${rot} ${cx} ${cy})"` : '';
+        p.push(`<image href="${bgDataUrl}" x="${state.bg.x}" y="${state.bg.y}" width="${state.bg.w}" height="${state.bg.h}"${xfm} preserveAspectRatio="none"/>`);
+      }
+    }
+
+    // ② 부스 (벡터 rect)
+    p.push('<g id="booths">');
+    for (const b of booths) {
+      const isFacility = b.status === 'facility' || b.status === 'excluded';
+      const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
+      const stroke = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
+      if (b.cells && b.cells.length > 1) {
+        // L자 부스: 셀은 fill만, 바운딩박스에 테두리
+        p.push('<g>');
+        for (const c of b.cells) {
+          p.push(`<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="${fill}" stroke="none"/>`);
+        }
+        p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="${stroke}" stroke-width="0.5"/>`);
+        p.push('</g>');
+      } else {
+        p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${fill}" stroke="${stroke}" stroke-width="0.5"/>`);
+      }
+    }
+    p.push('</g>');
+
+    // ③ 기본부스번호
+    p.push('<g id="base-numbers">');
+    for (const bn of state.baseNumbers) {
+      if (!bn.baseNo) continue;
+      const covering = booths.find(b =>
+        b.x < bn.x + bn.w && b.x + b.w > bn.x &&
+        b.y < bn.y + bn.h && b.y + b.h > bn.y &&
+        (b.companyName || b.companyNameEn)
+      );
+      if (covering) continue;
+      const fz = Math.min(bn.w, bn.h) * 0.35;
+      p.push(`<text x="${bn.x + bn.w/2}" y="${bn.y + bn.h/2}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#333" text-anchor="middle" dominant-baseline="middle">${_escXml(bn.baseNo)}</text>`);
+    }
+    p.push('</g>');
+
+    // ④ 구조물
+    p.push('<g id="structures">');
+    for (const s of state.structures) {
+      const col = s.color || '#888';
+      const fillCol = s.fillColor || '#5C5C5C';
+      const th = s.thickness || 2;
+      if (s.type === 'column') {
+        if (s.columnShape === 'square') {
+          const hw = (s.w || s.radius * 2) / 2, hh = (s.h || s.radius * 2) / 2;
+          p.push(`<rect x="${s.x-hw}" y="${s.y-hh}" width="${hw*2}" height="${hh*2}" fill="${fillCol}" stroke="${col}" stroke-width="0.5"/>`);
+        } else {
+          p.push(`<circle cx="${s.x}" cy="${s.y}" r="${s.radius}" fill="${fillCol}" stroke="${col}" stroke-width="0.5"/>`);
+        }
+      } else if (s.type === 'circle') {
+        p.push(`<circle cx="${s.x}" cy="${s.y}" r="${s.radius}" fill="${fillCol}" stroke="${col}" stroke-width="0.5"/>`);
+      } else if (s.type === 'wall' || s.type === 'line') {
+        p.push(`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="${col}" stroke-width="${th}" stroke-linecap="round"/>`);
+      } else if (s.type === 'arrow') {
+        const ang = Math.atan2(s.y2 - s.y1, s.x2 - s.x1);
+        const hl = 10;
+        p.push(`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="${col}" stroke-width="${th}" stroke-linecap="round"/>`);
+        const ax1 = s.x2 - hl * Math.cos(ang - Math.PI/6), ay1 = s.y2 - hl * Math.sin(ang - Math.PI/6);
+        const ax2 = s.x2 - hl * Math.cos(ang + Math.PI/6), ay2 = s.y2 - hl * Math.sin(ang + Math.PI/6);
+        p.push(`<polyline points="${ax1},${ay1} ${s.x2},${s.y2} ${ax2},${ay2}" stroke="${col}" stroke-width="${th}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
+      }
+      if (s.label) {
+        const lx = s.x !== undefined ? s.x : (s.x1 + s.x2) / 2;
+        const ly = (s.y !== undefined ? s.y : (s.y1 + s.y2) / 2) - 8;
+        p.push(`<text x="${lx}" y="${ly}" font-family="Pretendard,sans-serif" font-size="8" fill="${col}" text-anchor="middle">${_escXml(s.label)}</text>`);
+      }
+    }
+    p.push('</g>');
+
+    // ⑤ 부스 콘텐츠 (로고 + 번호 + 업체명)
+    p.push('<g id="booth-content">');
+    for (const b of booths) {
+      const displayName = state.lang === 'en' ? (b.companyNameEn || '') : (b.companyName || '');
+      const pad = 2;
+      const tr = { x: b.x + pad, y: b.y + pad, w: b.w - pad*2, h: b.h - pad*2 };
+      const area = (b.w / 10) * (b.h / 10);
+      let hasLogo = false;
+
+      // 로고
+      if (area >= 36 && displayName && b.companyLogoUrl) {
+        const logoImg = state.logoCache.get(b.id);
+        if (logoImg) {
+          const logoDataUrl = _imgToDataUrl(logoImg);
+          if (logoDataUrl) {
+            hasLogo = true;
+            const scale = (b.logoScale ?? 100) / 100;
+            const logoPad = tr.w * 0.08;
+            const logoAreaW = tr.w - logoPad * 2;
+            const logoAreaH = tr.h * 0.55;
+            const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
+            let drawW, drawH;
+            if (imgAspect > logoAreaW / logoAreaH) {
+              drawW = logoAreaW * scale; drawH = drawW / imgAspect;
+            } else {
+              drawH = logoAreaH * scale; drawW = drawH * imgAspect;
+            }
+            const logoX = tr.x + (tr.w - drawW) / 2;
+            const logoY = tr.y + tr.h * 0.05 + (logoAreaH - drawH) / 2;
+            p.push(`<image href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
+          }
+        }
+      }
+
+      // 부스번호
+      if (b.boothId) {
+        const noFz = Math.max(Math.min(tr.w, tr.h) * 0.18, 3);
+        p.push(`<text x="${tr.x + pad}" y="${tr.y + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="500" fill="#111111" opacity="0.65">${_escXml(b.boothId)}</text>`);
+      }
+
+      // 업체명
+      if (displayName) {
+        const lines = (typeof wrapText === 'function') ? wrapText(displayName) : [displayName];
+        const maxLen = Math.max(...lines.map(l => l.length), 1);
+        const fz = Math.max(Math.min(tr.w * 0.82 / maxLen * 1.6, tr.h * 0.22), 3);
+        const lineH = fz * 1.25;
+        const areaY = hasLogo ? tr.y + tr.h * 0.60 : tr.y + tr.h * 0.30;
+        const areaH = hasLogo ? tr.h * 0.34 : tr.h * 0.40;
+        const startY = areaY + (areaH - lines.length * lineH) / 2 + fz * 0.5;
+        lines.forEach((line, i) => {
+          p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle" dominant-baseline="middle">${_escXml(line)}</text>`);
+        });
+      }
+    }
+    p.push('</g>');
+
+    // ⑥ 장식 로고 (state.logos)
+    if (state.logos && state.logos.length) {
+      p.push('<g id="decorative-logos">');
+      for (const logo of state.logos) {
+        if (!logo.img) continue;
+        const dataUrl = logo.dataUrl || _imgToDataUrl(logo.img);
+        if (dataUrl) p.push(`<image href="${dataUrl}" x="${logo.x}" y="${logo.y}" width="${logo.w}" height="${logo.h}" preserveAspectRatio="xMidYMid meet"/>`);
+      }
+      p.push('</g>');
+    }
+
+    p.push('</svg>');
+
+    const now = new Date();
+    const dateStr = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+    const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+    await _saveSVG(p.join('\n'), `${_pdfPre}_Floor Plan_${dateStr}_Vector.svg`);
+  } catch (e) {
+    alert('SVG 생성 실패: ' + e.message);
+  } finally {
+    state._exporting = false;
+  }
+}
