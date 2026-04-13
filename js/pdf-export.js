@@ -690,62 +690,27 @@ async function exportSVG(lang = 'ko') {
   try {
     const booths = state.booths;
 
-    // SVG bounds: bg 있으면 항상 bg 기준 (bg가 도면 기준선)
-    // PDF는 pdfMode에 따라 다르지만 SVG는 bg와 부스가 정확히 겹쳐야 하므로 bg 우선
-    let bounds;
-    if (state.bg.img) {
-      bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
-    } else {
-      bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
-      if (booths.length) {
-        for (const b of booths) {
-          bounds.x1 = Math.min(bounds.x1, b.x);
-          bounds.y1 = Math.min(bounds.y1, b.y);
-          bounds.x2 = Math.max(bounds.x2, b.x + b.w);
-          bounds.y2 = Math.max(bounds.y2, b.y + b.h);
-        }
-        bounds.x1 -= 50; bounds.y1 -= 100;
-        bounds.x2 += 50; bounds.y2 += 50;
+    // SVG bounds: 부스 기준 (bg 이미지는 PNG 래스터이므로 SVG에서 제외)
+    let bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+    if (booths.length) {
+      bounds = { x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity };
+      for (const b of booths) {
+        bounds.x1 = Math.min(bounds.x1, b.x);
+        bounds.y1 = Math.min(bounds.y1, b.y);
+        bounds.x2 = Math.max(bounds.x2, b.x + b.w);
+        bounds.y2 = Math.max(bounds.y2, b.y + b.h);
       }
+      bounds.x1 -= 50; bounds.y1 -= 50;
+      bounds.x2 += 50; bounds.y2 += 50;
     }
     const vw = bounds.x2 - bounds.x1;
     const vh = bounds.y2 - bounds.y1;
 
     const p = [];
-    // viewBox 0 0 기준 — Illustrator가 <image> x/y를 artboard 기준으로 처리하는 버그 우회
-    // 모든 요소를 translate 그룹으로 감싸면 벡터/래스터 모두 동일하게 좌표 이동
     p.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${vw} ${vh}" width="${vw}" height="${vh}">`);
     p.push(`<g transform="translate(${-bounds.x1} ${-bounds.y1})">`);
 
-    // ① 배경 이미지
-    if (state.bg.img) {
-      let bgDataUrl = state.bg.dataUrl || null;
-      if (!bgDataUrl) {
-        // HTTP URL (Supabase 저장소): canvas taint 우회 → fetch → blob → base64
-        const src = state.bg.img.src;
-        if (src && src.startsWith('http')) {
-          try {
-            const resp = await fetch(src);
-            const blob = await resp.blob();
-            bgDataUrl = await new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.readAsDataURL(blob);
-            });
-          } catch (e) { /* fallback */ }
-        }
-        if (!bgDataUrl) bgDataUrl = _imgToDataUrl(state.bg.img);
-      }
-      if (bgDataUrl) {
-        const rot = state.bg.rotation || 0;
-        const cx = state.bg.x + state.bg.w / 2;
-        const cy = state.bg.y + state.bg.h / 2;
-        const xfm = rot ? ` transform="rotate(${rot} ${cx} ${cy})"` : '';
-        p.push(`<image xlink:href="${bgDataUrl}" x="${state.bg.x}" y="${state.bg.y}" width="${state.bg.w}" height="${state.bg.h}"${xfm} preserveAspectRatio="none"/>`);
-      }
-    }
-
-    // ② 부스 (벡터 rect)
+    // ① 부스 (벡터 rect)
     p.push('<g id="booths">');
     for (const b of booths) {
       const isFacility = b.status === 'facility' || b.status === 'excluded';
@@ -876,9 +841,12 @@ async function exportSVG(lang = 'ko') {
             const lineH = fz * 1.25;
             const blockH = lines.length * lineH;
             const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
-            lines.forEach((line, i) => {
-              pNames.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
-            });
+            { const cx = tr.x + tr.w / 2, baseY = startY + fz * 0.35;
+              const body = lines.length === 1
+                ? _escXml(lines[0])
+                : lines.map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineH}">${_escXml(l)}</tspan>`).join('');
+              pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${body}</text>`);
+            }
 
             if (hasBoothNo) addBoothNo(calcFontSize(mc, b.boothId, 26));
           }
@@ -899,9 +867,12 @@ async function exportSVG(lang = 'ko') {
           const lineH = fz * 1.25;
           const blockH = lines.length * lineH;
           const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
-          lines.forEach((line, i) => {
-            pNames.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
-          });
+          { const cx = tr.x + tr.w / 2, baseY = startY + fz * 0.35;
+            const body = lines.length === 1
+              ? _escXml(lines[0])
+              : lines.map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineH}">${_escXml(l)}</tspan>`).join('');
+            pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${body}</text>`);
+          }
           if (hasBoothNo) addBoothNo(noFz);
         } else if (hasBoothNo) {
           // Case 3: 부스번호만 (render.js:254-260)
