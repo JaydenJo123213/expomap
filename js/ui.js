@@ -43,7 +43,8 @@ document.getElementById('btnExport').addEventListener('click', () => {
   selectPreset(document.querySelector('.preset-card[data-preset="sales"]'));
   openModal('modalExport');
 });
-document.getElementById('btnExportSVG').addEventListener('click', () => { exportSVG(); });
+document.getElementById('btnExportSVG').addEventListener('click', () => { exportSVG('ko'); });
+document.getElementById('btnExportSVG_EN').addEventListener('click', () => { exportSVG('en'); });
 document.getElementById('btnAssignGuide').addEventListener('click', () => {
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();

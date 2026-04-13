@@ -685,7 +685,7 @@ async function _saveSVG(svgString, filename) {
   URL.revokeObjectURL(url);
 }
 
-async function exportSVG() {
+async function exportSVG(lang = 'ko') {
   state._exporting = true;
   try {
     const booths = state.booths;
@@ -794,11 +794,11 @@ async function exportSVG() {
     }
     p.push('</g>');
 
-    // ⑤ 부스 콘텐츠 — drawBoothContent(render.js:88)와 동일한 로직
-    p.push('<g id="booth-content">');
+    // ⑤ 부스 콘텐츠 — 레이어 분리: booth-logos / booth-numbers / company-names
+    const pLogos = [], pNos = [], pNames = [];
     const mc = document.createElement('canvas').getContext('2d');
     for (const b of booths) {
-      const displayName = state.lang === 'en' ? (b.companyNameEn || '') : (b.companyName || '');
+      const displayName = lang === 'en' ? (b.companyNameEn || '') : (b.companyName || '');
       const pad = 2;
       // L자 부스: 가장 큰 셀 기준 (render.js getTextRect와 동일)
       const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
@@ -810,9 +810,8 @@ async function exportSVG() {
       const hasCompany = !!displayName;
       const hasBoothNo = !!b.boothId;
 
-      // SVG에서 부스번호 헬퍼 (textBaseline='top' 대응: y = top + noFz)
-      const pushBoothNo = (noFz) => {
-        p.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="500" fill="#111111" opacity="0.65">${_escXml(b.boothId)}</text>`);
+      const addBoothNo = (noFz) => {
+        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="500" fill="#111111" opacity="0.65">${_escXml(b.boothId)}</text>`);
       };
 
       // Case 1: 로고 있음 (render.js:106-190)
@@ -845,7 +844,7 @@ async function exportSVG() {
             const logoX = tr.x + (tr.w - drawW) / 2;
             const logoCenterY = tr.y + logoTopPad + logoH / 2;
             const logoY = logoCenterY - drawH / 2;
-            p.push(`<image xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
+            pLogos.push(`<image xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
 
             // 텍스트 영역: 로고 아래 (render.js:143-159)
             const textAreaY = tr.y + tr.h * 0.58 + gap;
@@ -859,11 +858,10 @@ async function exportSVG() {
             const blockH = lines.length * lineH;
             const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
             lines.forEach((line, i) => {
-              p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
+              pNames.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
             });
 
-            // 부스번호: 좌상단 (render.js:162-168)
-            if (hasBoothNo) pushBoothNo(calcFontSize(mc, b.boothId, 26));
+            if (hasBoothNo) addBoothNo(calcFontSize(mc, b.boothId, 26));
           }
         }
       }
@@ -883,16 +881,18 @@ async function exportSVG() {
           const blockH = lines.length * lineH;
           const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
           lines.forEach((line, i) => {
-            p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
+            pNames.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
           });
-          if (hasBoothNo) pushBoothNo(noFz);
+          if (hasBoothNo) addBoothNo(noFz);
         } else if (hasBoothNo) {
           // Case 3: 부스번호만 (render.js:254-260)
-          pushBoothNo(calcFontSize(mc, b.boothId, 26));
+          addBoothNo(calcFontSize(mc, b.boothId, 26));
         }
       }
     }
-    p.push('</g>');
+    if (pLogos.length) { p.push('<g id="booth-logos">'); pLogos.forEach(e => p.push(e)); p.push('</g>'); }
+    if (pNos.length)   { p.push('<g id="booth-numbers">'); pNos.forEach(e => p.push(e)); p.push('</g>'); }
+    if (pNames.length) { p.push('<g id="company-names">'); pNames.forEach(e => p.push(e)); p.push('</g>'); }
 
     // ⑥ 장식 로고 (state.logos)
     if (state.logos && state.logos.length) {
@@ -910,7 +910,8 @@ async function exportSVG() {
     const now = new Date();
     const dateStr = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
     const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-    await _saveSVG(p.join('\n'), `${_pdfPre}_Floor Plan_${dateStr}_Vector.svg`);
+    const _langSuffix = lang === 'en' ? '_EN' : '';
+    await _saveSVG(p.join('\n'), `${_pdfPre}_Floor Plan_${dateStr}_Vector${_langSuffix}.svg`);
   } catch (e) {
     alert('SVG 생성 실패: ' + e.message);
   } finally {
