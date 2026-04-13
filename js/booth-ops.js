@@ -481,13 +481,16 @@ function createLBooth() {
 
   if (aW <= 0 || aH <= 0 || bW <= 0 || bH <= 0) { alert('모든 값은 0보다 커야 합니다.'); return; }
   if (bW >= aW) { alert('잘린 너비는 전체 너비보다 작아야 합니다.'); return; }
+  if (bH >= aH) { alert('잘린 높이는 전체 높이보다 작아야 합니다.'); return; }
   if ([aW, aH, bW, bH].some(v => v % 3 !== 0)) { alert('모든 값은 3m 배수여야 합니다.'); return; }
 
-  const W    = aW * PX_PER_METER;
-  const aHpx = aH * PX_PER_METER;
-  const bWpx = bW * PX_PER_METER;
-  const bHpx = bH * PX_PER_METER;
-  const H    = aHpx + bHpx;
+  // aW=전체너비, aH=전체높이, bW=잘린너비, bH=잘린높이
+  const W    = aW * PX_PER_METER;   // 전체 bounding box 너비
+  const H    = aH * PX_PER_METER;   // 전체 bounding box 높이
+  const cWpx = bW * PX_PER_METER;   // 잘린 모서리 너비
+  const cHpx = bH * PX_PER_METER;   // 잘린 모서리 높이
+  const mH   = H - cHpx;            // 긴 쪽 높이 (전체 - 잘린)
+  const mW   = W - cWpx;            // 긴 쪽 너비 (전체 - 잘린)
 
   // 뷰포트 중앙에 그리드 스냅
   const cw = canvas.width  / (window.devicePixelRatio || 1);
@@ -500,36 +503,36 @@ function createLBooth() {
   // TL=좌상단 결락, TR=우상단 결락, BL=좌하단 결락, BR=우하단 결락
   let cells;
   if (dir === 'TL') {
-    // [NOTCH][top-right strip]
-    // [bot-left][bot-right   ]
+    // [NOTCH    ][top-right strip]
+    // [bot-left ][bot-right      ]
     cells = [
-      { x: bx + bWpx, y: by,          w: W - bWpx, h: bHpx  },  // top strip (우측)
-      { x: bx,        y: by + bHpx,   w: bWpx,     h: aHpx  },  // bottom left
-      { x: bx + bWpx, y: by + bHpx,   w: W - bWpx, h: aHpx  },  // bottom right
+      { x: bx + cWpx, y: by,         w: mW,   h: cHpx },  // top strip (우측)
+      { x: bx,        y: by + cHpx,  w: cWpx, h: mH   },  // bottom left
+      { x: bx + cWpx, y: by + cHpx,  w: mW,   h: mH   },  // bottom right
     ];
   } else if (dir === 'TR') {
     // [top-left strip][NOTCH]
     // [bot-left  ][bot-right]
     cells = [
-      { x: bx,          y: by,        w: W - bWpx, h: bHpx  },  // top strip (좌측)
-      { x: bx,          y: by + bHpx, w: W - bWpx, h: aHpx  },  // bottom left
-      { x: bx + W-bWpx, y: by + bHpx, w: bWpx,     h: aHpx  },  // bottom right
+      { x: bx,        y: by,         w: mW,   h: cHpx },  // top strip (좌측)
+      { x: bx,        y: by + cHpx,  w: mW,   h: mH   },  // bottom left
+      { x: bx + mW,   y: by + cHpx,  w: cWpx, h: mH   },  // bottom right
     ];
   } else if (dir === 'BL') {
-    // [top-left][top-right  ]
-    // [NOTCH   ][bot strip  ]
+    // [top-left][top-right]
+    // [NOTCH   ][bot strip]
     cells = [
-      { x: bx,          y: by,        w: bWpx,     h: aHpx  },  // top left
-      { x: bx + bWpx,   y: by,        w: W - bWpx, h: aHpx  },  // top right
-      { x: bx + bWpx,   y: by + aHpx, w: W - bWpx, h: bHpx  },  // bottom strip (우측)
+      { x: bx,        y: by,         w: cWpx, h: mH   },  // top left
+      { x: bx + cWpx, y: by,         w: mW,   h: mH   },  // top right
+      { x: bx + cWpx, y: by + mH,    w: mW,   h: cHpx },  // bottom strip (우측)
     ];
   } else { // BR
-    // [top-left  ][top-right]
-    // [bot strip ][NOTCH    ]
+    // [top-left][top-right]
+    // [bot strip][NOTCH   ]
     cells = [
-      { x: bx,          y: by,        w: W - bWpx, h: aHpx  },  // top left
-      { x: bx + W-bWpx, y: by,        w: bWpx,     h: aHpx  },  // top right
-      { x: bx,          y: by + aHpx, w: W - bWpx, h: bHpx  },  // bottom strip (좌측)
+      { x: bx,        y: by,         w: mW,   h: mH   },  // top left
+      { x: bx + mW,   y: by,         w: cWpx, h: mH   },  // top right
+      { x: bx,        y: by + mH,    w: mW,   h: cHpx },  // bottom strip (좌측)
     ];
   }
 
