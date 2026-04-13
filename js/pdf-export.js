@@ -1,4 +1,25 @@
 // ─── PDF Export ───
+
+// 저장 다이얼로그 (Chrome/Edge: 경로 선택 가능 / Safari·Firefox: 기본 다운로드)
+async function _savePDF(doc, filename) {
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'PDF 파일', accept: { 'application/pdf': ['.pdf'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(doc.output('blob'));
+      await writable.close();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // 사용자가 취소
+      // 그 외 에러는 폴백
+    }
+  }
+  doc.save(filename);
+}
+
 let _selectedPreset = 'sales';
 function selectPreset(card) {
   document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
@@ -14,7 +35,7 @@ function selectPreset(card) {
   document.getElementById('exportNote').textContent = notes[_selectedPreset] || '';
 }
 
-function executeExport() {
+async function executeExport() {
   const preset = _selectedPreset;
   const paperSize = document.getElementById('paperSize')?.value || 'a3';
   const orient = document.getElementById('paperOrient')?.value || 'landscape';
@@ -34,14 +55,14 @@ function executeExport() {
     doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
     const presetNames = { construction: '시공팀용', sales: '영업팀용', company: '업체안내용', large: '대형출력용' };
     const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-    doc.save(_pdfPre + '_' + (presetNames[preset] || preset) + '.pdf');
+    await _savePDF(doc, _pdfPre + '_' + (presetNames[preset] || preset) + '.pdf');
     closeModal('modalExport');
   } catch (e) {
     alert('PDF export failed: ' + e.message);
   }
 }
 
-function executeAssignGuideExport() {
+async function executeAssignGuideExport() {
   state._exporting = true;
   const companyName = document.getElementById('assignGuideCompanyName').value.trim();
   if (!companyName) {
@@ -81,7 +102,7 @@ function executeAssignGuideExport() {
       String(now.getDate()).padStart(2, '0');
     const langTag = assignLang === 'en' ? '_EN' : '';
     const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-    doc.save(`${_pdfPre}_Floor Plan_${dateStr}_${companyName}${langTag}.pdf`);
+    await _savePDF(doc, `${_pdfPre}_Floor Plan_${dateStr}_${companyName}${langTag}.pdf`);
     closeModal('modalAssignGuide');
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
@@ -373,7 +394,7 @@ function renderForAssignGuideExport(ectx, W, H, showNames) {
   ectx.restore();
 }
 
-function exportFloorplanPDF() {
+async function exportFloorplanPDF() {
   state._exporting = true;
   if (state.booths.length === 0) {
     alert('부스가 없습니다.');
@@ -495,11 +516,11 @@ function exportFloorplanPDF() {
   const today = new Date();
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
-  pdf.save(`${_pdfPre}_Floor Plan_${dateStr}${langSuffix}.pdf`);
+  await _savePDF(pdf, `${_pdfPre}_Floor Plan_${dateStr}${langSuffix}.pdf`);
   state._exporting = false;
 }
 
-function exportAvailablePDF() {
+async function exportAvailablePDF() {
   state._exporting = true;
   if (state.booths.length === 0) {
     alert('부스가 없습니다.');
@@ -620,6 +641,6 @@ function exportAvailablePDF() {
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
   const _pdfPre2 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-  pdf.save(`${_pdfPre2}_Available Spots_${dateStr}${langSuffix}.pdf`);
+  await _savePDF(pdf, `${_pdfPre2}_Available Spots_${dateStr}${langSuffix}.pdf`);
   state._exporting = false;
 }
