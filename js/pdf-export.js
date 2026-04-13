@@ -509,12 +509,12 @@ async function exportFloorplanPDF() {
   ctx.restore();
 
   // PDF에 이미지 추가
-  const imgData = canvas.toDataURL('image/jpeg', 0.92);
-  pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentHeight);
+  const imgData = canvas.toDataURL('image/png');
+  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
 
   const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
   const today = new Date();
-  const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+  const dateStr = String(today.getFullYear()).slice(2) + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
   await _savePDF(pdf, `${_pdfPre}_Floor Plan_${dateStr}${langSuffix}.pdf`);
   state._exporting = false;
@@ -638,9 +638,9 @@ async function exportAvailablePDF() {
   pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentHeight);
 
   const today = new Date();
-  const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+  const dateStr = String(today.getFullYear()).slice(2) + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
   const _pdfPre2 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-  await _savePDF(pdf, `${_pdfPre2}_Available Spots_${dateStr}${langSuffix}.pdf`);
+  await _savePDF(pdf, `${_pdfPre2}_Floor Plan_${dateStr}_Available${langSuffix}.pdf`);
   state._exporting = false;
 }
