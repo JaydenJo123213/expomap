@@ -474,13 +474,13 @@ function openLBoothDialog() {
 
 function createLBooth() {
   const dir  = document.querySelector('input[name="lDir"]:checked')?.value || 'TR';
-  const aW   = parseFloat(document.getElementById('lArmAW').value) || 0;
-  const aH   = parseFloat(document.getElementById('lArmAH').value) || 0;
-  const bW   = parseFloat(document.getElementById('lArmBW').value) || 0;
-  const bH   = parseFloat(document.getElementById('lArmBH').value) || 0;
+  const aW   = parseFloat(document.getElementById('lTotalW').value) || 0;
+  const aH   = parseFloat(document.getElementById('lTotalH').value) || 0;
+  const bW   = parseFloat(document.getElementById('lCutW').value)   || 0;
+  const bH   = parseFloat(document.getElementById('lCutH').value)   || 0;
 
   if (aW <= 0 || aH <= 0 || bW <= 0 || bH <= 0) { alert('모든 값은 0보다 커야 합니다.'); return; }
-  if (bW >= aW) { alert('Arm B 너비는 Arm A 너비보다 작아야 합니다.'); return; }
+  if (bW >= aW) { alert('잘린 너비는 전체 너비보다 작아야 합니다.'); return; }
   if ([aW, aH, bW, bH].some(v => v % 3 !== 0)) { alert('모든 값은 3m 배수여야 합니다.'); return; }
 
   const W    = aW * PX_PER_METER;
