@@ -712,7 +712,10 @@ async function exportSVG(lang = 'ko') {
     const vh = bounds.y2 - bounds.y1;
 
     const p = [];
-    p.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${bounds.x1} ${bounds.y1} ${vw} ${vh}" width="${vw}" height="${vh}">`);
+    // viewBox 0 0 기준 — Illustrator가 <image> x/y를 artboard 기준으로 처리하는 버그 우회
+    // 모든 요소를 translate 그룹으로 감싸면 벡터/래스터 모두 동일하게 좌표 이동
+    p.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${vw} ${vh}" width="${vw}" height="${vh}">`);
+    p.push(`<g transform="translate(${-bounds.x1} ${-bounds.y1})">`);
 
     // ① 배경 이미지
     if (state.bg.img) {
@@ -921,6 +924,7 @@ async function exportSVG(lang = 'ko') {
       p.push('</g>');
     }
 
+    p.push('</g>');
     p.push('</svg>');
 
     const now = new Date();
