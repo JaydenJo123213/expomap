@@ -757,7 +757,7 @@ async function exportSVG() {
       );
       if (covering) continue;
       const fz = Math.min(bn.w, bn.h) * 0.35;
-      p.push(`<text x="${bn.x + bn.w/2}" y="${bn.y + bn.h/2}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#333" text-anchor="middle" dominant-baseline="middle">${_escXml(bn.baseNo)}</text>`);
+      p.push(`<text x="${bn.x + bn.w/2}" y="${bn.y + bn.h/2 + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
     }
     p.push('</g>');
 
@@ -859,7 +859,7 @@ async function exportSVG() {
             const blockH = lines.length * lineH;
             const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
             lines.forEach((line, i) => {
-              p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle" dominant-baseline="middle">${_escXml(line)}</text>`);
+              p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
             });
 
             // 부스번호: 좌상단 (render.js:162-168)
@@ -883,7 +883,7 @@ async function exportSVG() {
           const blockH = lines.length * lineH;
           const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
           lines.forEach((line, i) => {
-            p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle" dominant-baseline="middle">${_escXml(line)}</text>`);
+            p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${_escXml(line)}</text>`);
           });
           if (hasBoothNo) pushBoothNo(noFz);
         } else if (hasBoothNo) {
