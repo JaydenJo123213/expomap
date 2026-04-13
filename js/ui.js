@@ -498,7 +498,7 @@ function updateProps() {
     document.getElementById('propY').value = pxToM(b.y).toFixed(1);
     document.getElementById('propW').value = pxToM(b.w).toFixed(1);
     document.getElementById('propH').value = pxToM(b.h).toFixed(1);
-    document.getElementById('propArea').textContent = (pxToM(b.w) * pxToM(b.h)).toFixed(1) + '㎡';
+    document.getElementById('propArea').textContent = getBoothAreaM2(b).toFixed(1) + '㎡';
     document.getElementById('propStatus').value = b.status;
     const colors = STATUS_COLORS[b.status] || STATUS_COLORS.available;
     document.getElementById('propFillColor').value = b.fillColor || rgbToHex(colors.fill) || '#3D4255';
