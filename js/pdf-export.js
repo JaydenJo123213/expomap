@@ -209,7 +209,7 @@ function renderForExport(ectx, W, H, preset) {
 }
 
 // ─── 배정안내 PDF 렌더 ───
-function renderForAssignGuideExport(ectx, W, H, showNames) {
+function renderForAssignGuideExport(ectx, W, H, _showNames) {
   const booths = state.booths;
   const selectedOverlays = state.discussOverlays.filter(ov => state.selectedDiscussIds.has(ov.id));
 
@@ -722,7 +722,7 @@ async function exportSVG() {
         const cx = state.bg.x + state.bg.w / 2;
         const cy = state.bg.y + state.bg.h / 2;
         const xfm = rot ? ` transform="rotate(${rot} ${cx} ${cy})"` : '';
-        p.push(`<image href="${bgDataUrl}" x="${state.bg.x}" y="${state.bg.y}" width="${state.bg.w}" height="${state.bg.h}"${xfm} preserveAspectRatio="none"/>`);
+        p.push(`<image xlink:href="${bgDataUrl}" x="${state.bg.x}" y="${state.bg.y}" width="${state.bg.w}" height="${state.bg.h}"${xfm} preserveAspectRatio="none"/>`);
       }
     }
 
@@ -823,7 +823,7 @@ async function exportSVG() {
             }
             const logoX = tr.x + (tr.w - drawW) / 2;
             const logoY = tr.y + tr.h * 0.05 + (logoAreaH - drawH) / 2;
-            p.push(`<image href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
+            p.push(`<image xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
           }
         }
       }
@@ -856,7 +856,7 @@ async function exportSVG() {
       for (const logo of state.logos) {
         if (!logo.img) continue;
         const dataUrl = logo.dataUrl || _imgToDataUrl(logo.img);
-        if (dataUrl) p.push(`<image href="${dataUrl}" x="${logo.x}" y="${logo.y}" width="${logo.w}" height="${logo.h}" preserveAspectRatio="xMidYMid meet"/>`);
+        if (dataUrl) p.push(`<image xlink:href="${dataUrl}" x="${logo.x}" y="${logo.y}" width="${logo.w}" height="${logo.h}" preserveAspectRatio="xMidYMid meet"/>`);
       }
       p.push('</g>');
     }
