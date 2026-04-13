@@ -38,13 +38,20 @@ function selectPreset(card) {
 async function executeExport() {
   const preset = _selectedPreset;
   const paperSize = document.getElementById('paperSize')?.value || 'a3';
-  const orient = document.getElementById('paperOrient')?.value || 'landscape';
-  const offW = 2480, offH = 1748;
-  const off = document.createElement('canvas');
-  off.width = offW; off.height = offH;
-  const octx = off.getContext('2d');
-  renderForExport(octx, offW, offH, preset);
-  const imgData = off.toDataURL('image/jpeg', 0.95);
+  const isConstruction = preset === 'construction';
+
+  // bgFill 모드 여부 (exportFloorplanPDF 와 동일 로직)
+  const _bgFill = !isConstruction && _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+  // 방향: bgFill이면 BG 비율로 자동결정, large면 사용자 선택, 아니면 landscape
+  let orient;
+  if (_bgFill) {
+    orient = state.bg.w > state.bg.h ? 'landscape' : 'portrait';
+  } else if (preset === 'large') {
+    orient = document.getElementById('paperOrient')?.value || 'landscape';
+  } else {
+    orient = 'landscape';
+  }
+
   try {
     const { jsPDF } = window.jspdf;
     const paperMap = { a3: 'a3', a1: [594, 841], a0: [841, 1189] };
@@ -52,7 +59,22 @@ async function executeExport() {
     const doc = new jsPDF({ orientation: orient, unit: 'mm', format: fmt });
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
-    doc.addImage(imgData, 'JPEG', 0, 0, pw, ph);
+    const margin = _bgFill ? 0 : 10;
+    const contentW = pw - 2 * margin;
+    const contentH = ph - 2 * margin;
+
+    // 300 DPI 캔버스
+    const dpi = 300, mmToPx = dpi / 25.4;
+    const offW = Math.round(contentW * mmToPx);
+    const offH = Math.round(contentH * mmToPx);
+    const off = document.createElement('canvas');
+    off.width = offW; off.height = offH;
+    const octx = off.getContext('2d');
+
+    renderForExport(octx, offW, offH, preset, _bgFill);
+
+    const imgData = off.toDataURL('image/jpeg', 0.95);
+    doc.addImage(imgData, 'JPEG', margin, margin, contentW, contentH);
     const presetNames = { construction: '시공팀용', sales: '영업팀용', company: '업체안내용', large: '대형출력용' };
     const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
     await _savePDF(doc, _pdfPre + '_' + (presetNames[preset] || preset) + '.pdf');
@@ -112,13 +134,19 @@ async function executeAssignGuideExport() {
   }
 }
 
-function renderForExport(ectx, W, H, preset) {
+function renderForExport(ectx, W, H, preset, bgFill = false) {
   const booths = state.booths;
+  const isConstruction = preset === 'construction';
+  const isCompany = preset === 'company';
+  const highlightIds = isCompany ? new Set(state.selectedIds) : null;
+
+  // bounds 계산: bgFill이면 BG 이미지 기준, 아니면 부스/수동영역 기준
   let minX, minY, maxX, maxY;
-  if (state.exportRegion) {
-    // 수동 지정 영역 사용
-    minX = state.exportRegion.x;
-    minY = state.exportRegion.y;
+  if (bgFill && state.bg.img) {
+    minX = state.bg.x; minY = state.bg.y;
+    maxX = state.bg.x + state.bg.w; maxY = state.bg.y + state.bg.h;
+  } else if (state.exportRegion) {
+    minX = state.exportRegion.x; minY = state.exportRegion.y;
     maxX = state.exportRegion.x + state.exportRegion.w;
     maxY = state.exportRegion.y + state.exportRegion.h;
   } else if (booths.length) {
@@ -130,20 +158,21 @@ function renderForExport(ectx, W, H, preset) {
     minX = 0; minY = 0; maxX = 300; maxY = 300;
   }
   const sceneW = maxX - minX, sceneH = maxY - minY;
-  const zoom = Math.min(W / sceneW, H / sceneH) * 0.95;
+  // bgFill: 비율 유지하며 꽉 채움, 아니면 여백 5%
+  const scaleX = W / sceneW, scaleY = H / sceneH;
+  const zoom = bgFill ? Math.min(scaleX, scaleY) : Math.min(scaleX, scaleY) * 0.95;
   const panX = (W - sceneW * zoom) / 2 - minX * zoom;
   const panY = (H - sceneH * zoom) / 2 - minY * zoom;
-  const isConstruction = preset === 'construction';
-  const isCompany = preset === 'company';
-  const highlightIds = isCompany ? new Set(state.selectedIds) : null;
 
-  ectx.fillStyle = isConstruction ? '#fff' : '#1a1a2e';
+  ectx.fillStyle = isConstruction ? '#fff' : '#ffffff';
   ectx.fillRect(0, 0, W, H);
   ectx.save();
   ectx.translate(panX, panY);
   ectx.scale(zoom, zoom);
 
-  if (state.bg.img && state.bg.visible && !isConstruction) {
+  if (state.bg.img && !isConstruction) {
+    // bgFill: 항상 100% opacity, 아니면 현재 설정값
+    const alpha = bgFill ? 1 : (state.bg.visible ? state.bg.opacity : 0);
     const rot = (state.bg.rotation || 0) * Math.PI / 180;
     if (rot !== 0) {
       const cx = state.bg.x + state.bg.w / 2;
@@ -151,12 +180,12 @@ function renderForExport(ectx, W, H, preset) {
       ectx.save();
       ectx.translate(cx, cy);
       ectx.rotate(rot);
-      ectx.globalAlpha = state.bg.opacity;
+      ectx.globalAlpha = alpha;
       ectx.drawImage(state.bg.img, -state.bg.w/2, -state.bg.h/2, state.bg.w, state.bg.h);
       ectx.globalAlpha = 1;
       ectx.restore();
     } else {
-      ectx.globalAlpha = state.bg.opacity;
+      ectx.globalAlpha = alpha;
       ectx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
       ectx.globalAlpha = 1;
     }
