@@ -410,6 +410,7 @@
           <button class="tool-btn" id="btnDivide" title="Divide selected booth (Ctrl+D)" style="flex:1;min-width:70px">Divide</button>
           <button class="tool-btn" id="btnArrayCopy" title="Array copy" style="flex:1;min-width:70px">Array</button>
           <button class="tool-btn" id="btnNumCopy" title="Numeric offset copy (Enter)" style="flex:1;min-width:70px">Copy+</button>
+          <button class="tool-btn" id="btnLBooth" title="L자 부스 생성" style="flex:1;min-width:70px">L자</button>
         </div>
       </div>
 
@@ -959,6 +960,50 @@
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeModal('modalArrayCopy')">Cancel</button>
       <button class="btn btn-ok" onclick="executeArrayCopy()">Create Array</button>
+    </div>
+  </div>
+</div>
+
+<!-- L자 부스 -->
+<div class="modal-overlay" id="modalLBooth">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">L자 부스 만들기</span>
+      <button class="modal-close" onclick="closeModal('modalLBooth')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>방향 (잘린 모서리)</label>
+        <div class="radio-group" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+          <label><input type="radio" name="lDir" value="TL"> ↖ TL</label>
+          <label><input type="radio" name="lDir" value="TR" checked> ↗ TR</label>
+          <label><input type="radio" name="lDir" value="BL"> ↙ BL</label>
+          <label><input type="radio" name="lDir" value="BR"> ↘ BR</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Arm A 너비 (m)</label>
+        <input type="number" id="lArmAW" value="9" min="3" step="3">
+      </div>
+      <div class="form-row">
+        <label>Arm A 높이 (m)</label>
+        <input type="number" id="lArmAH" value="6" min="3" step="3">
+      </div>
+      <div class="form-row">
+        <label>Arm B 너비 (m)</label>
+        <input type="number" id="lArmBW" value="3" min="3" step="3">
+      </div>
+      <div class="form-row">
+        <label>Arm B 높이 (m)</label>
+        <input type="number" id="lArmBH" value="3" min="3" step="3">
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px">
+        값은 3m 배수. Arm B 너비 &lt; Arm A 너비 이어야 합니다.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal('modalLBooth')">Cancel</button>
+      <button class="btn btn-ok" onclick="createLBooth()">만들기</button>
     </div>
   </div>
 </div>

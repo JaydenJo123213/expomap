@@ -467,6 +467,69 @@ function mergeSelected() {
   render(); updateProps();
 }
 
+// ─── L자 부스 ───
+function openLBoothDialog() {
+  openModal('modalLBooth');
+}
+
+function createLBooth() {
+  const dir  = document.querySelector('input[name="lDir"]:checked')?.value || 'TR';
+  const aW   = parseFloat(document.getElementById('lArmAW').value) || 0;
+  const aH   = parseFloat(document.getElementById('lArmAH').value) || 0;
+  const bW   = parseFloat(document.getElementById('lArmBW').value) || 0;
+  const bH   = parseFloat(document.getElementById('lArmBH').value) || 0;
+
+  if (aW <= 0 || aH <= 0 || bW <= 0 || bH <= 0) { alert('모든 값은 0보다 커야 합니다.'); return; }
+  if (bW >= aW) { alert('Arm B 너비는 Arm A 너비보다 작아야 합니다.'); return; }
+  if ([aW, aH, bW, bH].some(v => v % 3 !== 0)) { alert('모든 값은 3m 배수여야 합니다.'); return; }
+
+  const W    = aW * PX_PER_METER;
+  const aHpx = aH * PX_PER_METER;
+  const bWpx = bW * PX_PER_METER;
+  const bHpx = bH * PX_PER_METER;
+  const H    = aHpx + bHpx;
+
+  // 뷰포트 중앙에 그리드 스냅
+  const cw = canvas.width  / (window.devicePixelRatio || 1);
+  const ch = canvas.height / (window.devicePixelRatio || 1);
+  const center = screenToWorld(cw / 2, ch / 2);
+  const bx = Math.round((center.x - W / 2) / GRID_PX) * GRID_PX;
+  const by = Math.round((center.y - H / 2) / GRID_PX) * GRID_PX;
+
+  // 방향별 cells (world 절대 좌표 2개 직사각형)
+  let cells;
+  if (dir === 'TL') {
+    cells = [
+      { x: bx,        y: by + bHpx, w: W,        h: aHpx },
+      { x: bx + bWpx, y: by,        w: W - bWpx, h: bHpx },
+    ];
+  } else if (dir === 'TR') {
+    cells = [
+      { x: bx,        y: by + bHpx, w: W,        h: aHpx },
+      { x: bx,        y: by,        w: W - bWpx, h: bHpx },
+    ];
+  } else if (dir === 'BL') {
+    cells = [
+      { x: bx,        y: by,        w: W,        h: aHpx },
+      { x: bx + bWpx, y: by + aHpx, w: W - bWpx, h: bHpx },
+    ];
+  } else { // BR
+    cells = [
+      { x: bx,        y: by,        w: W,        h: aHpx },
+      { x: bx,        y: by + aHpx, w: W - bWpx, h: bHpx },
+    ];
+  }
+
+  saveUndo();
+  const booth = { id: state.nextId++, x: bx, y: by, w: W, h: H, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full', cells };
+  state.booths.push(booth);
+  state.selectedIds.clear();
+  state.selectedIds.add(booth.id);
+
+  closeModal('modalLBooth');
+  render(); updateProps();
+}
+
 // ─── Divide ───
 function openDivideDialog() {
   if (state.selectedIds.size !== 1) { alert('Select exactly one booth to divide.'); return; }

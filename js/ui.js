@@ -10,6 +10,7 @@ document.getElementById('btnDivide').addEventListener('click', openDivideDialog)
 // document.getElementById('btnGroup').addEventListener('click', groupSelected);
 // document.getElementById('btnUngroup').addEventListener('click', ungroupSelected);
 document.getElementById('btnNumCopy').addEventListener('click', openNumericCopyDialog);
+document.getElementById('btnLBooth').addEventListener('click', openLBoothDialog);
 document.getElementById('btnArrayCopy').addEventListener('click', () => {
   if (!state.selectedIds.size) { alert('Select booths to array-copy.'); return; }
   openModal('modalArrayCopy');
