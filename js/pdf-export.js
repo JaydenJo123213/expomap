@@ -54,26 +54,26 @@ function executeAssignGuideExport() {
   const assignLang = document.querySelector('input[name="assignLang"]:checked')?.value || 'ko';
   const prevLang = state.lang;
   state.lang = assignLang;
-  // exportFloorplanPDF와 동일한 캔버스/스케일 방식 사용
-  const _bgFillAG = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
-  const _orientAG = _bgFillAG ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: _orientAG, unit: 'mm', format: 'a3' });
-  const pw = doc.internal.pageSize.getWidth();
-  const ph = doc.internal.pageSize.getHeight();
-  const agMargin = _bgFillAG ? 0 : 10;
-  const agContentW = pw - 2 * agMargin;
-  const agContentH = ph - 2 * agMargin;
-  const dpi = 300, mmToPx = dpi / 25.4;
-  const offW = agContentW * mmToPx;
-  const offH = agContentH * mmToPx;
-  const off = document.createElement('canvas');
-  off.width = offW; off.height = offH;
-  const octx = off.getContext('2d');
-  renderForAssignGuideExport(octx, offW, offH, showNames);
-  state.lang = prevLang;  // 원래 언어로 복원
-  const imgData = off.toDataURL('image/jpeg', 0.95);
   try {
+    // exportFloorplanPDF와 동일한 캔버스/스케일 방식 사용
+    const _bgFillAG = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+    const _orientAG = _bgFillAG ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: _orientAG, unit: 'mm', format: 'a3' });
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const agMargin = _bgFillAG ? 0 : 10;
+    const agContentW = pw - 2 * agMargin;
+    const agContentH = ph - 2 * agMargin;
+    const dpi = 300, mmToPx = dpi / 25.4;
+    const offW = Math.round(agContentW * mmToPx);
+    const offH = Math.round(agContentH * mmToPx);
+    const off = document.createElement('canvas');
+    off.width = offW; off.height = offH;
+    const octx = off.getContext('2d');
+    if (!octx) throw new Error('캔버스 컨텍스트 생성 실패 (캔버스 크기 초과?)');
+    renderForAssignGuideExport(octx, offW, offH, showNames);
+    const imgData = off.toDataURL('image/jpeg', 0.95);
     doc.addImage(imgData, 'JPEG', agMargin, agMargin, agContentW, agContentH);
     const now = new Date();
     const dateStr = String(now.getFullYear()).slice(2) +
@@ -85,8 +85,10 @@ function executeAssignGuideExport() {
     closeModal('modalAssignGuide');
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
+  } finally {
+    state.lang = prevLang;  // 원래 언어로 복원 (항상 실행)
+    state._exporting = false;
   }
-  state._exporting = false;
 }
 
 function renderForExport(ectx, W, H, preset) {
