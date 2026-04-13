@@ -794,67 +794,102 @@ async function exportSVG() {
     }
     p.push('</g>');
 
-    // ⑤ 부스 콘텐츠 (로고 + 번호 + 업체명)
+    // ⑤ 부스 콘텐츠 — drawBoothContent(render.js:88)와 동일한 로직
     p.push('<g id="booth-content">');
     const mc = document.createElement('canvas').getContext('2d');
     for (const b of booths) {
       const displayName = state.lang === 'en' ? (b.companyNameEn || '') : (b.companyName || '');
       const pad = 2;
-      const tr = { x: b.x + pad, y: b.y + pad, w: b.w - pad*2, h: b.h - pad*2 };
-      const area = (b.w / 10) * (b.h / 10);
-      let hasLogo = false;
+      // L자 부스: 가장 큰 셀 기준 (render.js getTextRect와 동일)
+      const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
+      const availW = tr.w - pad * 2;
+      const availH = tr.h - pad * 2;
+      const wm = typeof pxToM === 'function' ? pxToM(b.w) : b.w / 10;
+      const hm = typeof pxToM === 'function' ? pxToM(b.h) : b.h / 10;
+      const area = wm * hm;
+      const hasCompany = !!displayName;
+      const hasBoothNo = !!b.boothId;
 
-      // 로고
-      if (area >= 36 && displayName && b.companyLogoUrl) {
+      // SVG에서 부스번호 헬퍼 (textBaseline='top' 대응: y = top + noFz)
+      const pushBoothNo = (noFz) => {
+        p.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="500" fill="#111111" opacity="0.65">${_escXml(b.boothId)}</text>`);
+      };
+
+      // Case 1: 로고 있음 (render.js:106-190)
+      const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
+      let logoDrawn = false;
+      if (shouldDrawLogo) {
         const logoImg = state.logoCache.get(b.id);
         if (logoImg) {
           const logoDataUrl = _imgToDataUrl(logoImg);
           if (logoDataUrl) {
-            hasLogo = true;
+            logoDrawn = true;
             const scale = (b.logoScale ?? 100) / 100;
+            const gap = (b.logoGap ?? 0) * (tr.h / 100);
+            const noReserve = hasBoothNo ? calcFontSize(mc, b.boothId, 26) + 4 : 0;
             const logoPad = tr.w * 0.08;
-            const logoAreaW = tr.w - logoPad * 2;
-            const logoAreaH = tr.h * 0.55;
+            const logoTopPad = Math.max(tr.h * 0.05, noReserve);
+            const logoBottomPad = tr.h * 0.02;
+            const logoAreaH = tr.h * 0.60;
+            const logoW = tr.w - logoPad * 2;
+            const logoH = logoAreaH - logoTopPad - logoBottomPad;
             const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
+            const areaAspect = logoW / logoH;
             let drawW, drawH;
-            if (imgAspect > logoAreaW / logoAreaH) {
-              drawW = logoAreaW * scale; drawH = drawW / imgAspect;
+            if (imgAspect > areaAspect) {
+              drawW = logoW; drawH = logoW / imgAspect;
             } else {
-              drawH = logoAreaH * scale; drawW = drawH * imgAspect;
+              drawH = logoH; drawW = logoH * imgAspect;
             }
+            drawW *= scale; drawH *= scale;
             const logoX = tr.x + (tr.w - drawW) / 2;
-            const logoY = tr.y + tr.h * 0.05 + (logoAreaH - drawH) / 2;
+            const logoCenterY = tr.y + logoTopPad + logoH / 2;
+            const logoY = logoCenterY - drawH / 2;
             p.push(`<image xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
+
+            // 텍스트 영역: 로고 아래 (render.js:143-159)
+            const textAreaY = tr.y + tr.h * 0.58 + gap;
+            const textAreaH = tr.h * 0.36 - gap;
+            const lines = wrapText(displayName);
+            const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
+            let fz = calcFontSize(mc, longestLine || 'A', availW * 0.85);
+            if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
+            fz = Math.max(1.5, Math.min(fz, 12));
+            const lineH = fz * 1.25;
+            const blockH = lines.length * lineH;
+            const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
+            lines.forEach((line, i) => {
+              p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle" dominant-baseline="middle">${_escXml(line)}</text>`);
+            });
+
+            // 부스번호: 좌상단 (render.js:162-168)
+            if (hasBoothNo) pushBoothNo(calcFontSize(mc, b.boothId, 26));
           }
         }
       }
 
-      // 부스번호 (render.js:163과 동일하게 maxW=26 고정)
-      if (b.boothId) {
-        let noFz = (typeof calcFontSize === 'function')
-          ? calcFontSize(mc, b.boothId, 26)
-          : Math.max(Math.min(tr.w, tr.h) * 0.18, 3);
-        noFz = Math.max(2, Math.min(noFz, Math.min(tr.w, tr.h) * 0.35));
-        p.push(`<text x="${tr.x + pad}" y="${tr.y + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="500" fill="#111111" opacity="0.65">${_escXml(b.boothId)}</text>`);
-      }
-
-      // 업체명 (render.js:145-150과 동일한 패턴, clamp [1.5, 12])
-      if (displayName) {
-        const lines = (typeof wrapText === 'function') ? wrapText(displayName) : [displayName];
-        const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
-        const availW = tr.w - pad * 2;
-        const areaH = hasLogo ? tr.h * 0.34 : tr.h * 0.40;
-        let fz = (typeof calcFontSize === 'function')
-          ? calcFontSize(mc, longestLine || 'A', availW * 0.85)
-          : 5;
-        if (areaH > 0) fz = Math.min(fz, (areaH / lines.length) / 1.25);
-        fz = Math.max(1.5, Math.min(fz, 12));
-        const lineH = fz * 1.25;
-        const areaY = hasLogo ? tr.y + tr.h * 0.60 : tr.y + tr.h * 0.30;
-        const startY = areaY + (areaH - lines.length * lineH) / 2 + fz * 0.5;
-        lines.forEach((line, i) => {
-          p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle" dominant-baseline="middle">${_escXml(line)}</text>`);
-        });
+      if (!logoDrawn) {
+        if (hasCompany) {
+          // Case 2: 업체명만 (render.js:212-253)
+          const lines = wrapText(displayName);
+          const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
+          const noFz = hasBoothNo ? calcFontSize(mc, b.boothId, 26) : 0;
+          const topReserve = hasBoothNo ? noFz + 2 : 0;
+          const textAreaH = availH - topReserve;
+          let fz = calcFontSize(mc, longestLine || 'A', availW * 0.9);
+          if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
+          fz = Math.max(1.5, Math.min(fz, 16));
+          const lineH = fz * 1.25;
+          const blockH = lines.length * lineH;
+          const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
+          lines.forEach((line, i) => {
+            p.push(`<text x="${tr.x + tr.w/2}" y="${startY + i*lineH}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle" dominant-baseline="middle">${_escXml(line)}</text>`);
+          });
+          if (hasBoothNo) pushBoothNo(noFz);
+        } else if (hasBoothNo) {
+          // Case 3: 부스번호만 (render.js:254-260)
+          pushBoothNo(calcFontSize(mc, b.boothId, 26));
+        }
       }
     }
     p.push('</g>');
