@@ -111,7 +111,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   const displayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
   const hasCompany = !!displayName;
   const hasBoothNo = !!b.boothId;
-  const showSize = wm >= 6 && hm >= 6;
+  const isIrregularBooth = !!(b.cells && b.cells.length > 1);
+  const showSize = wm >= 6 && hm >= 6 && !isIrregularBooth;
 
   c.fillStyle = textColor;
 
@@ -198,9 +199,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
           c.restore();
         }
       }
-      // 사이즈 텍스트: 우하단 — 일반 직사각형 부스만, L자(cells) 제외
-      const isIrregularBooth = !!(b.cells && b.cells.length > 1);
-      if (showSize && !isIrregularBooth) {
+      // 사이즈 텍스트: 우하단 — showSize에 L자 제외 조건 이미 포함
+      if (showSize) {
         const szFz = Math.max(1.5, Math.min(availH * 0.12, 10));
         c.fillStyle = textColor;
         c.font = `400 ${szFz}px Pretendard, sans-serif`;
