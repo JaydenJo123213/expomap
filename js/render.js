@@ -85,7 +85,7 @@ function getBoothOuterRect(b) {
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 }
 
-function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false, skipOther = false) {
+function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = false, skipOther = false, boothNoColor = null) {
   const pad = 2;
   // 비정형 부스(ㄴ/ㄱ자)면 가장 큰 셀 기준으로 텍스트 배치
   const tr = getTextRect(b);
@@ -154,14 +154,15 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
 
       c.fillStyle = textColor;
-      c.font = `600 ${fz}px Pretendard, sans-serif`;
+      c.font = `400 ${fz}px Pretendard, sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
 
       // 부스번호: 좌상단
       if (hasBoothNo) {
         const noFz = calcFontSize(c, b.boothId, 26);
-        c.font = `500 ${noFz}px Pretendard, sans-serif`;
+        c.fillStyle = boothNoColor ?? textColor;
+        c.font = `400 ${noFz}px Pretendard, sans-serif`;
         c.textAlign = 'left'; c.textBaseline = 'top';
         c.globalAlpha = 0.65;
         c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -194,7 +195,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     if (hasBoothNo) {
       let fz = Math.min(calcFontSize(c, b.boothId, availW * 0.9), availH * 0.35);
       fz = Math.max(2, Math.min(fz, 14));
-      c.font = `600 ${fz}px Pretendard, sans-serif`;
+      c.font = `400 ${fz}px Pretendard, sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText(b.boothId, tr.x + tr.w / 2, tr.y + tr.h * 0.4);
     }
@@ -230,13 +231,14 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
 
     c.fillStyle = textColor;
-    c.font = `600 ${fz}px Pretendard, sans-serif`;
+    c.font = `400 ${fz}px Pretendard, sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle';
     lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
 
     // Booth No.: 좌상단 (고정 작은 폰트)
     if (hasBoothNo) {
-      c.font = `500 ${noFz}px Pretendard, sans-serif`;
+      c.fillStyle = boothNoColor ?? textColor;
+      c.font = `400 ${noFz}px Pretendard, sans-serif`;
       c.textAlign = 'left'; c.textBaseline = 'top';
       c.globalAlpha = 0.65;
       c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -254,7 +256,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   } else if (hasBoothNo) {
     // Booth No.만 → 좌상단 (기본부스번호와 공존)
     const noFz = calcFontSize(c, b.boothId, 26);
-    c.font = `500 ${noFz}px Pretendard, sans-serif`;
+    c.fillStyle = boothNoColor ?? textColor;
+    c.font = `400 ${noFz}px Pretendard, sans-serif`;
     c.textAlign = 'left'; c.textBaseline = 'top';
     c.globalAlpha = 0.65;
     c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -1035,8 +1038,8 @@ function renderViewer(w, h) {
     ctx.fillStyle = fill;
     fillBoothShape(ctx, b);
 
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = (isSelected || isHighlighted) ? 2 / state.zoom : 1 / state.zoom;
+    ctx.strokeStyle = (isSelected || isHighlighted || isAvailableHighlight) ? stroke : '#000000';
+    ctx.lineWidth = (isSelected || isHighlighted) ? 2 / state.zoom : 0.5 / state.zoom;
     strokeBoothShape(ctx, b, state.zoom);
 
     // 부스 타입 오버레이 (viewer에서도 표시)
@@ -1059,7 +1062,7 @@ function renderViewer(w, h) {
     }
 
     const textColor = isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#111111';
-    drawBoothContent(ctx, b, state.zoom, textColor, false);
+    drawBoothContent(ctx, b, state.zoom, textColor, false, false, false, '#ffffff');
   }
 
   // BaseNumbers text only (outline hidden in viewer mode)

@@ -190,11 +190,11 @@ function renderForExport(ectx, W, H, preset) {
 
     ectx.fillStyle = fill;
     fillBoothShape(ectx, b);
-    ectx.strokeStyle = stroke;
-    ectx.lineWidth = 1 / zoom;
+    ectx.strokeStyle = isConstruction ? stroke : '#000000';
+    ectx.lineWidth = 0.5 / zoom;
     strokeBoothShape(ectx, b, zoom);
 
-    drawBoothContent(ectx, b, zoom, textColor, isConstruction);
+    drawBoothContent(ectx, b, zoom, textColor, isConstruction, false, false, isConstruction ? null : '#ffffff');
   });
 
   // Structures (부스 위에)
@@ -265,15 +265,14 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
   for (const b of booths) {
     const isFacility = b.status === 'facility' || b.status === 'excluded';
     const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
-    const stroke = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
     ectx.fillStyle = fill;
     fillBoothShape(ectx, b);
-    ectx.strokeStyle = stroke;
-    ectx.lineWidth = 1 / zoom;
+    ectx.strokeStyle = '#000000';
+    ectx.lineWidth = 0.5 / zoom;
     strokeBoothShape(ectx, b, zoom);
 
     // 업체명/부스번호 항상 표시 (배정 현황 확인용)
-    drawBoothContent(ectx, b, zoom, '#111111', false);
+    drawBoothContent(ectx, b, zoom, '#111111', false, false, false, '#ffffff');
   }
 
   // 기본부스번호 렌더링 (도면출력과 동일 로직)
@@ -715,17 +714,16 @@ async function exportSVG(lang = 'ko') {
     for (const b of booths) {
       const isFacility = b.status === 'facility' || b.status === 'excluded';
       const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
-      const stroke = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
       if (b.cells && b.cells.length > 1) {
         // L자 부스: 셀은 fill만, 바운딩박스에 테두리
         p.push('<g>');
         for (const c of b.cells) {
           p.push(`<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="${fill}" stroke="none"/>`);
         }
-        p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="${stroke}" stroke-width="0.5"/>`);
+        p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
         p.push('</g>');
       } else {
-        p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${fill}" stroke="${stroke}" stroke-width="0.5"/>`);
+        p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${fill}" stroke="#000000" stroke-width="0.5"/>`);
       }
     }
     p.push('</g>');
@@ -795,7 +793,7 @@ async function exportSVG(lang = 'ko') {
       const hasBoothNo = !!b.boothId;
 
       const addBoothNo = (noFz) => {
-        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="500" fill="#111111" opacity="0.65">${_escXml(b.boothId)}</text>`);
+        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="400" fill="#ffffff" opacity="0.65">${_escXml(b.boothId)}</text>`);
       };
 
       // Case 1: 로고 있음 (render.js:106-190)
@@ -845,7 +843,7 @@ async function exportSVG(lang = 'ko') {
               const body = lines.length === 1
                 ? _escXml(lines[0])
                 : lines.map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineH}">${_escXml(l)}</tspan>`).join('');
-              pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${body}</text>`);
+              pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
             }
 
             if (hasBoothNo) addBoothNo(calcFontSize(mc, b.boothId, 26));
@@ -871,7 +869,7 @@ async function exportSVG(lang = 'ko') {
             const body = lines.length === 1
               ? _escXml(lines[0])
               : lines.map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineH}">${_escXml(l)}</tspan>`).join('');
-            pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#111111" text-anchor="middle">${body}</text>`);
+            pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
           }
           if (hasBoothNo) addBoothNo(noFz);
         } else if (hasBoothNo) {
