@@ -27,7 +27,7 @@ document.getElementById('propFontSize').addEventListener('input', (e) => {
 });
 document.getElementById('propFontSize').addEventListener('change', () => { saveUndo(); scheduleSave(); });
 
-// 자동 버튼: 수동 폰트 크기 초기화
+// 자동 버튼: 수동 폰트 크기 초기화 (국문)
 document.getElementById('propFontSizeAuto').addEventListener('click', () => {
   const b = getSelectedBooth();
   if (!b) return;
@@ -35,6 +35,29 @@ document.getElementById('propFontSizeAuto').addEventListener('click', () => {
   delete b.fontSize;
   document.getElementById('propFontSizeVal').textContent = '자동';
   document.getElementById('propFontSizeAuto').style.display = 'none';
+  render();
+  scheduleSave();
+});
+
+// 폰트 크기 슬라이더 (영문)
+document.getElementById('propFontSizeEn').addEventListener('input', (e) => {
+  const b = getSelectedBooth();
+  if (!b) return;
+  b.fontSizeEn = parseInt(e.target.value);
+  document.getElementById('propFontSizeEnVal').textContent = b.fontSizeEn + 'px';
+  document.getElementById('propFontSizeEnAuto').style.display = '';
+  render();
+});
+document.getElementById('propFontSizeEn').addEventListener('change', () => { saveUndo(); scheduleSave(); });
+
+// 자동 버튼: 수동 폰트 크기 초기화 (영문)
+document.getElementById('propFontSizeEnAuto').addEventListener('click', () => {
+  const b = getSelectedBooth();
+  if (!b) return;
+  saveUndo();
+  delete b.fontSizeEn;
+  document.getElementById('propFontSizeEnVal').textContent = '자동';
+  document.getElementById('propFontSizeEnAuto').style.display = 'none';
   render();
   scheduleSave();
 });
@@ -529,11 +552,16 @@ function updateProps() {
     const isIrregular = !!(b.cells && b.cells.length > 1);
     document.getElementById('rowTextPlacement').style.display = isIrregular ? '' : 'none';
     if (isIrregular) document.getElementById('propTextPlacement').value = b.textPlacement || 'auto';
-    // 폰트 크기
-    const hasFontOverride = b.fontSize != null;
-    document.getElementById('propFontSize').value = hasFontOverride ? b.fontSize : 12;
-    document.getElementById('propFontSizeVal').textContent = hasFontOverride ? b.fontSize + 'px' : '자동';
-    document.getElementById('propFontSizeAuto').style.display = hasFontOverride ? '' : 'none';
+    // 폰트 크기 (국문)
+    const hasFontKo = b.fontSize != null;
+    document.getElementById('propFontSize').value = hasFontKo ? b.fontSize : 12;
+    document.getElementById('propFontSizeVal').textContent = hasFontKo ? b.fontSize + 'px' : '자동';
+    document.getElementById('propFontSizeAuto').style.display = hasFontKo ? '' : 'none';
+    // 폰트 크기 (영문)
+    const hasFontEn = b.fontSizeEn != null;
+    document.getElementById('propFontSizeEn').value = hasFontEn ? b.fontSizeEn : 12;
+    document.getElementById('propFontSizeEnVal').textContent = hasFontEn ? b.fontSizeEn + 'px' : '자동';
+    document.getElementById('propFontSizeEnAuto').style.display = hasFontEn ? '' : 'none';
     document.getElementById('propStatus').value = b.status;
     const colors = STATUS_COLORS[b.status] || STATUS_COLORS.available;
     document.getElementById('propFillColor').value = b.fillColor || rgbToHex(colors.fill) || '#3D4255';

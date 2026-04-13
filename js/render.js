@@ -108,8 +108,11 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   const wm = pxToM(b.w), hm = pxToM(b.h);
   const area = getBoothAreaM2(b);  // 비정형 부스는 cells 실면적 사용
   // 언어에 따라 표시할 업체명 결정 (EN 모드에서 영문명 없으면 빈값)
-  const displayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
+  const isEnMode = state.lang === 'en';
+  const displayName = isEnMode ? (b.companyNameEn || '') : b.companyName;
   const hasCompany = !!displayName;
+  // 언어별 폰트 크기 오버라이드
+  const fontSizeOverride = isEnMode ? (b.fontSizeEn ?? null) : (b.fontSize ?? null);
   const hasBoothNo = !!b.boothId;
   const isIrregularBooth = !!(b.cells && b.cells.length > 1);
   const showSize = wm >= 6 && hm >= 6 && !isIrregularBooth;
@@ -160,8 +163,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       const lines = wrapText(displayName);
       const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
-      let fz = (b.fontSize != null)
-        ? Math.max(1.5, Math.min(b.fontSize, 60))
+      let fz = (fontSizeOverride != null)
+        ? Math.max(1.5, Math.min(fontSizeOverride, 60))
         : (() => { let v = calcFontSize(c, longestLine || 'A', availW * 0.85); if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25); return Math.max(1.5, Math.min(v, 12)); })();
 
       const lineH = fz * 1.25;
@@ -247,8 +250,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const textAreaH = availH - topReserve - bottomReserve;
 
     // 업체명 폰트: 가로 기준으로 구하고 세로로도 제한 (수동 설정 시 우선)
-    let fz = (b.fontSize != null)
-      ? Math.max(1.5, Math.min(b.fontSize, 60))
+    let fz = (fontSizeOverride != null)
+      ? Math.max(1.5, Math.min(fontSizeOverride, 60))
       : (() => { let v = calcFontSize(c, longestLine || 'A', availW * 0.9); if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25); return Math.max(1.5, Math.min(v, 16)); })();
 
     const lineH = fz * 1.25;

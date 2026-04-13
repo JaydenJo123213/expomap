@@ -660,7 +660,23 @@
       <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
       <!-- Company -->
       <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명 (국문)"></div>
+      <div class="prop-row">
+        <span class="prop-label">Size (국문)</span>
+        <div style="display:flex;align-items:center;gap:4px;flex:1">
+          <input type="range" id="propFontSize" min="4" max="32" value="12" step="1" style="flex:1;height:4px">
+          <span id="propFontSizeVal" style="font-size:11px;color:var(--text-dim);width:28px;text-align:right">자동</span>
+          <button id="propFontSizeAuto" style="font-size:10px;padding:1px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg2);cursor:pointer;color:var(--text-dim)">자동</button>
+        </div>
+      </div>
       <div class="prop-row"><span class="prop-label">Name EN</span><input class="prop-input" id="propCompanyNameEn" style="width:120px" placeholder="Company (English)"></div>
+      <div class="prop-row">
+        <span class="prop-label">Size (영문)</span>
+        <div style="display:flex;align-items:center;gap:4px;flex:1">
+          <input type="range" id="propFontSizeEn" min="4" max="32" value="12" step="1" style="flex:1;height:4px">
+          <span id="propFontSizeEnVal" style="font-size:11px;color:var(--text-dim);width:28px;text-align:right">자동</span>
+          <button id="propFontSizeEnAuto" style="font-size:10px;padding:1px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg2);cursor:pointer;color:var(--text-dim)">자동</button>
+        </div>
+      </div>
       <!-- UID -->
       <div class="prop-row"><span class="prop-label">UID</span><input class="prop-input" id="propCompany" style="width:120px" placeholder="company_uid"></div>
       <!-- X -->
@@ -681,15 +697,6 @@
           <option value="wide">가로 긴 쪽</option>
           <option value="tall">세로 긴 쪽</option>
         </select>
-      </div>
-      <!-- Font Size (모든 부스, 기본 자동) -->
-      <div class="prop-row" id="rowFontSize">
-        <span class="prop-label">폰트 크기</span>
-        <div style="display:flex;align-items:center;gap:4px;flex:1">
-          <input type="range" id="propFontSize" min="4" max="32" value="12" step="1" style="flex:1;height:4px">
-          <span id="propFontSizeVal" style="font-size:11px;color:var(--text-dim);width:28px;text-align:right">자동</span>
-          <button id="propFontSizeAuto" style="font-size:10px;padding:1px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg2);cursor:pointer;color:var(--text-dim)" title="자동 폰트 크기로 초기화">자동</button>
-        </div>
       </div>
       <!-- Fill Color -->
       <div style="margin-top:10px;margin-bottom:10px">
