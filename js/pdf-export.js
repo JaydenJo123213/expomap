@@ -690,10 +690,10 @@ async function exportSVG(lang = 'ko') {
   try {
     const booths = state.booths;
 
-    // bounds 계산 (exportFloorplanPDF와 동일 로직)
-    const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+    // SVG bounds: bg 있으면 항상 bg 기준 (bg가 도면 기준선)
+    // PDF는 pdfMode에 따라 다르지만 SVG는 bg와 부스가 정확히 겹쳐야 하므로 bg 우선
     let bounds;
-    if (_bgFill) {
+    if (state.bg.img) {
       bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
     } else {
       bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
