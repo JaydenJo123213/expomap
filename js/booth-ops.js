@@ -672,6 +672,7 @@ document.getElementById('bgUpload').addEventListener('change', async (e) => {
 
   const applyBg = (src) => {
     const img = new Image();
+    if (src.startsWith('http')) img.crossOrigin = 'anonymous';
     img.onload = () => {
       state.bg.img = img;
       state.bg.natW = img.naturalWidth;
