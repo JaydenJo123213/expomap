@@ -818,7 +818,7 @@ async function exportSVG(lang = 'ko') {
       const availH = tr.h - pad * 2;
       const wm = typeof pxToM === 'function' ? pxToM(b.w) : b.w / 10;
       const hm = typeof pxToM === 'function' ? pxToM(b.h) : b.h / 10;
-      const area = wm * hm;
+      const area = typeof getBoothAreaM2 === 'function' ? getBoothAreaM2(b) : wm * hm;
       const hasCompany = !!displayName;
       const hasBoothNo = !!b.boothId;
 

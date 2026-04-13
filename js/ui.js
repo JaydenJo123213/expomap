@@ -1055,7 +1055,7 @@ function updateStats() {
   const counts = { available: 0, discuss: 0, spot: 0, hold: 0, proposing: 0, assigned: 0, online: 0, fake: 0, excluded: 0, facility: 0 };
   let totalArea = 0;
   for (const b of state.booths) {
-    const area = pxToM(b.w) * pxToM(b.h);
+    const area = getBoothAreaM2(b);  // 비정형 부스는 cells 실면적 사용
     const units = Math.round(area / 9) || 1;
     counts[b.status] = (counts[b.status] || 0) + units;
     if (b.status !== 'excluded' && b.status !== 'facility') totalArea += area;

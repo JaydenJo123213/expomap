@@ -345,6 +345,13 @@ function snapValue(v) {
 }
 function pxToM(px) { return px / PX_PER_METER; }
 function mToPx(m) { return m * PX_PER_METER; }
+// cells 기반 실제 면적 (m²) — L자 등 비정형 부스는 bounding box가 아닌 실면적 반환
+function getBoothAreaM2(b) {
+  if (b.cells && b.cells.length > 1) {
+    return b.cells.reduce((sum, c) => sum + pxToM(c.w) * pxToM(c.h), 0);
+  }
+  return pxToM(b.w) * pxToM(b.h);
+}
 
 // ─── Undo / Redo ───
 function saveUndo() {

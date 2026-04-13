@@ -92,7 +92,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   const availW = tr.w - pad * 2;
   const availH = tr.h - pad * 2;
   const wm = pxToM(b.w), hm = pxToM(b.h);
-  const area = wm * hm;
+  const area = getBoothAreaM2(b);  // 비정형 부스는 cells 실면적 사용
   // 언어에 따라 표시할 업체명 결정 (EN 모드에서 영문명 없으면 빈값)
   const displayName = state.lang === 'en' ? (b.companyNameEn || '') : b.companyName;
   const hasCompany = !!displayName;
@@ -1084,7 +1084,7 @@ function showViewerPopup(b, screenX, screenY) {
   document.getElementById('vpName').textContent = (vpDisplayName || '(미배정)').replace(/<\/br>/g, ' ');
   document.getElementById('vpStatus').innerHTML = '';
   const bw = pxToM(b.w), bh = pxToM(b.h);
-  document.getElementById('vpSize').textContent = `${bw}m × ${bh}m (${(bw * bh).toFixed(0)}㎡)`;
+  document.getElementById('vpSize').textContent = `${bw}m × ${bh}m (${getBoothAreaM2(b).toFixed(0)}㎡)`;
   if (b.companyUid) {
     document.getElementById('vpUidRow').style.display = '';
     document.getElementById('vpUid').textContent = b.companyUid;
