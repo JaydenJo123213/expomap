@@ -509,8 +509,8 @@ async function exportFloorplanPDF() {
   ctx.restore();
 
   // PDF에 이미지 추가
-  const imgData = canvas.toDataURL('image/png', 0.95);
-  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+  const imgData = canvas.toDataURL('image/jpeg', 0.92);
+  pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentHeight);
 
   const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
   const today = new Date();
@@ -634,8 +634,8 @@ async function exportAvailablePDF() {
 
   ctx.restore();
 
-  const imgData = canvas.toDataURL('image/png', 0.95);
-  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+  const imgData = canvas.toDataURL('image/jpeg', 0.92);
+  pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, contentHeight);
 
   const today = new Date();
   const dateStr = today.getFullYear() + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
