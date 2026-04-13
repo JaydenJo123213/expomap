@@ -1062,7 +1062,7 @@ function renderViewer(w, h) {
     }
 
     const textColor = isHighlighted ? '#5D4037' : isSelected ? '#7A5800' : '#111111';
-    drawBoothContent(ctx, b, state.zoom, textColor, false, false, false, '#ffffff');
+    drawBoothContent(ctx, b, state.zoom, textColor, false, false, false, '#000000');
   }
 
   // BaseNumbers text only (outline hidden in viewer mode)

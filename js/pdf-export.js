@@ -194,7 +194,7 @@ function renderForExport(ectx, W, H, preset) {
     ectx.lineWidth = 0.5 / zoom;
     strokeBoothShape(ectx, b, zoom);
 
-    drawBoothContent(ectx, b, zoom, textColor, isConstruction, false, false, isConstruction ? null : '#ffffff');
+    drawBoothContent(ectx, b, zoom, textColor, isConstruction, false, false, isConstruction ? null : '#000000');
   });
 
   // Structures (부스 위에)
@@ -272,7 +272,7 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
     strokeBoothShape(ectx, b, zoom);
 
     // 업체명/부스번호 항상 표시 (배정 현황 확인용)
-    drawBoothContent(ectx, b, zoom, '#111111', false, false, false, '#ffffff');
+    drawBoothContent(ectx, b, zoom, '#111111', false, false, false, '#000000');
   }
 
   // 기본부스번호 렌더링 (도면출력과 동일 로직)
@@ -793,7 +793,7 @@ async function exportSVG(lang = 'ko') {
       const hasBoothNo = !!b.boothId;
 
       const addBoothNo = (noFz) => {
-        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="400" fill="#ffffff" opacity="0.65">${_escXml(b.boothId)}</text>`);
+        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="400" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
       };
 
       // Case 1: 로고 있음 (render.js:106-190)
