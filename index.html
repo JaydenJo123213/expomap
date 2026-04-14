@@ -1470,6 +1470,22 @@ CREATE POLICY "anon_all" ON expomap_state
 <script src="js/ui.js"></script>
 <script src="js/init.js"></script>
 
+<!-- PDF 품질 선택 팝오버 -->
+<div id="pdfQualityPopover" style="display:none;position:fixed;z-index:9998;
+  background:#fff;border-radius:12px;padding:18px 22px;box-shadow:0 4px 24px rgba(0,0,0,0.18);
+  min-width:200px;font-family:Pretendard,sans-serif;">
+  <div style="font-size:13px;font-weight:600;color:#222;margin-bottom:12px">출력 품질 선택</div>
+  <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:13px">
+    <input type="radio" name="pdfQuality" value="web" checked> 웹용 <span style="color:#888;font-size:11px">(빠름)</span>
+  </label>
+  <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;font-size:13px">
+    <input type="radio" name="pdfQuality" value="hq"> 고화질 <span style="color:#888;font-size:11px">(벡터 텍스트)</span>
+  </label>
+  <button id="pdfQualityConfirm"
+    style="width:100%;padding:8px 0;background:#4F8CFF;color:#fff;border:none;border-radius:7px;
+    font-size:13px;font-weight:600;cursor:pointer">PDF 생성</button>
+</div>
+
 <!-- PDF 로딩 오버레이 -->
 <div id="pdfLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.52);align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:14px;padding:36px 48px;text-align:center;box-shadow:0 6px 32px rgba(0,0,0,0.22);min-width:240px;">

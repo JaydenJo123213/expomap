@@ -1,3 +1,30 @@
+// ─── PDF 품질 선택 팝오버 ───
+let _pdfPopoverExportFn = null;
+let _pendingAssignQuality = 'web';
+
+function _showPdfPopover(anchorEl, exportFn) {
+  _pdfPopoverExportFn = exportFn;
+  const pop = document.getElementById('pdfQualityPopover');
+  const rect = anchorEl.getBoundingClientRect();
+  pop.style.top = (rect.bottom + 6) + 'px';
+  pop.style.left = rect.left + 'px';
+  pop.style.display = 'block';
+}
+
+document.addEventListener('click', (e) => {
+  const pop = document.getElementById('pdfQualityPopover');
+  if (!pop || pop.style.display === 'none') return;
+  if (pop.contains(e.target)) return;
+  if (e.target.closest('#btnPrintFloorplan, #btnPrintAvailable, #btnAssignGuideTopbar')) return;
+  pop.style.display = 'none';
+});
+
+document.getElementById('pdfQualityConfirm').addEventListener('click', async () => {
+  const quality = document.querySelector('input[name="pdfQuality"]:checked')?.value || 'web';
+  document.getElementById('pdfQualityPopover').style.display = 'none';
+  if (_pdfPopoverExportFn) await _pdfPopoverExportFn(quality);
+});
+
 // ─── Version History ───
 document.getElementById('btnSaveVersion').addEventListener('click', saveVersion);
 
@@ -101,11 +128,11 @@ document.getElementById('btnAssignGuide').addEventListener('click', () => {
   state.selectedDiscussIds.clear();
   render();
 });
-document.getElementById('btnPrintFloorplan').addEventListener('click', () => {
-  exportFloorplanPDF();
+document.getElementById('btnPrintFloorplan').addEventListener('click', (e) => {
+  _showPdfPopover(e.currentTarget, exportFloorplanPDF);
 });
-document.getElementById('btnPrintAvailable').addEventListener('click', () => {
-  exportAvailablePDF();
+document.getElementById('btnPrintAvailable').addEventListener('click', (e) => {
+  _showPdfPopover(e.currentTarget, exportAvailablePDF);
 });
 
 // ─── 제공부스 ───
@@ -165,10 +192,13 @@ function updateFreeBoothCount() {
   document.getElementById('countFreeBooth').textContent = freeTotal;
 }
 
-document.getElementById('btnAssignGuideTopbar').addEventListener('click', () => {
-  state.assignGuideMode = true;
-  state.selectedDiscussIds.clear();
-  render();
+document.getElementById('btnAssignGuideTopbar').addEventListener('click', (e) => {
+  _showPdfPopover(e.currentTarget, (quality) => {
+    _pendingAssignQuality = quality;
+    state.assignGuideMode = true;
+    state.selectedDiscussIds.clear();
+    render();
+  });
 });
 document.getElementById('btnAssignGuideConfirm').addEventListener('click', () => {
   if (state.selectedDiscussIds.size === 0) {

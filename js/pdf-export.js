@@ -1,3 +1,148 @@
+// ─── Pretendard 폰트 캐시 ───
+let _pretendardFonts = null; // { regular: base64, semibold: base64 }
+
+async function _loadPretendardFonts() {
+  if (_pretendardFonts) return _pretendardFonts;
+  const base = 'https://cdn.jsdelivr.net/npm/pretendard@latest/dist/public/static/';
+  async function fetchBase64(url) {
+    const buf = await (await fetch(url)).arrayBuffer();
+    return new Promise(res => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result.split(',')[1]);
+      fr.readAsDataURL(new Blob([buf]));
+    });
+  }
+  const [regular, semibold] = await Promise.all([
+    fetchBase64(base + 'Pretendard-Regular.ttf'),
+    fetchBase64(base + 'Pretendard-SemiBold.ttf'),
+  ]);
+  _pretendardFonts = { regular, semibold };
+  return _pretendardFonts;
+}
+
+function _embedFonts(doc, fonts) {
+  doc.addFileToVFS('Pretendard-Regular.ttf', fonts.regular);
+  doc.addFont('Pretendard-Regular.ttf', 'Pretendard', 'normal');
+  doc.addFileToVFS('Pretendard-SemiBold.ttf', fonts.semibold);
+  doc.addFont('Pretendard-SemiBold.ttf', 'Pretendard', 'bold');
+}
+
+// 부스 텍스트·로고를 jsPDF 벡터로 그리기 (고화질 모드)
+function _drawBoothTextVector(doc, b, scaleMm, toX, toY, toS, mc) {
+  const lang = state.lang;
+  const isEnMode = lang === 'en';
+  const displayName = isEnMode ? (b.companyNameEn || '') : (b.companyName || '');
+  const fontSizeOverride = isEnMode ? (b.fontSizeEn ?? null) : (b.fontSize ?? null);
+  const pad = 2;
+  const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
+  const availW = tr.w - pad * 2, availH = tr.h - pad * 2;
+  const area = typeof getBoothAreaM2 === 'function' ? getBoothAreaM2(b) : (b.w / 10) * (b.h / 10);
+  const hasCompany = !!displayName, hasBoothNo = !!b.boothId;
+
+  // mm 단위 변환 헬퍼
+  const toMmX = x => toX(x);
+  const toMmY = y => toY(y);
+  const toMmS = px => toS(px);
+  // world-px → pt (jsPDF font size)
+  const toPt = px => px * scaleMm * (72 / 25.4);
+
+  // 부스번호 그리기
+  const drawBoothNo = (noFz) => {
+    if (!b.boothId) return;
+    const ptSz = toPt(noFz);
+    if (ptSz < 0.5) return;
+    doc.setFont('Pretendard', 'bold');
+    doc.setFontSize(ptSz);
+    doc.setTextColor(0, 0, 0);
+    doc.setGState(doc.GState({ opacity: 0.65 }));
+    doc.text(b.boothId, toMmX(tr.x + pad), toMmY(tr.y + pad + noFz), { baseline: 'top' });
+    doc.setGState(doc.GState({ opacity: 1 }));
+  };
+
+  // 회사명 여러 줄 그리기
+  const drawCompanyName = (lines, fz, startY) => {
+    if (!lines.length) return;
+    const ptSz = toPt(fz);
+    if (ptSz < 0.5) return;
+    const lineH = fz * 1.25;
+    const cx = tr.x + tr.w / 2;
+    doc.setFont('Pretendard', 'normal');
+    doc.setFontSize(ptSz);
+    doc.setTextColor(17, 17, 17);
+    lines.forEach((line, i) => {
+      doc.text(line, toMmX(cx), toMmY(startY + fz * 0.35 + i * lineH), { align: 'center', baseline: 'top' });
+    });
+  };
+
+  const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
+  let logoDrawn = false;
+
+  if (shouldDrawLogo) {
+    const logoImg = state.logoCache.get(b.id);
+    if (logoImg) {
+      const logoDataUrl = _imgToDataUrl(logoImg);
+      if (logoDataUrl) {
+        logoDrawn = true;
+        const scale = (b.logoScale ?? 100) / 100;
+        const gap = (b.logoGap ?? 0) * (tr.h / 100);
+        const noReserve = hasBoothNo ? calcFontSize(mc, b.boothId, 26) + 4 : 0;
+        const logoPad = tr.w * 0.08, logoTopPad = Math.max(tr.h * 0.05, noReserve);
+        const logoAreaH = tr.h * 0.60;
+        const logoW = tr.w - logoPad * 2, logoH = logoAreaH - logoTopPad - tr.h * 0.02;
+        const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
+        const areaAspect = logoW / logoH;
+        let drawW, drawH;
+        if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW / imgAspect; }
+        else { drawH = logoH; drawW = logoH * imgAspect; }
+        drawW *= scale; drawH *= scale;
+        const logoX = tr.x + (tr.w - drawW) / 2;
+        const logoY = tr.y + logoTopPad + logoH / 2 - drawH / 2;
+        try { doc.addImage(logoDataUrl, 'PNG', toMmX(logoX), toMmY(logoY), toMmS(drawW), toMmS(drawH)); } catch (e) {}
+
+        // 로고 아래 회사명
+        const textAreaY = tr.y + tr.h * 0.58 + gap;
+        const textAreaH = tr.h * 0.36 - gap;
+        const lines = wrapText(displayName);
+        const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
+        let fz = fontSizeOverride != null
+          ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+          : (() => {
+              let v = calcFontSize(mc, longestLine || 'A', availW * 0.85);
+              if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25);
+              return Math.max(1.5, Math.min(v, 12));
+            })();
+        const lineH = fz * 1.25, blockH = lines.length * lineH;
+        const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
+        drawCompanyName(lines, fz, startY - fz * 0.5);
+        if (hasBoothNo) drawBoothNo(calcFontSize(mc, b.boothId, 26));
+      }
+    }
+  }
+
+  if (!logoDrawn) {
+    if (hasCompany) {
+      const lines = wrapText(displayName);
+      const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
+      const noFz = hasBoothNo ? calcFontSize(mc, b.boothId, 26) : 0;
+      const topReserve = hasBoothNo ? noFz + 2 : 0;
+      const textAreaH = availH - topReserve;
+      let fz = fontSizeOverride != null
+        ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+        : (() => {
+            let v = calcFontSize(mc, longestLine || 'A', availW * 0.9);
+            if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25);
+            return Math.max(1.5, Math.min(v, 16));
+          })();
+      const lineH = fz * 1.25, blockH = lines.length * lineH;
+      const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2;
+      drawCompanyName(lines, fz, startY);
+      if (hasBoothNo) drawBoothNo(noFz);
+    } else if (hasBoothNo) {
+      drawBoothNo(calcFontSize(mc, b.boothId, 26));
+    }
+  }
+}
+
 // ─── PDF Export ───
 
 // 저장 위치 선택 — 반드시 사용자 클릭 직후(PDF 생성 전)에 호출해야 함
@@ -90,7 +235,8 @@ async function executeExport() {
   }
 }
 
-async function executeAssignGuideExport() {
+async function executeAssignGuideExport(quality) {
+  quality = quality || (typeof _pendingAssignQuality !== 'undefined' ? _pendingAssignQuality : 'web');
   const companyName = document.getElementById('assignGuideCompanyName').value.trim();
   if (!companyName) { alert('업체명을 입력해주세요.'); return; }
 
@@ -121,7 +267,7 @@ async function executeAssignGuideExport() {
     const agMargin = _bgFillAG ? 0 : 10;
     const agContentW = pw - 2 * agMargin;
     const agContentH = ph - 2 * agMargin;
-    const dpi = 250, mmToPx = dpi / 25.4;
+    const dpi = (quality === 'hq') ? 350 : 250, mmToPx = dpi / 25.4;
     const offW = Math.round(agContentW * mmToPx);
     const offH = Math.round(agContentH * mmToPx);
     const off = document.createElement('canvas');
@@ -432,6 +578,48 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
   ectx.restore();
 }
 
+// ─── L자 부스 외곽선 벡터화 (jsPDF doc.line) ───
+// _subtractIntervals는 render.js에 전역 정의됨
+function _strokeLShapeVector(doc, b, toX, toY) {
+  const cells = b.cells;
+  const EPS = 0.5;
+  for (const c of cells) {
+    const r = c.x + c.w, bot = c.y + c.h;
+    // 수평 엣지 (top, bottom)
+    for (const [edgeY, adjFn] of [
+      [c.y,  o => o.y + o.h],
+      [bot,  o => o.y],
+    ]) {
+      const covered = [];
+      for (const o of cells) {
+        if (o === c) continue;
+        if (Math.abs(edgeY - adjFn(o)) < EPS) {
+          const ox1 = Math.max(c.x, o.x), ox2 = Math.min(r, o.x + o.w);
+          if (ox2 > ox1 + EPS) covered.push([ox1, ox2]);
+        }
+      }
+      for (const [sx1, sx2] of _subtractIntervals(c.x, r, covered))
+        doc.line(toX(sx1), toY(edgeY), toX(sx2), toY(edgeY));
+    }
+    // 수직 엣지 (left, right)
+    for (const [edgeX, adjFn] of [
+      [c.x,  o => o.x + o.w],
+      [r,    o => o.x],
+    ]) {
+      const covered = [];
+      for (const o of cells) {
+        if (o === c) continue;
+        if (Math.abs(edgeX - adjFn(o)) < EPS) {
+          const oy1 = Math.max(c.y, o.y), oy2 = Math.min(bot, o.y + o.h);
+          if (oy2 > oy1 + EPS) covered.push([oy1, oy2]);
+        }
+      }
+      for (const [sy1, sy2] of _subtractIntervals(c.y, bot, covered))
+        doc.line(toX(edgeX), toY(sy1), toX(edgeX), toY(sy2));
+    }
+  }
+}
+
 // ─── 벡터 PDF 헬퍼 ───
 
 // SVG 문자열 생성 (bg 이미지 포함, 기존 exportSVG()는 수정 없음)
@@ -688,7 +876,7 @@ function _hidePdfLoading() {
 }
 
 // ─── 벡터 PDF 공통 (jsPDF 직접 드로잉 + 고화질 텍스트 오버레이) ───
-async function _buildJsPDFVector(mode, filename, fileHandle) {
+async function _buildJsPDFVector(mode, filename, fileHandle, quality = 'web') {
   // 로딩 오버레이가 실제로 렌더링되도록 브라우저에 2프레임 양보
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
@@ -762,11 +950,13 @@ async function _buildJsPDFVector(mode, filename, fileHandle) {
     const fr = hexRgb(fillHex), sr = hexRgb(strokeHex);
 
     if (b.cells && b.cells.length > 1) {
-      // L자: 셀 fill만 ('F'), 외곽선은 canvas overlay에서 strokeBoothShape으로 처리
+      // L자: 셀 fill ('F') + jsPDF 벡터 외곽선
       for (const c of b.cells) {
         doc.setFillColor(fr.r, fr.g, fr.b);
         doc.rect(toX(c.x), toY(c.y), toS(c.w), toS(c.h), 'F');
       }
+      doc.setDrawColor(sr.r, sr.g, sr.b);
+      _strokeLShapeVector(doc, b, toX, toY);
     } else {
       doc.setFillColor(fr.r, fr.g, fr.b);
       doc.setDrawColor(sr.r, sr.g, sr.b);
@@ -774,63 +964,93 @@ async function _buildJsPDFVector(mode, filename, fileHandle) {
     }
   }
 
-  // Layer 3: 텍스트/로고/구조물/실측 — 600 DPI 투명 캔버스 오버레이
-  const dpi = 600, mmpx = dpi / 25.4;
-  const oc = document.createElement('canvas');
-  oc.width = Math.round(cw * mmpx);
-  oc.height = Math.round(ch * mmpx);
-  const ctx = oc.getContext('2d');
-  ctx.clearRect(0, 0, oc.width, oc.height); // 투명 배경
+  if (quality === 'hq') {
+    // ── 고화질: 텍스트/로고는 jsPDF 벡터, 구조물·실측만 캔버스 오버레이 ──
+    const fonts = await _loadPretendardFonts();
+    _embedFonts(doc, fonts);
 
-  // world → canvas px 변환 (배정안내 translate/scale 방식과 동일)
-  const wScale = scaleMm * mmpx; // world-px → canvas-px
-  const cOffX = (offX - margin) * mmpx, cOffY = (offY - margin) * mmpx;
-  ctx.save();
-  ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
-  ctx.scale(wScale, wScale);
+    const mc = document.createElement('canvas').getContext('2d');
 
-  // L자 부스 외곽선 — strokeBoothShape으로 정확한 L형 윤곽
-  // jsPDF lineWidth = 0.5 * scaleMm mm → canvas에서 동일하게: 0.5 world-px (ctx.scale(wScale) 하에서 0.5 * wScale canvas-px = 0.5 * scaleMm mm)
-  ctx.lineWidth = 0.5;
-  for (const b of booths) {
-    if (!(b.cells && b.cells.length > 1)) continue;
-    const isFacility = b.status === 'facility', isSpot = b.status === 'spot';
-    if (mode === 'available') {
-      ctx.strokeStyle = isFacility ? '#999999' : isSpot ? '#F9A825' : '#000000';
-    } else {
-      ctx.strokeStyle = isFacility ? '#999999' : '#000000';
+    // 부스 텍스트 & 로고 → jsPDF 벡터
+    for (const b of booths) _drawBoothTextVector(doc, b, scaleMm, toX, toY, toS, mc);
+
+    // 기본부스번호 → jsPDF 벡터
+    for (const bn of state.baseNumbers) {
+      if (!bn.baseNo) continue;
+      const cov = booths.find(b2 =>
+        b2.x < bn.x + bn.w && b2.x + b2.w > bn.x && b2.y < bn.y + bn.h && b2.y + b2.h > bn.y &&
+        (b2.companyName || b2.companyNameEn));
+      if (cov) continue;
+      const fz = Math.min(bn.w, bn.h) * 0.35;
+      const ptSz = fz * scaleMm * (72 / 25.4);
+      if (ptSz < 0.5) continue;
+      doc.setFont('Pretendard', 'bold');
+      doc.setFontSize(ptSz);
+      doc.setTextColor(51, 51, 51);
+      doc.text(bn.baseNo, toX(bn.x + bn.w / 2), toY(bn.y + bn.h / 2), { align: 'center', baseline: 'middle' });
     }
-    strokeBoothShape(ctx, b, wScale);
+
+    // 구조물·실측만 200 DPI 캔버스로
+    const dpiHQ = 200, mmpxHQ = dpiHQ / 25.4;
+    const ocHQ = document.createElement('canvas');
+    ocHQ.width = Math.round(cw * mmpxHQ);
+    ocHQ.height = Math.round(ch * mmpxHQ);
+    const ctxHQ = ocHQ.getContext('2d');
+    ctxHQ.clearRect(0, 0, ocHQ.width, ocHQ.height);
+    const wScaleHQ = scaleMm * mmpxHQ;
+    const cOffXHQ = (offX - margin) * mmpxHQ, cOffYHQ = (offY - margin) * mmpxHQ;
+    ctxHQ.save();
+    ctxHQ.translate(cOffXHQ - bounds.x1 * wScaleHQ, cOffYHQ - bounds.y1 * wScaleHQ);
+    ctxHQ.scale(wScaleHQ, wScaleHQ);
+    drawStructures(ctxHQ, wScaleHQ, false);
+    drawMeasureLayer(ctxHQ, wScaleHQ);
+    ctxHQ.restore();
+    doc.addImage(ocHQ.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
+
+  } else {
+    // ── 웹용: 텍스트 포함 전체 600 DPI 캔버스 오버레이 (기존 방식) ──
+    const dpi = 600, mmpx = dpi / 25.4;
+    const oc = document.createElement('canvas');
+    oc.width = Math.round(cw * mmpx);
+    oc.height = Math.round(ch * mmpx);
+    const ctx = oc.getContext('2d');
+    ctx.clearRect(0, 0, oc.width, oc.height);
+
+    const wScale = scaleMm * mmpx;
+    const cOffX = (offX - margin) * mmpx, cOffY = (offY - margin) * mmpx;
+    ctx.save();
+    ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
+    ctx.scale(wScale, wScale);
+
+    // 부스 텍스트 & 로고
+    for (const b of booths) drawBoothContent(ctx, b, wScale, '#111111', false);
+
+    // 기본부스번호
+    for (const bn of state.baseNumbers) {
+      if (!bn.baseNo) continue;
+      const cov = booths.find(b2 =>
+        b2.x < bn.x + bn.w && b2.x + b2.w > bn.x && b2.y < bn.y + bn.h && b2.y + b2.h > bn.y &&
+        (b2.companyName || b2.companyNameEn));
+      if (cov) continue;
+      const fz = Math.min(bn.w, bn.h) * 0.35;
+      ctx.fillStyle = '#333';
+      ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
+    }
+
+    // 구조물 & 실측
+    drawStructures(ctx, wScale, false);
+    drawMeasureLayer(ctx, wScale);
+
+    ctx.restore();
+    doc.addImage(oc.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
   }
 
-  // 부스 텍스트 & 로고
-  for (const b of booths) drawBoothContent(ctx, b, wScale, '#111111', false);
-
-  // 기본부스번호
-  for (const bn of state.baseNumbers) {
-    if (!bn.baseNo) continue;
-    const cov = booths.find(b2 =>
-      b2.x < bn.x+bn.w && b2.x+b2.w > bn.x && b2.y < bn.y+bn.h && b2.y+b2.h > bn.y &&
-      (b2.companyName || b2.companyNameEn));
-    if (cov) continue;
-    const fz = Math.min(bn.w, bn.h) * 0.35;
-    ctx.fillStyle = '#333';
-    ctx.font = `600 ${fz}px Pretendard, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(bn.baseNo, bn.x + bn.w/2, bn.y + bn.h/2);
-  }
-
-  // 구조물 & 실측
-  drawStructures(ctx, wScale, false);
-  drawMeasureLayer(ctx, wScale);
-
-  ctx.restore();
-
-  doc.addImage(oc.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
   await _writePDF(doc, filename, fileHandle);
 }
 
-async function exportFloorplanPDF() {
+async function exportFloorplanPDF(quality = 'web') {
   if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
 
   // ① 클릭 직후 저장 위치 먼저 선택 (transient activation 만료 전)
@@ -845,7 +1065,7 @@ async function exportFloorplanPDF() {
   state._exporting = true;
   _showPdfLoading('🖨️ 도면출력 PDF 생성 중...');
   try {
-    await _buildJsPDFVector('floorplan', _fname0, fileHandle);
+    await _buildJsPDFVector('floorplan', _fname0, fileHandle, quality);
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
   } finally {
@@ -854,7 +1074,7 @@ async function exportFloorplanPDF() {
   }
 }
 
-async function exportAvailablePDF() {
+async function exportAvailablePDF(quality = 'web') {
   if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
 
   // ① 클릭 직후 저장 위치 먼저 선택
@@ -869,7 +1089,7 @@ async function exportAvailablePDF() {
   state._exporting = true;
   _showPdfLoading('📍 배정가능위치 PDF 생성 중...');
   try {
-    await _buildJsPDFVector('available', _fname2, fileHandle2);
+    await _buildJsPDFVector('available', _fname2, fileHandle2, quality);
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
   } finally {
