@@ -165,6 +165,7 @@ function _doRenderExportPreview() {
     ctx.lineWidth = 1 / sc;
     if (typeof strokeBoothShape === 'function') strokeBoothShape(ctx, b, sc);
     else ctx.strokeRect(b.x, b.y, b.w, b.h);
+    if (typeof drawBoothContent === 'function') drawBoothContent(ctx, b, sc, '#111111', false);
   }
 
   ctx.restore();

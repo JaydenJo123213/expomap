@@ -907,12 +907,6 @@ async function _buildPDFLibDocument(mode, options = {}) {
 
   // pdf-lib document
   const pdfDoc = await PDFDocument.create();
-  pdfDoc.registerFontkit(fontkit);
-
-  // 폰트 임베딩 (Pretendard woff2 — pdf-lib/fontkit이 CFF woff2 지원)
-  const fontBufs = await _loadPretendardWoff2();
-  const fontReg  = await pdfDoc.embedFont(fontBufs.regular);
-  const fontBold = await pdfDoc.embedFont(fontBufs.semibold);
 
   const page = pdfDoc.addPage([pgWpt, pgHpt]);
 
@@ -962,10 +956,32 @@ async function _buildPDFLibDocument(mode, options = {}) {
     }
   }
 
-  // Layer 3: 텍스트 벡터 (Pretendard 임베딩)
-  const mc = document.createElement('canvas').getContext('2d');
-  for (const b of booths) _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pgHpt, mc);
-  _drawBaseNumbersPdfLib(page, booths, fontReg, scalePt, toX, toY, pgHpt);
+  // Layer 3: 텍스트 → 투명 캔버스 래스터 (CSS Pretendard 웹폰트 사용, fontkit 임베딩 우회)
+  try {
+    const DPI = 200, mmToPx = DPI / 25.4;
+    const tc = document.createElement('canvas');
+    tc.width  = Math.round(pgWmm * mmToPx);
+    tc.height = Math.round(pgHmm * mmToPx);
+    const tctx = tc.getContext('2d');
+    if (tctx) {
+      const wScale = scalePt * mmToPx / MM_TO_PT;
+      tctx.clearRect(0, 0, tc.width, tc.height);
+      tctx.save();
+      tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
+                     offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
+      tctx.scale(wScale, wScale);
+      for (const b of booths) {
+        if (typeof drawBoothContent === 'function')
+          drawBoothContent(tctx, b, wScale, '#111111', false);
+      }
+      if (typeof _drawBaseNumbersCanvas === 'function')
+        _drawBaseNumbersCanvas(tctx, wScale);
+      tctx.restore();
+      const tPngBuf = await new Promise(res => tc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
+      const textImg = await pdfDoc.embedPng(tPngBuf);
+      page.drawImage(textImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+    }
+  } catch(e) { /* 텍스트 없이 계속 */ }
 
   // Layer 4: 구조물 + 실측 → 투명 캔버스 래스터
   try {
