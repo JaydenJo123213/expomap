@@ -1,28 +1,259 @@
-// ─── PDF 품질 선택 팝오버 ───
-let _pdfPopoverExportFn = null;
-let _pendingAssignQuality = 'web';
+// ─── Export 모달 상태 ───
+let _exportState = {
+  format: 'pdf',           // 'pdf' | 'svg'
+  pageSize: 'A3',          // 'A3' | 'custom'
+  customW: 420, customH: 297,
+  orientation: 'landscape',
+  dpi: 300,
+  preset: 'print',
+  scale: 0.7,              // 프리뷰 줌 (0.1~2.0)
+  panX: 0, panY: 0,        // 프리뷰 패닝
+  mode: 'floorplan',       // 'floorplan' | 'available'
+};
+let _exportPreviewDirty = false;
+let _exportPreviewRafId = null;
 
-function _showPdfPopover(anchorEl, exportFn) {
-  _pdfPopoverExportFn = exportFn;
-  const pop = document.getElementById('pdfQualityPopover');
-  const rect = anchorEl.getBoundingClientRect();
-  pop.style.top = (rect.bottom + 6) + 'px';
-  pop.style.left = rect.left + 'px';
-  pop.style.display = 'block';
+function _setExportFormat(fmt) {
+  _exportState.format = fmt;
+  document.getElementById('exportFmtPDF').classList.toggle('active', fmt === 'pdf');
+  document.getElementById('exportFmtSVG').classList.toggle('active', fmt === 'svg');
+  document.getElementById('exportPdfOptions').style.display = fmt === 'pdf' ? '' : 'none';
+  if (fmt === 'svg' && _exportState.preset !== 'illustrator') {
+    _setExportPreset('illustrator');
+    return;
+  }
+  _renderExportPreview();
 }
 
-document.addEventListener('click', (e) => {
-  const pop = document.getElementById('pdfQualityPopover');
-  if (!pop || pop.style.display === 'none') return;
-  if (pop.contains(e.target)) return;
-  if (e.target.closest('#btnPrintFloorplan, #btnPrintAvailable, #btnAssignGuideTopbar')) return;
-  pop.style.display = 'none';
-});
+function _setExportPreset(preset) {
+  _exportState.preset = preset;
+  if (preset === 'email') {
+    _exportState.format = 'pdf'; _exportState.pageSize = 'A3'; _exportState.orientation = 'landscape';
+  } else if (preset === 'print') {
+    _exportState.format = 'pdf'; _exportState.pageSize = 'A3'; _exportState.orientation = 'landscape';
+  } else if (preset === 'illustrator') {
+    _exportState.format = 'svg';
+  }
+  document.getElementById('exportPresetEmail').classList.toggle('active', preset === 'email');
+  document.getElementById('exportPresetPrint').classList.toggle('active', preset === 'print');
+  document.getElementById('exportPresetIllu').classList.toggle('active', preset === 'illustrator');
+  _syncExportModalUI();
+  _renderExportPreview();
+}
 
-document.getElementById('pdfQualityConfirm').addEventListener('click', async () => {
-  const quality = document.querySelector('input[name="pdfQuality"]:checked')?.value || 'web';
-  document.getElementById('pdfQualityPopover').style.display = 'none';
-  if (_pdfPopoverExportFn) await _pdfPopoverExportFn(quality);
+function _syncExportModalUI() {
+  const fmt = _exportState.format;
+  document.getElementById('exportFmtPDF').classList.toggle('active', fmt === 'pdf');
+  document.getElementById('exportFmtSVG').classList.toggle('active', fmt === 'svg');
+  document.getElementById('exportPdfOptions').style.display = fmt === 'pdf' ? '' : 'none';
+
+  // 페이지 크기 라디오
+  document.querySelectorAll('input[name="exportPageSize"]').forEach(r => {
+    r.checked = (r.value === _exportState.pageSize);
+  });
+  document.getElementById('exportCustomSizeWrap').style.display =
+    _exportState.pageSize === 'custom' ? 'flex' : 'none';
+
+  // 방향 라디오
+  document.querySelectorAll('input[name="exportOrient"]').forEach(r => {
+    r.checked = (r.value === _exportState.orientation);
+  });
+}
+
+function _syncExportOptions() {
+  _exportState.pageSize = document.querySelector('input[name="exportPageSize"]:checked')?.value || 'A3';
+  _exportState.orientation = document.querySelector('input[name="exportOrient"]:checked')?.value || 'landscape';
+  _exportState.customW = parseInt(document.getElementById('exportCustomW').value) || 420;
+  _exportState.customH = parseInt(document.getElementById('exportCustomH').value) || 297;
+  document.getElementById('exportCustomSizeWrap').style.display =
+    _exportState.pageSize === 'custom' ? 'flex' : 'none';
+  _renderExportPreview();
+}
+
+function _onExportScaleSlider(val) {
+  _exportState.scale = parseInt(val) / 100;
+  document.getElementById('exportScaleLabel').textContent = val + '%';
+  _renderExportPreview();
+}
+
+// ─── Export 프리뷰 렌더 ───
+let _exportPreviewDebounce = null;
+function _renderExportPreview() {
+  clearTimeout(_exportPreviewDebounce);
+  _exportPreviewDebounce = setTimeout(_doRenderExportPreview, 80);
+}
+
+function _doRenderExportPreview() {
+  const canvas = document.getElementById('exportPreviewCanvas');
+  if (!canvas) return;
+
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth || 560;
+  const H = wrap.clientHeight || 300;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1A1D27';
+  ctx.fillRect(0, 0, W, H);
+
+  // 페이지 크기 (mm)
+  let pgW = 420, pgH = 297; // A3 landscape default
+  if (_exportState.pageSize === 'A3') {
+    pgW = _exportState.orientation === 'landscape' ? 420 : 297;
+    pgH = _exportState.orientation === 'landscape' ? 297 : 420;
+  } else {
+    pgW = _exportState.orientation === 'landscape'
+      ? Math.max(_exportState.customW, _exportState.customH)
+      : Math.min(_exportState.customW, _exportState.customH);
+    pgH = _exportState.orientation === 'landscape'
+      ? Math.min(_exportState.customW, _exportState.customH)
+      : Math.max(_exportState.customW, _exportState.customH);
+  }
+
+  // 월드 bounds 계산
+  const booths = state.booths || [];
+  let bx1 = 0, by1 = 0, bx2 = 1200, by2 = 800;
+  if (state.bg && state.bg.img) {
+    bx1 = state.bg.x; by1 = state.bg.y;
+    bx2 = state.bg.x + state.bg.w; by2 = state.bg.y + state.bg.h;
+  } else if (booths.length) {
+    bx1 = Infinity; by1 = Infinity; bx2 = -Infinity; by2 = -Infinity;
+    for (const b of booths) {
+      bx1 = Math.min(bx1, b.x); by1 = Math.min(by1, b.y);
+      bx2 = Math.max(bx2, b.x + b.w); by2 = Math.max(by2, b.y + b.h);
+    }
+    bx1 -= 30; by1 -= 30; bx2 += 30; by2 += 30;
+  }
+  const worldW = bx2 - bx1, worldH = by2 - by1;
+
+  // A3 페이지 박스 (mm → px): 스케일 맞춤
+  const MM_TO_WORLD = 10 / 3; // 10px = 1m, 1m = 1000mm → 10px/m → 1mm = 10/1000 px? No...
+  // world px: 10px = 1m = 1000mm → 1mm = 0.01 worldpx? No, let's recalculate
+  // 10px = 1m → 1px = 100mm → 1mm = 0.01 * ... wait
+  // 10px = 1m, so 1m = 10px, 1mm = 10/1000 px = 0.01px... that can't be right
+  // Actually: 10px = 1m = 1000mm → 1mm = 10/1000 = 0.01px? That's tiny.
+  // Let me think again: 10px = 1m. A3 = 420mm = 0.42m = 4.2px. That's way too small.
+  // For PDF: we map world coords to mm. scaleMm = pageWidthMm / worldW
+  // For preview: just show the scene scaled to fit the canvas, with A3 guideline
+
+  // Scale world to fit in preview canvas (with user zoom)
+  const baseScaleX = (W * 0.8) / worldW;
+  const baseScaleY = (H * 0.8) / worldH;
+  const baseScale = Math.min(baseScaleX, baseScaleY);
+  const sc = baseScale * _exportState.scale;
+  const ox = W / 2 + _exportState.panX - (bx1 + worldW / 2) * sc;
+  const oy = H / 2 + _exportState.panY - (by1 + worldH / 2) * sc;
+
+  // 씬 렌더 (배경 + 부스)
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.scale(sc, sc);
+
+  // 배경
+  if (state.bg && state.bg.img) {
+    ctx.globalAlpha = 1;
+    ctx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
+  }
+
+  // 부스
+  for (const b of booths) {
+    const { fill, stroke } = _boothColors(b, _exportState.mode);
+    ctx.fillStyle = fill;
+    if (typeof fillBoothShape === 'function') fillBoothShape(ctx, b);
+    else ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1 / sc;
+    if (typeof strokeBoothShape === 'function') strokeBoothShape(ctx, b, sc);
+    else ctx.strokeRect(b.x, b.y, b.w, b.h);
+  }
+
+  ctx.restore();
+
+  // A3 가이드라인 (점선 흰 박스)
+  if (_exportState.format === 'pdf') {
+    // PDF 스케일: A3 mm → world px (10px=1m=1000mm, 1mm=0.01worldpx → but A3 420mm = 4.2worldpx? wrong)
+    // Actually world px 기준: 30px = 3m booth. 1m = 10px. 1mm = 10/1000 px = 0.01px. A3 420mm × 0.01 = 4.2px - way too small.
+    // The PDF scaleMm fits worldW → pgW. So A3 box in world coords = worldW × worldH (full content)
+    // Just draw the page border as the full content area
+    const A3_ASPECT = pgW / pgH;
+    const CONTENT_ASPECT = worldW / worldH;
+    let gw, gh;
+    if (A3_ASPECT > CONTENT_ASPECT) {
+      gh = worldH; gw = worldH * A3_ASPECT;
+    } else {
+      gw = worldW; gh = worldW / A3_ASPECT;
+    }
+    const gx = bx1 + (worldW - gw) / 2;
+    const gy = by1 + (worldH - gh) / 2;
+
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.scale(sc, sc);
+    ctx.strokeStyle = 'rgba(100,160,255,0.7)';
+    ctx.lineWidth = 2 / sc;
+    ctx.setLineDash([8 / sc, 6 / sc]);
+    ctx.strokeRect(gx, gy, gw, gh);
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // 스케일 텍스트
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '11px Pretendard, sans-serif';
+  ctx.fillText(Math.round(_exportState.scale * 100) + '%', 8, H - 8);
+}
+
+// ─── 프리뷰 마우스 이벤트 (줌/패닝) ───
+function _initExportPreviewEvents() {
+  const canvas = document.getElementById('exportPreviewCanvas');
+  if (!canvas) return;
+  let dragging = false, lastX = 0, lastY = 0;
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1.1 : 0.9;
+    _exportState.scale = Math.max(0.1, Math.min(3, _exportState.scale * delta));
+    const pct = Math.round(_exportState.scale * 100);
+    document.getElementById('exportScaleSlider').value = Math.min(200, Math.max(10, pct));
+    document.getElementById('exportScaleLabel').textContent = pct + '%';
+    _renderExportPreview();
+  }, { passive: false });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    _exportState.panX += e.clientX - lastX;
+    _exportState.panY += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    _renderExportPreview();
+  });
+  window.addEventListener('mouseup', () => { dragging = false; });
+}
+
+// ─── Export 모달 열기 ───
+function openExportModal(mode) {
+  _exportState.mode = mode || 'floorplan';
+  _exportState.panX = 0; _exportState.panY = 0;
+  _syncExportModalUI();
+  openModal('modalExport');
+  // 모달 열린 후 캔버스 크기가 확정되므로 rAF 후 렌더
+  requestAnimationFrame(() => {
+    _initExportPreviewEvents();
+    _renderExportPreview();
+  });
+}
+
+// Export 실행 버튼
+document.getElementById('btnExportConfirm').addEventListener('click', async () => {
+  closeModal('modalExport');
+  if (_exportState.format === 'svg') {
+    await exportSVG(state.lang);
+  } else {
+    await exportFloorplanPDF(_exportState);
+  }
 });
 
 // ─── Version History ───
@@ -128,11 +359,11 @@ document.getElementById('btnAssignGuide').addEventListener('click', () => {
   state.selectedDiscussIds.clear();
   render();
 });
-document.getElementById('btnPrintFloorplan').addEventListener('click', (e) => {
-  _showPdfPopover(e.currentTarget, exportFloorplanPDF);
+document.getElementById('btnPrintFloorplan').addEventListener('click', () => {
+  openExportModal('floorplan');
 });
-document.getElementById('btnPrintAvailable').addEventListener('click', (e) => {
-  _showPdfPopover(e.currentTarget, exportAvailablePDF);
+document.getElementById('btnPrintAvailable').addEventListener('click', () => {
+  openExportModal('available');
 });
 
 // ─── 제공부스 ───
@@ -192,13 +423,10 @@ function updateFreeBoothCount() {
   document.getElementById('countFreeBooth').textContent = freeTotal;
 }
 
-document.getElementById('btnAssignGuideTopbar').addEventListener('click', (e) => {
-  _showPdfPopover(e.currentTarget, (quality) => {
-    _pendingAssignQuality = quality;
-    state.assignGuideMode = true;
-    state.selectedDiscussIds.clear();
-    render();
-  });
+document.getElementById('btnAssignGuideTopbar').addEventListener('click', () => {
+  state.assignGuideMode = true;
+  state.selectedDiscussIds.clear();
+  render();
 });
 document.getElementById('btnAssignGuideConfirm').addEventListener('click', () => {
   if (state.selectedDiscussIds.size === 0) {

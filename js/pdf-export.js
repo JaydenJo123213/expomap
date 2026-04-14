@@ -1,148 +1,20 @@
-// ─── Pretendard 폰트 캐시 ───
-let _pretendardFonts = null; // { regular: base64, semibold: base64 }
+// ─── Pretendard woff2 캐시 (pdf-lib/fontkit용) ───
+// pdf-lib + fontkit은 woff2(CFF 포함) 올바르게 임베딩
+let _pretendardWoff2Cache = null;
 
-async function _loadPretendardFonts() {
-  if (_pretendardFonts) return _pretendardFonts;
+async function _loadPretendardWoff2() {
+  if (_pretendardWoff2Cache) return _pretendardWoff2Cache;
   const base = 'https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/public/static/';
-  async function fetchBase64(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`폰트 로드 실패: ${url} (${res.status})`);
-    const buf = await res.arrayBuffer();
-    return new Promise(resolve => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(fr.result.split(',')[1]);
-      fr.readAsDataURL(new Blob([buf]));
-    });
-  }
+  const fetchBuf = url => fetch(url).then(r => {
+    if (!r.ok) throw new Error(`폰트 로드 실패: ${url} (${r.status})`);
+    return r.arrayBuffer();
+  });
   const [regular, semibold] = await Promise.all([
-    fetchBase64(base + 'Pretendard-Regular.otf'),
-    fetchBase64(base + 'Pretendard-SemiBold.otf'),
+    fetchBuf(base + 'Pretendard-Regular.woff2'),
+    fetchBuf(base + 'Pretendard-SemiBold.woff2'),
   ]);
-  _pretendardFonts = { regular, semibold };
-  return _pretendardFonts;
-}
-
-function _embedFonts(doc, fonts) {
-  doc.addFileToVFS('Pretendard-Regular.otf', fonts.regular);
-  doc.addFont('Pretendard-Regular.otf', 'Pretendard', 'normal');
-  doc.addFileToVFS('Pretendard-SemiBold.otf', fonts.semibold);
-  doc.addFont('Pretendard-SemiBold.otf', 'Pretendard', 'bold');
-}
-
-// 부스 텍스트·로고를 jsPDF 벡터로 그리기 (고화질 모드)
-function _drawBoothTextVector(doc, b, scaleMm, toX, toY, toS, mc) {
-  const lang = state.lang;
-  const isEnMode = lang === 'en';
-  const displayName = isEnMode ? (b.companyNameEn || '') : (b.companyName || '');
-  const fontSizeOverride = isEnMode ? (b.fontSizeEn ?? null) : (b.fontSize ?? null);
-  const pad = 2;
-  const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
-  const availW = tr.w - pad * 2, availH = tr.h - pad * 2;
-  const area = typeof getBoothAreaM2 === 'function' ? getBoothAreaM2(b) : (b.w / 10) * (b.h / 10);
-  const hasCompany = !!displayName, hasBoothNo = !!b.boothId;
-
-  // mm 단위 변환 헬퍼
-  const toMmX = x => toX(x);
-  const toMmY = y => toY(y);
-  const toMmS = px => toS(px);
-  // world-px → pt (jsPDF font size)
-  const toPt = px => px * scaleMm * (72 / 25.4);
-
-  // 부스번호 그리기
-  const drawBoothNo = (noFz) => {
-    if (!b.boothId) return;
-    const ptSz = toPt(noFz);
-    if (ptSz < 0.5) return;
-    doc.setFont('Pretendard', 'bold');
-    doc.setFontSize(ptSz);
-    doc.setTextColor(0, 0, 0);
-    doc.setGState(doc.GState({ opacity: 0.65 }));
-    doc.text(b.boothId, toMmX(tr.x + pad), toMmY(tr.y + pad + noFz), { baseline: 'top' });
-    doc.setGState(doc.GState({ opacity: 1 }));
-  };
-
-  // 회사명 여러 줄 그리기
-  const drawCompanyName = (lines, fz, startY) => {
-    if (!lines.length) return;
-    const ptSz = toPt(fz);
-    if (ptSz < 0.5) return;
-    const lineH = fz * 1.25;
-    const cx = tr.x + tr.w / 2;
-    doc.setFont('Pretendard', 'normal');
-    doc.setFontSize(ptSz);
-    doc.setTextColor(17, 17, 17);
-    lines.forEach((line, i) => {
-      doc.text(line, toMmX(cx), toMmY(startY + fz * 0.35 + i * lineH), { align: 'center', baseline: 'top' });
-    });
-  };
-
-  const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
-  let logoDrawn = false;
-
-  if (shouldDrawLogo) {
-    const logoImg = state.logoCache.get(b.id);
-    if (logoImg) {
-      const logoDataUrl = _imgToDataUrl(logoImg);
-      if (logoDataUrl) {
-        logoDrawn = true;
-        const scale = (b.logoScale ?? 100) / 100;
-        const gap = (b.logoGap ?? 0) * (tr.h / 100);
-        const noReserve = hasBoothNo ? calcFontSize(mc, b.boothId, 26) + 4 : 0;
-        const logoPad = tr.w * 0.08, logoTopPad = Math.max(tr.h * 0.05, noReserve);
-        const logoAreaH = tr.h * 0.60;
-        const logoW = tr.w - logoPad * 2, logoH = logoAreaH - logoTopPad - tr.h * 0.02;
-        const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
-        const areaAspect = logoW / logoH;
-        let drawW, drawH;
-        if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW / imgAspect; }
-        else { drawH = logoH; drawW = logoH * imgAspect; }
-        drawW *= scale; drawH *= scale;
-        const logoX = tr.x + (tr.w - drawW) / 2;
-        const logoY = tr.y + logoTopPad + logoH / 2 - drawH / 2;
-        try { doc.addImage(logoDataUrl, 'PNG', toMmX(logoX), toMmY(logoY), toMmS(drawW), toMmS(drawH)); } catch (e) {}
-
-        // 로고 아래 회사명
-        const textAreaY = tr.y + tr.h * 0.58 + gap;
-        const textAreaH = tr.h * 0.36 - gap;
-        const lines = wrapText(displayName);
-        const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
-        let fz = fontSizeOverride != null
-          ? Math.max(1.5, Math.min(fontSizeOverride, 60))
-          : (() => {
-              let v = calcFontSize(mc, longestLine || 'A', availW * 0.85);
-              if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25);
-              return Math.max(1.5, Math.min(v, 12));
-            })();
-        const lineH = fz * 1.25, blockH = lines.length * lineH;
-        const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
-        drawCompanyName(lines, fz, startY - fz * 0.5);
-        if (hasBoothNo) drawBoothNo(calcFontSize(mc, b.boothId, 26));
-      }
-    }
-  }
-
-  if (!logoDrawn) {
-    if (hasCompany) {
-      const lines = wrapText(displayName);
-      const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
-      const noFz = hasBoothNo ? calcFontSize(mc, b.boothId, 26) : 0;
-      const topReserve = hasBoothNo ? noFz + 2 : 0;
-      const textAreaH = availH - topReserve;
-      let fz = fontSizeOverride != null
-        ? Math.max(1.5, Math.min(fontSizeOverride, 60))
-        : (() => {
-            let v = calcFontSize(mc, longestLine || 'A', availW * 0.9);
-            if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25);
-            return Math.max(1.5, Math.min(v, 16));
-          })();
-      const lineH = fz * 1.25, blockH = lines.length * lineH;
-      const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2;
-      drawCompanyName(lines, fz, startY);
-      if (hasBoothNo) drawBoothNo(noFz);
-    } else if (hasBoothNo) {
-      drawBoothNo(calcFontSize(mc, b.boothId, 26));
-    }
-  }
+  _pretendardWoff2Cache = { regular, semibold };
+  return _pretendardWoff2Cache;
 }
 
 // ─── PDF Export ───
@@ -162,83 +34,22 @@ async function _pickSaveHandle(filename) {
   }
 }
 
-// PDF blob을 핸들에 쓰거나 기본 다운로드
-async function _writePDF(doc, filename, handle) {
+// pdf-lib 바이트 배열 다운로드 (파일핸들 또는 기본 다운로드)
+async function _downloadPdfBytes(pdfBytes, filename, handle) {
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   if (handle && handle !== 'aborted') {
     const writable = await handle.createWritable();
-    await writable.write(doc.output('blob'));
+    await writable.write(blob);
     await writable.close();
   } else if (handle !== 'aborted') {
-    doc.save(filename);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
   }
 }
 
-let _selectedPreset = 'sales';
-function selectPreset(card) {
-  document.querySelectorAll('.preset-card').forEach(c => c.classList.remove('selected'));
-  card.classList.add('selected');
-  _selectedPreset = card.dataset.preset;
-  document.getElementById('paperSizeRow').style.display = _selectedPreset === 'large' ? 'flex' : 'none';
-  const notes = {
-    construction: 'Dimensions shown, company names hidden, grayscale rendering.',
-    sales: 'Full color with company names and assignment status.',
-    company: 'All booths gray; selected booths highlighted (internal status hidden).',
-    large: 'Full-resolution export for large-format printing.',
-  };
-  document.getElementById('exportNote').textContent = notes[_selectedPreset] || '';
-}
-
-async function executeExport() {
-  const preset = _selectedPreset;
-  const paperSize = document.getElementById('paperSize')?.value || 'a3';
-  const isConstruction = preset === 'construction';
-
-  // bgFill 모드 여부 (exportFloorplanPDF 와 동일 로직)
-  const _bgFill = !isConstruction && _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
-  // 방향: bgFill이면 BG 비율로 자동결정, large면 사용자 선택, 아니면 landscape
-  let orient;
-  if (_bgFill) {
-    orient = state.bg.w > state.bg.h ? 'landscape' : 'portrait';
-  } else if (preset === 'large') {
-    orient = document.getElementById('paperOrient')?.value || 'landscape';
-  } else {
-    orient = 'landscape';
-  }
-
-  try {
-    const { jsPDF } = window.jspdf;
-    const paperMap = { a3: 'a3', a1: [594, 841], a0: [841, 1189] };
-    const fmt = paperMap[paperSize] || 'a3';
-    const doc = new jsPDF({ orientation: orient, unit: 'mm', format: fmt });
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    const margin = _bgFill ? 0 : 10;
-    const contentW = pw - 2 * margin;
-    const contentH = ph - 2 * margin;
-
-    // 300 DPI 캔버스
-    const dpi = 300, mmToPx = dpi / 25.4;
-    const offW = Math.round(contentW * mmToPx);
-    const offH = Math.round(contentH * mmToPx);
-    const off = document.createElement('canvas');
-    off.width = offW; off.height = offH;
-    const octx = off.getContext('2d');
-
-    renderForExport(octx, offW, offH, preset, _bgFill);
-
-    const imgData = off.toDataURL('image/jpeg', 0.95);
-    doc.addImage(imgData, 'JPEG', margin, margin, contentW, contentH);
-    const presetNames = { construction: '시공팀용', sales: '영업팀용', company: '업체안내용', large: '대형출력용' };
-    const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-    await _savePDF(doc, _pdfPre + '_' + (presetNames[preset] || preset) + '.pdf');
-    closeModal('modalExport');
-  } catch (e) {
-    alert('PDF export failed: ' + e.message);
-  }
-}
-
-async function executeAssignGuideExport(quality) {
-  quality = quality || (typeof _pendingAssignQuality !== 'undefined' ? _pendingAssignQuality : 'web');
+async function executeAssignGuideExport() {
   const companyName = document.getElementById('assignGuideCompanyName').value.trim();
   if (!companyName) { alert('업체명을 입력해주세요.'); return; }
 
@@ -259,34 +70,39 @@ async function executeAssignGuideExport(quality) {
   const prevLang = state.lang;
   state.lang = assignLang;
   try {
-    // exportFloorplanPDF와 동일한 캔버스/스케일 방식 사용
     const _bgFillAG = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
     const _orientAG = _bgFillAG ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: _orientAG, unit: 'mm', format: 'a3' });
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    const agMargin = _bgFillAG ? 0 : 10;
-    const agContentW = pw - 2 * agMargin;
-    const agContentH = ph - 2 * agMargin;
-    const dpi = (quality === 'hq') ? 400 : 250, mmToPx = dpi / 25.4;
-    const offW = Math.round(agContentW * mmToPx);
-    const offH = Math.round(agContentH * mmToPx);
+
+    // A3 크기 계산 (points: 1mm = 72/25.4 pt)
+    const MM_TO_PT = 72 / 25.4;
+    const [pgWmm, pgHmm] = _orientAG === 'landscape' ? [420, 297] : [297, 420];
+    const pgWpt = pgWmm * MM_TO_PT, pgHpt = pgHmm * MM_TO_PT;
+
+    // 캔버스 렌더 (300 DPI)
+    const DPI = 300, mmToPx = DPI / 25.4;
+    const offW = Math.round(pgWmm * mmToPx), offH = Math.round(pgHmm * mmToPx);
     const off = document.createElement('canvas');
     off.width = offW; off.height = offH;
     const octx = off.getContext('2d');
     if (!octx) throw new Error('캔버스 컨텍스트 생성 실패 (캔버스 크기 초과?)');
     renderForAssignGuideExport(octx, offW, offH, showNames);
-    const imgData = off.toDataURL('image/png');
-    doc.addImage(imgData, 'PNG', agMargin, agMargin, agContentW, agContentH, undefined, 'SLOW');
-    // ② PDF 생성 완료 후 핸들에 저장
-    await _writePDF(doc, _fnameAG, fileHandleAG);
+
+    // pdf-lib 으로 PDF 생성
+    const { PDFDocument } = PDFLib;
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([pgWpt, pgHpt]);
+    const pngBuf = await new Promise(resolve => off.toBlob(b => b.arrayBuffer().then(resolve), 'image/png'));
+    const pngImg = await pdfDoc.embedPng(pngBuf);
+    page.drawImage(pngImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+
+    const pdfBytes = await pdfDoc.save();
+    await _downloadPdfBytes(pdfBytes, _fnameAG, fileHandleAG);
     closeModal('modalAssignGuide');
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
   } finally {
     _hidePdfLoading();
-    state.lang = prevLang;  // 원래 언어로 복원 (항상 실행)
+    state.lang = prevLang;
     state._exporting = false;
   }
 }
@@ -580,51 +396,7 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
   ectx.restore();
 }
 
-// ─── L자 부스 외곽선 벡터화 (jsPDF doc.line) ───
-// _subtractIntervals는 render.js에 전역 정의됨
-function _strokeLShapeVector(doc, b, toX, toY) {
-  const cells = b.cells;
-  const EPS = 0.5;
-  for (const c of cells) {
-    const r = c.x + c.w, bot = c.y + c.h;
-    // 수평 엣지 (top, bottom)
-    for (const [edgeY, adjFn] of [
-      [c.y,  o => o.y + o.h],
-      [bot,  o => o.y],
-    ]) {
-      const covered = [];
-      for (const o of cells) {
-        if (o === c) continue;
-        if (Math.abs(edgeY - adjFn(o)) < EPS) {
-          const ox1 = Math.max(c.x, o.x), ox2 = Math.min(r, o.x + o.w);
-          if (ox2 > ox1 + EPS) covered.push([ox1, ox2]);
-        }
-      }
-      for (const [sx1, sx2] of _subtractIntervals(c.x, r, covered))
-        doc.line(toX(sx1), toY(edgeY), toX(sx2), toY(edgeY));
-    }
-    // 수직 엣지 (left, right)
-    for (const [edgeX, adjFn] of [
-      [c.x,  o => o.x + o.w],
-      [r,    o => o.x],
-    ]) {
-      const covered = [];
-      for (const o of cells) {
-        if (o === c) continue;
-        if (Math.abs(edgeX - adjFn(o)) < EPS) {
-          const oy1 = Math.max(c.y, o.y), oy2 = Math.min(bot, o.y + o.h);
-          if (oy2 > oy1 + EPS) covered.push([oy1, oy2]);
-        }
-      }
-      for (const [sy1, sy2] of _subtractIntervals(c.y, bot, covered))
-        doc.line(toX(edgeX), toY(sy1), toX(edgeX), toY(sy2));
-    }
-  }
-}
-
-// ─── 벡터 PDF 헬퍼 ───
-
-// SVG 문자열 생성 (bg 이미지 포함, 기존 exportSVG()는 수정 없음)
+// ─── SVG 문자열 생성 (bg 이미지 포함, 기존 exportSVG()는 수정 없음)
 function _buildSVGString(mode) {
   const booths = state.booths;
   const lang = state.lang;
@@ -907,24 +679,6 @@ function _drawBaseNumbersCanvas(ctx, booths) {
   }
 }
 
-// ─── PDF 공통: 기본부스번호 jsPDF 벡터 렌더 헬퍼 ───
-function _drawBaseNumbersVector(doc, booths, scaleMm, toX, toY) {
-  for (const bn of state.baseNumbers) {
-    if (!bn.baseNo) continue;
-    const cov = booths.find(b2 =>
-      b2.x < bn.x + bn.w && b2.x + b2.w > bn.x && b2.y < bn.y + bn.h && b2.y + b2.h > bn.y &&
-      (b2.companyName || b2.companyNameEn));
-    if (cov) continue;
-    const fz = Math.min(bn.w, bn.h) * 0.35;
-    const ptSz = fz * scaleMm * (72 / 25.4);
-    if (ptSz < 0.5) continue;
-    doc.setFont('Pretendard', 'normal');
-    doc.setFontSize(ptSz);
-    doc.setTextColor(51, 51, 51);
-    doc.text(bn.baseNo, toX(bn.x + bn.w / 2), toY(bn.y + bn.h / 2), { align: 'center', baseline: 'middle' });
-  }
-}
-
 // ─── PDF 공통: 배경 이미지 캔버스 렌더 헬퍼 ───
 function _drawBgCanvas(ctx) {
   if (!state.bg.img) return;
@@ -941,26 +695,189 @@ function _drawBgCanvas(ctx) {
   ctx.globalAlpha = 1;
 }
 
-// ─── PDF 공통: 캔버스 컨텍스트 세팅 (translate+scale) ───
-function _setupCanvas(oc, cw, ch, dpi, scaleMm, offX, offY, margin) {
-  const mmpx = dpi / 25.4;
-  oc.width  = Math.round(cw * mmpx);
-  oc.height = Math.round(ch * mmpx);
-  const ctx = oc.getContext('2d');
-  if (!ctx) throw new Error('캔버스 컨텍스트 생성 실패 (캔버스 크기 초과?)');
-  const wScale = scaleMm * mmpx;
-  const cOffX  = (offX - margin) * mmpx;
-  const cOffY  = (offY - margin) * mmpx;
-  return { ctx, wScale, cOffX, cOffY };
+// ─── pdf-lib: L자 부스 외곽선 ───
+// _subtractIntervals는 render.js에 전역 정의됨
+function _strokeLShapePdfLib(page, b, toX, toY, pageH, color, lw) {
+  const cells = b.cells;
+  const EPS = 0.5;
+  const toPageY = worldY => pageH - toY(worldY); // pdf-lib y=0은 하단
+  for (const c of cells) {
+    const r = c.x + c.w, bot = c.y + c.h;
+    for (const [edgeY, adjFn] of [
+      [c.y,  o => o.y + o.h],
+      [bot,  o => o.y],
+    ]) {
+      const covered = [];
+      for (const o of cells) {
+        if (o === c) continue;
+        if (Math.abs(edgeY - adjFn(o)) < EPS) {
+          const ox1 = Math.max(c.x, o.x), ox2 = Math.min(r, o.x + o.w);
+          if (ox2 > ox1 + EPS) covered.push([ox1, ox2]);
+        }
+      }
+      for (const [sx1, sx2] of _subtractIntervals(c.x, r, covered))
+        page.drawLine({ start: { x: toX(sx1), y: toPageY(edgeY) }, end: { x: toX(sx2), y: toPageY(edgeY) }, color, thickness: lw });
+    }
+    for (const [edgeX, adjFn] of [
+      [c.x,  o => o.x + o.w],
+      [r,    o => o.x],
+    ]) {
+      const covered = [];
+      for (const o of cells) {
+        if (o === c) continue;
+        if (Math.abs(edgeX - adjFn(o)) < EPS) {
+          const oy1 = Math.max(c.y, o.y), oy2 = Math.min(bot, o.y + o.h);
+          if (oy2 > oy1 + EPS) covered.push([oy1, oy2]);
+        }
+      }
+      for (const [sy1, sy2] of _subtractIntervals(c.y, bot, covered))
+        page.drawLine({ start: { x: toX(edgeX), y: toPageY(sy1) }, end: { x: toX(edgeX), y: toPageY(sy2) }, color, thickness: lw });
+    }
+  }
 }
 
-// ─── 벡터 PDF 공통 ───
-async function _buildJsPDFVector(mode, filename, fileHandle, quality = 'web') {
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+// ─── pdf-lib: 부스 텍스트 + 번호 벡터 렌더 ───
+function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pageH, mc) {
+  const { rgb } = PDFLib;
+  const lang = state.lang;
+  const displayName = lang === 'en' ? (b.companyNameEn || '') : (b.companyName || '');
+  const fontSizeOverride = lang === 'en' ? (b.fontSizeEn ?? null) : (b.fontSize ?? null);
+  const pad = 2;
+  const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
+  const availW = tr.w - pad * 2, availH = tr.h - pad * 2;
+  const toPageY = worldY => pageH - toY(worldY);
+  // world-px → pt
+  const toPt = px => px * scalePt;
 
+  const drawNo = (noFz) => {
+    if (!b.boothId) return;
+    const ptSz = toPt(noFz);
+    if (ptSz < 0.5) return;
+    const tx = toX(tr.x + pad);
+    const ty = toPageY(tr.y + pad + noFz);
+    page.drawText(b.boothId, { x: tx, y: ty, size: ptSz, font: fontBold, color: rgb(0,0,0), opacity: 0.65 });
+  };
+
+  const drawName = (lines, fz, startY) => {
+    if (!lines.length) return;
+    const ptSz = toPt(fz);
+    if (ptSz < 0.5) return;
+    const lineH = fz * 1.25;
+    const cx = tr.x + tr.w / 2;
+    lines.forEach((line, i) => {
+      const tw = fontReg.widthOfTextAtSize(line, ptSz);
+      const tx = toX(cx) - tw / 2;
+      const ty = toPageY(startY + fz * 0.35 + i * lineH + fz);
+      page.drawText(line, { x: tx, y: ty, size: ptSz, font: fontReg, color: rgb(0.067,0.067,0.067) });
+    });
+  };
+
+  const hasCompany = !!displayName, hasBoothNo = !!b.boothId;
+  const area = (b.w / 10) * (b.h / 10);
+  const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
+  let logoDrawn = false;
+
+  if (shouldDrawLogo) {
+    const logoImg = state.logoCache?.get(b.id);
+    if (logoImg) {
+      const logoDataUrl = _imgToDataUrl(logoImg);
+      if (logoDataUrl) {
+        logoDrawn = true;
+        const scale = (b.logoScale ?? 100) / 100;
+        const noFz = hasBoothNo && mc ? calcFontSize(mc, b.boothId, 26) : 0;
+        const noReserve = noFz ? noFz + 4 : 0;
+        const logoPad = tr.w * 0.08, logoTopPad = Math.max(tr.h * 0.05, noReserve);
+        const logoAreaH = tr.h * 0.60;
+        const logoW = tr.w - logoPad * 2, logoH = logoAreaH - logoTopPad - tr.h * 0.02;
+        const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
+        const areaAspect = logoW / logoH;
+        let drawW, drawH;
+        if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW / imgAspect; }
+        else { drawH = logoH; drawW = logoH * imgAspect; }
+        drawW *= scale; drawH *= scale;
+        // 로고 embed는 _buildPDFLibDocument 내부 pdfDoc 참조가 필요해서 여기선 스킵
+        const gap = (b.logoGap ?? 0) * (tr.h / 100);
+        const textAreaY = tr.y + tr.h * 0.58 + gap;
+        const textAreaH = tr.h * 0.36 - gap;
+        const lines = typeof wrapText === 'function' ? wrapText(displayName) : [displayName];
+        const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
+        let fz = fontSizeOverride != null
+          ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+          : Math.max(1.5, Math.min(mc ? calcFontSize(mc, longestLine || 'A', availW * 0.85) : 8, 12));
+        if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
+        const lineH = fz * 1.25, blockH = lines.length * lineH;
+        const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
+        drawName(lines, fz, startY - fz * 0.5);
+        if (hasBoothNo) drawNo(noFz);
+      }
+    }
+  }
+
+  if (!logoDrawn) {
+    if (hasCompany) {
+      const lines = typeof wrapText === 'function' ? wrapText(displayName) : [displayName];
+      const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
+      const noFz = hasBoothNo && mc ? calcFontSize(mc, b.boothId, 26) : 0;
+      const topReserve = noFz ? noFz + 2 : 0;
+      const textAreaH = availH - topReserve;
+      let fz = fontSizeOverride != null
+        ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+        : Math.max(1.5, Math.min(mc ? calcFontSize(mc, longestLine || 'A', availW * 0.9) : 10, 16));
+      if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
+      const lineH = fz * 1.25, blockH = lines.length * lineH;
+      const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2;
+      drawName(lines, fz, startY);
+      if (hasBoothNo) drawNo(noFz);
+    } else if (hasBoothNo) {
+      drawNo(mc ? calcFontSize(mc, b.boothId, 26) : 8);
+    }
+  }
+}
+
+// ─── pdf-lib: 기본부스번호 벡터 렌더 ───
+function _drawBaseNumbersPdfLib(page, booths, fontReg, scalePt, toX, toY, pageH) {
+  const { rgb } = PDFLib;
+  const toPageY = worldY => pageH - toY(worldY);
+  for (const bn of (state.baseNumbers || [])) {
+    if (!bn.baseNo) continue;
+    const cov = booths.find(b2 =>
+      b2.x < bn.x+bn.w && b2.x+b2.w > bn.x && b2.y < bn.y+bn.h && b2.y+b2.h > bn.y &&
+      (b2.companyName || b2.companyNameEn));
+    if (cov) continue;
+    const fz = Math.min(bn.w, bn.h) * 0.35;
+    const ptSz = fz * scalePt;
+    if (ptSz < 0.5) continue;
+    const tw = fontReg.widthOfTextAtSize(bn.baseNo, ptSz);
+    page.drawText(bn.baseNo, {
+      x: toX(bn.x + bn.w / 2) - tw / 2,
+      y: toPageY(bn.y + bn.h / 2) - ptSz * 0.35,
+      size: ptSz, font: fontReg, color: rgb(0.2, 0.2, 0.2),
+    });
+  }
+}
+
+// ─── pdf-lib: 메인 PDF 빌더 ───
+async function _buildPDFLibDocument(mode, options = {}) {
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const { PDFDocument, rgb } = PDFLib;
+  const MM_TO_PT = 72 / 25.4;
   const booths = state.booths;
   const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
 
+  // 페이지 크기 결정
+  let pgWmm, pgHmm;
+  if (options.pageSize === 'custom') {
+    pgWmm = options.customW || 420; pgHmm = options.customH || 297;
+    if (options.orientation === 'portrait' && pgWmm > pgHmm) [pgWmm, pgHmm] = [pgHmm, pgWmm];
+    if (options.orientation === 'landscape' && pgHmm > pgWmm) [pgWmm, pgHmm] = [pgHmm, pgWmm];
+  } else {
+    // A3
+    pgWmm = options.orientation === 'landscape' ? 420 : 297;
+    pgHmm = options.orientation === 'landscape' ? 297 : 420;
+  }
+  const pgWpt = pgWmm * MM_TO_PT, pgHpt = pgHmm * MM_TO_PT;
+
+  // Bounds 계산
   let bounds;
   if (_bgFill) {
     bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
@@ -974,152 +891,131 @@ async function _buildJsPDFVector(mode, filename, fileHandle, quality = 'web') {
       bounds.x1 -= 50; bounds.y1 -= 100; bounds.x2 += 50; bounds.y2 += 50;
     }
   }
-
   const vw = bounds.x2 - bounds.x1, vh = bounds.y2 - bounds.y1;
-  const { jsPDF } = window.jspdf;
-  const orientation = _bgFill ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
-  const doc = new jsPDF({ orientation, unit: 'mm', format: 'a3' });
-  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
-  const margin = _bgFill ? 0 : 10;
-  const cw = pw - margin * 2, ch = ph - margin * 2;
-  const scaleX = cw / vw, scaleY = ch / vh;
-  const scaleMm = _bgFill ? Math.min(scaleX, scaleY) : scaleX;
-  const offX = _bgFill ? margin + (cw - vw * scaleMm) / 2 : margin;
-  const offY = _bgFill ? margin + (ch - vh * scaleMm) / 2 : margin;
-  const toX = px => offX + (px - bounds.x1) * scaleMm;
-  const toY = py => offY + (py - bounds.y1) * scaleMm;
-  const toS = px => px * scaleMm;
+  const scaleX = pgWpt / vw, scaleY = pgHpt / vh;
+  const scalePt = _bgFill ? Math.min(scaleX, scaleY) : scaleX;
+  const offX = _bgFill ? (pgWpt - vw * scalePt) / 2 : 0;
+  const offY = _bgFill ? (pgHpt - vh * scalePt) / 2 : 0;
 
-  doc.setFillColor(255, 255, 255);
-  doc.rect(0, 0, pw, ph, 'F');
+  // pdf-lib y=0은 하단 → 좌표 변환
+  // toX: world px → pdf pt (left-origin)
+  // toY: world px → pdf pt (top-origin, 미사용, toPageY를 사용)
+  const toX   = wx => offX + (wx - bounds.x1) * scalePt;
+  const toY   = wy => offY + (wy - bounds.y1) * scalePt; // top-origin (used for rect height calc)
+  const toPageY = wy => pgHpt - (offY + (wy - bounds.y1) * scalePt); // bottom-origin for pdf-lib
+  const toS   = px => px * scalePt;
 
-  if (quality === 'web') {
-    // ── 웹용: 배정안내와 동일한 단일 불투명 캔버스 (250 DPI, PNG+SLOW) ──
-    const oc = document.createElement('canvas');
-    const { ctx, wScale, cOffX, cOffY } = _setupCanvas(oc, cw, ch, 250, scaleMm, offX, offY, margin);
+  // pdf-lib document
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, oc.width, oc.height);
-    ctx.save();
-    ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
-    ctx.scale(wScale, wScale);
+  // 폰트 임베딩 (Pretendard woff2 — pdf-lib/fontkit이 CFF woff2 지원)
+  const fontBufs = await _loadPretendardWoff2();
+  const fontReg  = await pdfDoc.embedFont(fontBufs.regular);
+  const fontBold = await pdfDoc.embedFont(fontBufs.semibold);
 
-    _drawBgCanvas(ctx);
+  const page = pdfDoc.addPage([pgWpt, pgHpt]);
 
-    ctx.lineWidth = 0.5;
-    for (const b of booths) {
-      const { fill, stroke } = _boothColors(b, mode);
-      ctx.fillStyle = fill;
-      fillBoothShape(ctx, b);
-      ctx.strokeStyle = stroke;
-      strokeBoothShape(ctx, b, wScale);
-      drawBoothContent(ctx, b, wScale, '#111111', false);
-    }
-    _drawBaseNumbersCanvas(ctx, booths);
-    drawStructures(ctx, wScale, false);
-    drawMeasureLayer(ctx, wScale);
-    ctx.restore();
+  // 흰 배경
+  page.drawRectangle({ x: 0, y: 0, width: pgWpt, height: pgHpt, color: rgb(1,1,1) });
 
-    doc.addImage(oc.toDataURL('image/png'), 'PNG', margin, margin, cw, ch, undefined, 'SLOW');
-
-  } else {
-    // ── 고화질: jsPDF 벡터 (부스 + Pretendard 폰트) + 구조물·실측 캔버스 ──
-    const hexRgb = h => ({ r: parseInt(h.slice(1,3),16), g: parseInt(h.slice(3,5),16), b: parseInt(h.slice(5,7),16) });
-
-    // Layer 1: 배경 이미지 (raster)
-    if (state.bg.img) {
-      const bgDataUrl = state.bg.dataUrl || _imgToDataUrl(state.bg.img);
-      if (bgDataUrl) {
-        try { doc.addImage(bgDataUrl, 'PNG', toX(state.bg.x), toY(state.bg.y), toS(state.bg.w), toS(state.bg.h)); }
-        catch(e) {}
-      }
-    }
-
-    // Layer 2: 부스 fill/stroke — jsPDF 벡터
-    const lw = Math.max(0.05, 0.5 * scaleMm);
-    doc.setLineWidth(lw);
-    for (const b of booths) {
-      const { fill: fillHex, stroke: strokeHex } = _boothColors(b, mode);
-      const fr = hexRgb(fillHex), sr = hexRgb(strokeHex);
-      if (b.cells && b.cells.length > 1) {
-        for (const c of b.cells) {
-          doc.setFillColor(fr.r, fr.g, fr.b);
-          doc.rect(toX(c.x), toY(c.y), toS(c.w), toS(c.h), 'F');
-        }
-        doc.setDrawColor(sr.r, sr.g, sr.b);
-        _strokeLShapeVector(doc, b, toX, toY);
+  // Layer 1: 배경 이미지
+  if (state.bg.img && (state.bg.dataUrl || state.bg.storageUrl)) {
+    try {
+      const bgUrl = state.bg.dataUrl || state.bg.storageUrl;
+      let imgBuf;
+      if (bgUrl.startsWith('data:')) {
+        const b64 = bgUrl.split(',')[1];
+        imgBuf = Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
       } else {
-        doc.setFillColor(fr.r, fr.g, fr.b);
-        doc.setDrawColor(sr.r, sr.g, sr.b);
-        doc.rect(toX(b.x), toY(b.y), toS(b.w), toS(b.h), 'FD');
+        imgBuf = await fetch(bgUrl).then(r => r.arrayBuffer());
       }
-    }
-
-    // Layer 3: 폰트 임베딩 → 부스 텍스트/로고 + 기본부스번호 jsPDF 벡터
-    const fonts = await _loadPretendardFonts();
-    _embedFonts(doc, fonts);
-    const mc = document.createElement('canvas').getContext('2d');
-    for (const b of booths) _drawBoothTextVector(doc, b, scaleMm, toX, toY, toS, mc);
-    _drawBaseNumbersVector(doc, booths, scaleMm, toX, toY);
-
-    // Layer 4: 구조물·실측만 투명 캔버스 (200 DPI)
-    const oc = document.createElement('canvas');
-    const { ctx, wScale, cOffX, cOffY } = _setupCanvas(oc, cw, ch, 200, scaleMm, offX, offY, margin);
-    ctx.clearRect(0, 0, oc.width, oc.height);
-    ctx.save();
-    ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
-    ctx.scale(wScale, wScale);
-    drawStructures(ctx, wScale, false);
-    drawMeasureLayer(ctx, wScale);
-    ctx.restore();
-    doc.addImage(oc.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
+      const bgImg = bgUrl.toLowerCase().includes('jpg') || bgUrl.toLowerCase().includes('jpeg')
+        ? await pdfDoc.embedJpg(imgBuf) : await pdfDoc.embedPng(imgBuf);
+      const bx = toX(state.bg.x), bw = toS(state.bg.w), bh = toS(state.bg.h);
+      page.drawImage(bgImg, { x: bx, y: toPageY(state.bg.y) - bh, width: bw, height: bh });
+    } catch(e) { /* 배경 없이 계속 */ }
   }
 
-  await _writePDF(doc, filename, fileHandle);
+  // Layer 2: 부스 fill/stroke (벡터)
+  const hexToRgb = h => {
+    const r = parseInt(h.slice(1,3),16)/255, g = parseInt(h.slice(3,5),16)/255, b = parseInt(h.slice(5,7),16)/255;
+    return rgb(r, g, b);
+  };
+  const lw = Math.max(0.3, 0.5 * scalePt / MM_TO_PT);
+  for (const b of booths) {
+    const { fill: fillHex, stroke: strokeHex } = _boothColors(b, mode);
+    const fillC = hexToRgb(fillHex), strokeC = hexToRgb(strokeHex);
+    if (b.cells && b.cells.length > 1) {
+      for (const c of b.cells) {
+        page.drawRectangle({
+          x: toX(c.x), y: toPageY(c.y + c.h), width: toS(c.w), height: toS(c.h),
+          color: fillC, borderWidth: 0,
+        });
+      }
+      _strokeLShapePdfLib(page, b, toX, toY, pgHpt, strokeC, lw);
+    } else {
+      page.drawRectangle({
+        x: toX(b.x), y: toPageY(b.y + b.h), width: toS(b.w), height: toS(b.h),
+        color: fillC, borderColor: strokeC, borderWidth: lw,
+      });
+    }
+  }
+
+  // Layer 3: 텍스트 벡터 (Pretendard 임베딩)
+  const mc = document.createElement('canvas').getContext('2d');
+  for (const b of booths) _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pgHpt, mc);
+  _drawBaseNumbersPdfLib(page, booths, fontReg, scalePt, toX, toY, pgHpt);
+
+  // Layer 4: 구조물 + 실측 → 투명 캔버스 래스터
+  try {
+    const DPI = 200, mmToPx = DPI / 25.4;
+    const oc = document.createElement('canvas');
+    oc.width  = Math.round(pgWmm * mmToPx);
+    oc.height = Math.round(pgHmm * mmToPx);
+    const ctx = oc.getContext('2d');
+    if (ctx) {
+      const wScale = scalePt * mmToPx / MM_TO_PT;
+      ctx.clearRect(0, 0, oc.width, oc.height);
+      ctx.save();
+      ctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
+                    offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
+      ctx.scale(wScale, wScale);
+      if (typeof drawStructures === 'function') drawStructures(ctx, wScale, false);
+      if (typeof drawMeasureLayer === 'function') drawMeasureLayer(ctx, wScale);
+      ctx.restore();
+      const pngBuf = await new Promise(res => oc.toBlob(b2 => b2.arrayBuffer().then(res), 'image/png'));
+      const structImg = await pdfDoc.embedPng(pngBuf);
+      page.drawImage(structImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+    }
+  } catch(e) { /* 구조물 없이 계속 */ }
+
+  return pdfDoc;
 }
 
-async function exportFloorplanPDF(quality = 'web') {
+// ─── Public Export 함수 ───
+async function exportFloorplanPDF(options = {}) {
   if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
-
-  // ① 클릭 직후 저장 위치 먼저 선택 (transient activation 만료 전)
-  const _pdfPre0 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-  const _today0 = new Date();
-  const _date0 = String(_today0.getFullYear()).slice(2) + String(_today0.getMonth()+1).padStart(2,'0') + String(_today0.getDate()).padStart(2,'0');
-  const _lang0 = state.lang === 'en' ? '_EN' : '';
-  const _fname0 = `${_pdfPre0}_Floor Plan_${_date0}${_lang0}.pdf`;
-  const fileHandle = await _pickSaveHandle(_fname0);
+  const mode = options.mode || 'floorplan';
+  const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+  const d = new Date();
+  const _date = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  const _lang = state.lang === 'en' ? '_EN' : '';
+  const _suffix = mode === 'available' ? '_Available' : '';
+  const _fname = `${_pdfPre}_Floor Plan_${_date}${_suffix}${_lang}.pdf`;
+  const fileHandle = await _pickSaveHandle(_fname);
   if (fileHandle === 'aborted') return;
 
   state._exporting = true;
-  _showPdfLoading('🖨️ 도면출력 PDF 생성 중...');
+  const loadingMsg = mode === 'available' ? '📍 배정가능위치 PDF 생성 중...' : '🖨️ 도면출력 PDF 생성 중...';
+  _showPdfLoading(loadingMsg);
   try {
-    await _buildJsPDFVector('floorplan', _fname0, fileHandle, quality);
+    const pdfDoc = await _buildPDFLibDocument(mode, options);
+    const pdfBytes = await pdfDoc.save();
+    await _downloadPdfBytes(pdfBytes, _fname, fileHandle);
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
-  } finally {
-    _hidePdfLoading();
-    state._exporting = false;
-  }
-}
-
-async function exportAvailablePDF(quality = 'web') {
-  if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
-
-  // ① 클릭 직후 저장 위치 먼저 선택
-  const _pdfPre2a = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-  const _today2 = new Date();
-  const _date2 = String(_today2.getFullYear()).slice(2) + String(_today2.getMonth()+1).padStart(2,'0') + String(_today2.getDate()).padStart(2,'0');
-  const _lang2 = state.lang === 'en' ? '_EN' : '';
-  const _fname2 = `${_pdfPre2a}_Floor Plan_${_date2}_Available${_lang2}.pdf`;
-  const fileHandle2 = await _pickSaveHandle(_fname2);
-  if (fileHandle2 === 'aborted') return;
-
-  state._exporting = true;
-  _showPdfLoading('📍 배정가능위치 PDF 생성 중...');
-  try {
-    await _buildJsPDFVector('available', _fname2, fileHandle2, quality);
-  } catch (e) {
-    alert('PDF 생성 실패: ' + e.message);
+    console.error(e);
   } finally {
     _hidePdfLoading();
     state._exporting = false;
