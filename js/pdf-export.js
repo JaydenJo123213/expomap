@@ -106,6 +106,7 @@ async function executeAssignGuideExport() {
 
   state._exporting = true;
   _showPdfLoading('📋 배정안내 PDF 생성 중...');
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   const showNames = document.getElementById('assignShowNames').checked;
   const prevLang = state.lang;
   state.lang = assignLang;
@@ -688,6 +689,9 @@ function _hidePdfLoading() {
 
 // ─── 벡터 PDF 공통 (jsPDF 직접 드로잉 + 고화질 텍스트 오버레이) ───
 async function _buildJsPDFVector(mode, filename, fileHandle) {
+  // 로딩 오버레이가 실제로 렌더링되도록 브라우저에 2프레임 양보
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
   const booths = state.booths;
   // 배정안내와 동일한 bgFill 판단
   const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
@@ -785,8 +789,9 @@ async function _buildJsPDFVector(mode, filename, fileHandle) {
   ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
   ctx.scale(wScale, wScale);
 
-  // L자 부스 외곽선 — strokeBoothShape으로 정확한 L형 윤곽 (배정안내와 동일)
-  ctx.lineWidth = 0.5 / wScale; // 배정안내: lineWidth = 0.5 / zoom 과 동일
+  // L자 부스 외곽선 — strokeBoothShape으로 정확한 L형 윤곽
+  // jsPDF lineWidth = 0.5 * scaleMm mm → canvas에서 동일하게: 0.5 world-px (ctx.scale(wScale) 하에서 0.5 * wScale canvas-px = 0.5 * scaleMm mm)
+  ctx.lineWidth = 0.5;
   for (const b of booths) {
     if (!(b.cells && b.cells.length > 1)) continue;
     const isFacility = b.status === 'facility', isSpot = b.status === 'spot';
