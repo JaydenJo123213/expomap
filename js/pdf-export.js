@@ -119,7 +119,7 @@ async function executeAssignGuideExport() {
     const agMargin = _bgFillAG ? 0 : 10;
     const agContentW = pw - 2 * agMargin;
     const agContentH = ph - 2 * agMargin;
-    const dpi = 300, mmToPx = dpi / 25.4;
+    const dpi = 500, mmToPx = dpi / 25.4;
     const offW = Math.round(agContentW * mmToPx);
     const offH = Math.round(agContentH * mmToPx);
     const off = document.createElement('canvas');
@@ -671,6 +671,133 @@ async function _svgToPDF(svgString, filename, fileHandle) {
   }
 }
 
+// ─── 벡터 PDF 공통 (jsPDF 직접 드로잉 + 고화질 텍스트 오버레이) ───
+async function _buildJsPDFVector(mode, filename, fileHandle) {
+  const booths = state.booths;
+
+  // Bounds
+  let bounds;
+  if (state.bg.img) {
+    const bg = state.bg;
+    bounds = { x1: bg.x, y1: bg.y, x2: bg.x + bg.w, y2: bg.y + bg.h };
+    for (const b of booths) {
+      bounds.x1 = Math.min(bounds.x1, b.x); bounds.y1 = Math.min(bounds.y1, b.y);
+      bounds.x2 = Math.max(bounds.x2, b.x + b.w); bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+    }
+  } else if (booths.length) {
+    bounds = { x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity };
+    for (const b of booths) {
+      bounds.x1 = Math.min(bounds.x1, b.x); bounds.y1 = Math.min(bounds.y1, b.y);
+      bounds.x2 = Math.max(bounds.x2, b.x + b.w); bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+    }
+    bounds.x1 -= 50; bounds.y1 -= 50; bounds.x2 += 50; bounds.y2 += 50;
+  } else {
+    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+  }
+
+  const vw = bounds.x2 - bounds.x1, vh = bounds.y2 - bounds.y1;
+  const { jsPDF } = window.jspdf;
+  const orientation = vw > vh ? 'landscape' : 'portrait';
+  const doc = new jsPDF({ orientation, unit: 'mm', format: 'a3' });
+  const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
+  const margin = 10, cw = pw - margin * 2, ch = ph - margin * 2;
+
+  // 비율 유지하며 content area에 맞추기
+  const scaleMm = Math.min(cw / vw, ch / vh); // mm per world-px
+  const offX = margin + (cw - vw * scaleMm) / 2;
+  const offY = margin + (ch - vh * scaleMm) / 2;
+  const toX = px => offX + (px - bounds.x1) * scaleMm;
+  const toY = py => offY + (py - bounds.y1) * scaleMm;
+  const toS = px => px * scaleMm;
+
+  const hexRgb = h => ({ r: parseInt(h.slice(1,3),16), g: parseInt(h.slice(3,5),16), b: parseInt(h.slice(5,7),16) });
+
+  // 흰 배경
+  doc.setFillColor(255,255,255);
+  doc.rect(0, 0, pw, ph, 'F');
+
+  // Layer 1: 배경 이미지 (raster)
+  if (state.bg.img) {
+    const bgDataUrl = state.bg.dataUrl || _imgToDataUrl(state.bg.img);
+    if (bgDataUrl) {
+      try { doc.addImage(bgDataUrl, 'PNG', toX(state.bg.x), toY(state.bg.y), toS(state.bg.w), toS(state.bg.h)); }
+      catch(e) {}
+    }
+  }
+
+  // Layer 2: 부스 rect — VECTOR
+  doc.setLineWidth(0.2);
+  for (const b of booths) {
+    const isFacility = b.status === 'facility', isSpot = b.status === 'spot';
+    let fillHex, strokeHex;
+    if (mode === 'available') {
+      if (isFacility)    { fillHex = '#EFEFEF'; strokeHex = '#999999'; }
+      else if (isSpot)   { fillHex = '#FFD600'; strokeHex = '#F9A825'; }
+      else               { fillHex = VIEWER_STATUS_COLORS.available.fill; strokeHex = '#000000'; }
+    } else {
+      fillHex   = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
+      strokeHex = isFacility ? '#999999' : '#000000';
+    }
+    const fr = hexRgb(fillHex), sr = hexRgb(strokeHex);
+
+    if (b.cells && b.cells.length > 1) {
+      // L자: 셀 fill만 그리고 (셀 간 경계선 없음), 바운딩박스 stroke only
+      for (const c of b.cells) {
+        doc.setFillColor(fr.r, fr.g, fr.b);
+        doc.setDrawColor(fr.r, fr.g, fr.b); // fill 색으로 stroke → 경계선 숨김
+        doc.rect(toX(c.x), toY(c.y), toS(c.w), toS(c.h), 'FD');
+      }
+      doc.setDrawColor(sr.r, sr.g, sr.b);
+      doc.rect(toX(b.x), toY(b.y), toS(b.w), toS(b.h), 'S'); // stroke only
+    } else {
+      doc.setFillColor(fr.r, fr.g, fr.b);
+      doc.setDrawColor(sr.r, sr.g, sr.b);
+      doc.rect(toX(b.x), toY(b.y), toS(b.w), toS(b.h), 'FD');
+    }
+  }
+
+  // Layer 3: 텍스트/로고/구조물/실측 — 600 DPI 투명 캔버스 오버레이
+  const dpi = 600, mmpx = dpi / 25.4;
+  const oc = document.createElement('canvas');
+  oc.width = Math.round(cw * mmpx);
+  oc.height = Math.round(ch * mmpx);
+  const ctx = oc.getContext('2d');
+  ctx.clearRect(0, 0, oc.width, oc.height); // 투명 배경
+
+  // world → canvas px 변환
+  const wScale = scaleMm * mmpx;
+  const cOffX = (offX - margin) * mmpx, cOffY = (offY - margin) * mmpx;
+  ctx.save();
+  ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
+  ctx.scale(wScale, wScale);
+
+  // 부스 텍스트 & 로고
+  for (const b of booths) drawBoothContent(ctx, b, wScale, '#111111', false);
+
+  // 기본부스번호
+  for (const bn of state.baseNumbers) {
+    if (!bn.baseNo) continue;
+    const cov = booths.find(b2 =>
+      b2.x < bn.x+bn.w && b2.x+b2.w > bn.x && b2.y < bn.y+bn.h && b2.y+b2.h > bn.y &&
+      (b2.companyName || b2.companyNameEn));
+    if (cov) continue;
+    const fz = Math.min(bn.w, bn.h) * 0.35;
+    ctx.fillStyle = '#333';
+    ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(bn.baseNo, bn.x + bn.w/2, bn.y + bn.h/2);
+  }
+
+  // 구조물 & 실측
+  drawStructures(ctx, wScale, false);
+  drawMeasureLayer(ctx, wScale);
+
+  ctx.restore();
+
+  doc.addImage(oc.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
+  await _writePDF(doc, filename, fileHandle);
+}
+
 async function exportFloorplanPDF() {
   if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
 
@@ -685,8 +812,7 @@ async function exportFloorplanPDF() {
 
   state._exporting = true;
   try {
-    const svgString = _buildSVGString('floorplan');
-    await _svgToPDF(svgString, _fname0, fileHandle);
+    await _buildJsPDFVector('floorplan', _fname0, fileHandle);
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
   } finally {
@@ -708,8 +834,7 @@ async function exportAvailablePDF() {
 
   state._exporting = true;
   try {
-    const svgString = _buildSVGString('available');
-    await _svgToPDF(svgString, _fname2, fileHandle2);
+    await _buildJsPDFVector('available', _fname2, fileHandle2);
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
   } finally {
