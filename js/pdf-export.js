@@ -1,23 +1,29 @@
 // ─── PDF Export ───
 
-// 저장 다이얼로그 (Chrome/Edge: 경로 선택 가능 / Safari·Firefox: 기본 다운로드)
-async function _savePDF(doc, filename) {
-  if (window.showSaveFilePicker) {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: filename,
-        types: [{ description: 'PDF 파일', accept: { 'application/pdf': ['.pdf'] } }],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(doc.output('blob'));
-      await writable.close();
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return; // 사용자가 취소
-      // 그 외 에러는 폴백
-    }
+// 저장 위치 선택 — 반드시 사용자 클릭 직후(PDF 생성 전)에 호출해야 함
+// Chrome/Edge: 네이티브 OS 저장 다이얼로그  /  Safari·Firefox: 기본 다운로드 폴더
+async function _pickSaveHandle(filename) {
+  if (!window.showSaveFilePicker) return null;
+  try {
+    return await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{ description: 'PDF 파일', accept: { 'application/pdf': ['.pdf'] } }],
+    });
+  } catch (e) {
+    if (e.name === 'AbortError') return 'aborted'; // 사용자가 취소
+    return null; // 그 외: 폴백
   }
-  doc.save(filename);
+}
+
+// PDF blob을 핸들에 쓰거나 기본 다운로드
+async function _writePDF(doc, filename, handle) {
+  if (handle && handle !== 'aborted') {
+    const writable = await handle.createWritable();
+    await writable.write(doc.output('blob'));
+    await writable.close();
+  } else if (handle !== 'aborted') {
+    doc.save(filename);
+  }
 }
 
 let _selectedPreset = 'sales';
@@ -85,16 +91,21 @@ async function executeExport() {
 }
 
 async function executeAssignGuideExport() {
-  state._exporting = true;
   const companyName = document.getElementById('assignGuideCompanyName').value.trim();
-  if (!companyName) {
-    alert('업체명을 입력해주세요.');
-    state._exporting = false;
-    return;
-  }
-  const showNames = document.getElementById('assignShowNames').checked;
-  // 언어 선택 적용
+  if (!companyName) { alert('업체명을 입력해주세요.'); return; }
+
+  // ① 클릭 직후 저장 위치 먼저 선택
   const assignLang = document.querySelector('input[name="assignLang"]:checked')?.value || 'ko';
+  const _pdfPreAG = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+  const _nowAG = new Date();
+  const _dateAG = String(_nowAG.getFullYear()).slice(2) + String(_nowAG.getMonth()+1).padStart(2,'0') + String(_nowAG.getDate()).padStart(2,'0');
+  const _langTagAG = assignLang === 'en' ? '_EN' : '';
+  const _fnameAG = `${_pdfPreAG}_Floor Plan_${_dateAG}_${companyName}${_langTagAG}.pdf`;
+  const fileHandleAG = await _pickSaveHandle(_fnameAG);
+  if (fileHandleAG === 'aborted') return;
+
+  state._exporting = true;
+  const showNames = document.getElementById('assignShowNames').checked;
   const prevLang = state.lang;
   state.lang = assignLang;
   try {
@@ -118,13 +129,8 @@ async function executeAssignGuideExport() {
     renderForAssignGuideExport(octx, offW, offH, showNames);
     const imgData = off.toDataURL('image/png');
     doc.addImage(imgData, 'PNG', agMargin, agMargin, agContentW, agContentH, undefined, 'SLOW');
-    const now = new Date();
-    const dateStr = String(now.getFullYear()).slice(2) +
-      String(now.getMonth() + 1).padStart(2, '0') +
-      String(now.getDate()).padStart(2, '0');
-    const langTag = assignLang === 'en' ? '_EN' : '';
-    const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-    await _savePDF(doc, `${_pdfPre}_Floor Plan_${dateStr}_${companyName}${langTag}.pdf`);
+    // ② PDF 생성 완료 후 핸들에 저장
+    await _writePDF(doc, _fnameAG, fileHandleAG);
     closeModal('modalAssignGuide');
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
@@ -424,13 +430,18 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
 }
 
 async function exportFloorplanPDF() {
-  state._exporting = true;
-  if (state.booths.length === 0) {
-    alert('부스가 없습니다.');
-    state._exporting = false;
-    return;
-  }
+  if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
 
+  // ① 클릭 직후 저장 위치 먼저 선택 (transient activation 만료 전)
+  const _pdfPre0 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+  const _today0 = new Date();
+  const _date0 = String(_today0.getFullYear()).slice(2) + String(_today0.getMonth()+1).padStart(2,'0') + String(_today0.getDate()).padStart(2,'0');
+  const _lang0 = state.lang === 'en' ? '_EN' : '';
+  const _fname0 = `${_pdfPre0}_Floor Plan_${_date0}${_lang0}.pdf`;
+  const fileHandle = await _pickSaveHandle(_fname0);
+  if (fileHandle === 'aborted') return;
+
+  state._exporting = true;
   // PDF 방향/스케일 결정
   const { jsPDF } = window.jspdf;
   const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
@@ -541,22 +552,24 @@ async function exportFloorplanPDF() {
   const imgData = canvas.toDataURL('image/png');
   pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight, undefined, 'SLOW');
 
-  const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-  const today = new Date();
-  const dateStr = String(today.getFullYear()).slice(2) + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
-  const langSuffix = state.lang === 'en' ? '_EN' : '';
-  await _savePDF(pdf, `${_pdfPre}_Floor Plan_${dateStr}${langSuffix}.pdf`);
+  // ② PDF 생성 완료 후 핸들에 저장
+  await _writePDF(pdf, _fname0, fileHandle);
   state._exporting = false;
 }
 
 async function exportAvailablePDF() {
-  state._exporting = true;
-  if (state.booths.length === 0) {
-    alert('부스가 없습니다.');
-    state._exporting = false;
-    return;
-  }
+  if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
 
+  // ① 클릭 직후 저장 위치 먼저 선택
+  const _pdfPre2a = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
+  const _today2 = new Date();
+  const _date2 = String(_today2.getFullYear()).slice(2) + String(_today2.getMonth()+1).padStart(2,'0') + String(_today2.getDate()).padStart(2,'0');
+  const _lang2 = state.lang === 'en' ? '_EN' : '';
+  const _fname2 = `${_pdfPre2a}_Floor Plan_${_date2}_Available${_lang2}.pdf`;
+  const fileHandle2 = await _pickSaveHandle(_fname2);
+  if (fileHandle2 === 'aborted') return;
+
+  state._exporting = true;
   const { jsPDF } = window.jspdf;
   const _bgFill2 = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
   const _pdfOrient2 = _bgFill2 ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
@@ -666,11 +679,8 @@ async function exportAvailablePDF() {
   const imgData = canvas.toDataURL('image/png');
   pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight, undefined, 'SLOW');
 
-  const today = new Date();
-  const dateStr = String(today.getFullYear()).slice(2) + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
-  const langSuffix = state.lang === 'en' ? '_EN' : '';
-  const _pdfPre2 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
-  await _savePDF(pdf, `${_pdfPre2}_Floor Plan_${dateStr}_Available${langSuffix}.pdf`);
+  // ② PDF 생성 완료 후 핸들에 저장
+  await _writePDF(pdf, _fname2, fileHandle2);
   state._exporting = false;
 }
 
