@@ -1,20 +1,20 @@
-// ─── Pretendard OTF 캐시 (pdf-lib/fontkit용) ───
-// woff2는 fontkit에서 인코딩 오류 발생 → OTF 직접 사용
-let _pretendardWoff2Cache = null;
+// ─── Pretendard WOFF 캐시 (pdf-lib/fontkit용) ───
+// OTF → CFF2 파싱 오류, woff2 → 인코딩 오류. woff1(zlib)은 fontkit이 안정 지원
+let _pretendardFontCache = null;
 
 async function _loadPretendardWoff2() {
-  if (_pretendardWoff2Cache) return _pretendardWoff2Cache;
-  const base = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/';
+  if (_pretendardFontCache) return _pretendardFontCache;
+  const base = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/static/woff/';
   const fetchBuf = url => fetch(url).then(r => {
     if (!r.ok) throw new Error(`폰트 로드 실패: ${url} (${r.status})`);
     return r.arrayBuffer();
   });
   const [regular, semibold] = await Promise.all([
-    fetchBuf(base + 'Pretendard-Regular.otf'),
-    fetchBuf(base + 'Pretendard-SemiBold.otf'),
+    fetchBuf(base + 'Pretendard-Regular.woff'),
+    fetchBuf(base + 'Pretendard-SemiBold.woff'),
   ]);
-  _pretendardWoff2Cache = { regular, semibold };
-  return _pretendardWoff2Cache;
+  _pretendardFontCache = { regular, semibold };
+  return _pretendardFontCache;
 }
 
 // ─── PDF Export ───
@@ -185,6 +185,9 @@ function renderForExport(ectx, W, H, preset, bgFill = false) {
       fill = isHighlight ? '#4CAF50' : STATUS_COLORS.available.fill;
       stroke = isHighlight ? '#3DAF6E' : STATUS_COLORS.available.stroke;
       textColor = isHighlight ? '#fff' : STATUS_COLORS.available.text;
+    } else if (_currentExpo?.boothColor && b.status !== 'facility') {
+      // k-print 등 boothColor가 지정된 전시회: 배정상태 무관, 단일 색상 + 검정 텍스트
+      fill = _currentExpo.boothColor; stroke = '#999999'; textColor = '#111111';
     } else {
       const statusKey = b.status === 'excluded' ? 'available' : b.status;
       const c = STATUS_COLORS[statusKey] || STATUS_COLORS.available;
@@ -859,12 +862,14 @@ function _drawBaseNumbersPdfLib(page, booths, fontReg, scalePt, toX, toY, pageH)
   }
 }
 
-// ─── pdf-lib: 메인 PDF 빌더 (renderForExport 기반 단일 캔버스) ───
+// ─── pdf-lib: 메인 PDF 빌더 (벡터 부스+텍스트, 래스터 bg+구조물) ───
 async function _buildPDFLibDocument(mode, options = {}) {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const { PDFDocument } = PDFLib;
+  const { PDFDocument, rgb } = PDFLib;
   const MM_TO_PT = 72 / 25.4;
+  const booths = state.booths;
   const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
+  const _boothColorOverride = _currentExpo?.boothColor || null; // k-print 등
 
   // 페이지 크기 결정
   let pgWmm, pgHmm;
@@ -878,24 +883,146 @@ async function _buildPDFLibDocument(mode, options = {}) {
   }
   const pgWpt = pgWmm * MM_TO_PT, pgHpt = pgHmm * MM_TO_PT;
 
-  // 300 DPI 오프스크린 캔버스에 전체 씬 렌더
-  const DPI = 300, mmToPx = DPI / 25.4;
-  const offW = Math.round(pgWmm * mmToPx), offH = Math.round(pgHmm * mmToPx);
-  const off = document.createElement('canvas');
-  off.width = offW; off.height = offH;
-  const octx = off.getContext('2d');
-  if (!octx) throw new Error('캔버스 컨텍스트 생성 실패 (캔버스 크기 초과?)');
+  // Bounds 계산
+  let bounds;
+  if (_bgFill) {
+    bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
+  } else {
+    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+    if (booths.length) {
+      for (const b of booths) {
+        bounds.x1 = Math.min(bounds.x1, b.x); bounds.y1 = Math.min(bounds.y1, b.y);
+        bounds.x2 = Math.max(bounds.x2, b.x + b.w); bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+      }
+      bounds.x1 -= 50; bounds.y1 -= 100; bounds.x2 += 50; bounds.y2 += 50;
+    }
+  }
+  const vw = bounds.x2 - bounds.x1, vh = bounds.y2 - bounds.y1;
+  const scaleX = pgWpt / vw, scaleY = pgHpt / vh;
+  const scalePt = _bgFill ? Math.min(scaleX, scaleY) : scaleX;
+  const offX = _bgFill ? (pgWpt - vw * scalePt) / 2 : 0;
+  const offY = _bgFill ? (pgHpt - vh * scalePt) / 2 : 0;
 
-  // renderForExport: bg + booths + base numbers + structures 전부 렌더
-  // mode 'available'이면 viewer 색상 프리셋, 그 외 status 색상
-  renderForExport(octx, offW, offH, mode === 'available' ? 'available' : 'status', !!_bgFill);
+  const toX     = wx => offX + (wx - bounds.x1) * scalePt;
+  const toY     = wy => offY + (wy - bounds.y1) * scalePt;
+  const toPageY = wy => pgHpt - toY(wy);
+  const toS     = px => px * scalePt;
 
-  // pdf-lib로 PDF 생성
   const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  // ── 폰트 임베딩 (WOFF1 — fontkit 안정 지원) ──
+  let fontRegEmbed = null, fontBoldEmbed = null;
+  try {
+    const fontBufs = await _loadPretendardWoff2();
+    fontRegEmbed  = await pdfDoc.embedFont(fontBufs.regular);
+    fontBoldEmbed = await pdfDoc.embedFont(fontBufs.semibold);
+  } catch(e) {
+    console.warn('폰트 임베딩 실패, 텍스트는 캔버스 래스터로 대체:', e.message);
+  }
+
   const page = pdfDoc.addPage([pgWpt, pgHpt]);
-  const pngBuf = await new Promise(resolve => off.toBlob(b => b.arrayBuffer().then(resolve), 'image/png'));
-  const pngImg = await pdfDoc.embedPng(pngBuf);
-  page.drawImage(pngImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+  page.drawRectangle({ x: 0, y: 0, width: pgWpt, height: pgHpt, color: rgb(1,1,1) });
+
+  // Layer 1: 배경 이미지 → 캔버스로 렌더 (state.bg.img 직접 사용)
+  if (state.bg.img) {
+    try {
+      const DPI = 200, mmToPx = DPI / 25.4;
+      const bc = document.createElement('canvas');
+      bc.width = Math.round(pgWmm * mmToPx); bc.height = Math.round(pgHmm * mmToPx);
+      const bctx = bc.getContext('2d');
+      const wScale = scalePt * mmToPx / MM_TO_PT;
+      bctx.save();
+      bctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
+                     offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
+      bctx.scale(wScale, wScale);
+      _drawBgCanvas(bctx);
+      bctx.restore();
+      const bgPng = await new Promise(res => bc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
+      const bgImg = await pdfDoc.embedPng(bgPng);
+      page.drawImage(bgImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+    } catch(e) { console.warn('bg 레이어 실패:', e.message); }
+  }
+
+  // Layer 2: 부스 fill/stroke 벡터
+  const hexToRgb = h => {
+    const r = parseInt(h.slice(1,3),16)/255, g = parseInt(h.slice(3,5),16)/255, b = parseInt(h.slice(5,7),16)/255;
+    return rgb(r, g, b);
+  };
+  const lw = Math.max(0.3, 0.5 * scalePt / MM_TO_PT);
+  for (const b of booths) {
+    const isFacility = b.status === 'facility';
+    let fillHex, strokeHex;
+    if (_boothColorOverride && !isFacility) {
+      fillHex = _boothColorOverride; strokeHex = '#999999';
+    } else {
+      const r = _boothColors(b, mode);
+      fillHex = r.fill; strokeHex = r.stroke;
+    }
+    const fillC = hexToRgb(fillHex), strokeC = hexToRgb(strokeHex);
+    if (b.cells && b.cells.length > 1) {
+      for (const c of b.cells) {
+        page.drawRectangle({ x: toX(c.x), y: toPageY(c.y + c.h), width: toS(c.w), height: toS(c.h), color: fillC, borderWidth: 0 });
+      }
+      _strokeLShapePdfLib(page, b, toX, toY, pgHpt, strokeC, lw);
+    } else {
+      page.drawRectangle({ x: toX(b.x), y: toPageY(b.y + b.h), width: toS(b.w), height: toS(b.h), color: fillC, borderColor: strokeC, borderWidth: lw });
+    }
+  }
+
+  // Layer 3: 텍스트
+  if (fontRegEmbed && fontBoldEmbed) {
+    // 벡터 텍스트 (폰트 임베딩 성공 시)
+    const mc = document.createElement('canvas').getContext('2d');
+    for (const b of booths) _drawBoothTextPdfLib(page, b, fontRegEmbed, fontBoldEmbed, scalePt, toX, toY, pgHpt, mc);
+    _drawBaseNumbersPdfLib(page, booths, fontRegEmbed, scalePt, toX, toY, pgHpt);
+  } else {
+    // 래스터 텍스트 폴백 (폰트 임베딩 실패 시)
+    try {
+      const DPI = 200, mmToPx = DPI / 25.4;
+      const tc = document.createElement('canvas');
+      tc.width = Math.round(pgWmm * mmToPx); tc.height = Math.round(pgHmm * mmToPx);
+      const tctx = tc.getContext('2d');
+      const wScale = scalePt * mmToPx / MM_TO_PT;
+      tctx.clearRect(0, 0, tc.width, tc.height);
+      tctx.save();
+      tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
+                     offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
+      tctx.scale(wScale, wScale);
+      const textColor = _boothColorOverride ? '#111111' : null;
+      for (const b of booths) {
+        const tc2 = textColor || (() => { const r = _boothColors(b, mode); return r.text || '#111111'; })();
+        drawBoothContent(tctx, b, wScale, tc2, false);
+      }
+      _drawBaseNumbersCanvas(tctx, booths);
+      tctx.restore();
+      const tPng = await new Promise(res => tc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
+      const tImg = await pdfDoc.embedPng(tPng);
+      page.drawImage(tImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+    } catch(e) { console.warn('텍스트 래스터 실패:', e.message); }
+  }
+
+  // Layer 4: 구조물 + 실측 → 투명 캔버스
+  try {
+    const DPI = 200, mmToPx = DPI / 25.4;
+    const oc = document.createElement('canvas');
+    oc.width = Math.round(pgWmm * mmToPx); oc.height = Math.round(pgHmm * mmToPx);
+    const ctx = oc.getContext('2d');
+    if (ctx) {
+      const wScale = scalePt * mmToPx / MM_TO_PT;
+      ctx.clearRect(0, 0, oc.width, oc.height);
+      ctx.save();
+      ctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
+                    offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
+      ctx.scale(wScale, wScale);
+      if (typeof drawStructures === 'function') drawStructures(ctx, wScale, false);
+      if (typeof drawMeasureLayer === 'function') drawMeasureLayer(ctx, wScale);
+      ctx.restore();
+      const sPng = await new Promise(res => oc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
+      const sImg = await pdfDoc.embedPng(sPng);
+      page.drawImage(sImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+    }
+  } catch(e) { console.warn('구조물 레이어 실패:', e.message); }
 
   return pdfDoc;
 }
