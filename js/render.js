@@ -26,42 +26,66 @@ function fillBoothShape(ctx, b) {
 }
 function strokeBoothShape(ctx, b, zoom) {
   if (b.cells && b.cells.length > 1) {
-    // 외곽선만 그리기: 각 셀의 4변 중 다른 셀과 접하지 않는 변만 stroke
+    // 외곽선만 그리기: 각 변에서 다른 셀과 접하는 구간(부분 포함)을 빼고 나머지만 stroke
     const cells = b.cells;
+    const EPS = 0.5;
     ctx.beginPath();
     for (const c of cells) {
       const r = c.x + c.w, bot = c.y + c.h;
-      // top edge: 다른 셀이 바로 위에 접하는 구간을 제외
-      if (!hasAdjacentEdge(cells, c, 'top'))    { ctx.moveTo(c.x, c.y); ctx.lineTo(r, c.y); }
-      // bottom edge
-      if (!hasAdjacentEdge(cells, c, 'bottom')) { ctx.moveTo(c.x, bot); ctx.lineTo(r, bot); }
-      // left edge
-      if (!hasAdjacentEdge(cells, c, 'left'))   { ctx.moveTo(c.x, c.y); ctx.lineTo(c.x, bot); }
-      // right edge
-      if (!hasAdjacentEdge(cells, c, 'right'))  { ctx.moveTo(r, c.y); ctx.lineTo(r, bot); }
+
+      // 수평 변 (top, bottom)
+      for (const [edgeY, adjFn] of [
+        [c.y,  o => o.y + o.h],   // top: 접하는 셀의 하변 = c.y
+        [bot,  o => o.y],         // bottom: 접하는 셀의 상변 = c.y+c.h
+      ]) {
+        const covered = [];
+        for (const o of cells) {
+          if (o === c) continue;
+          if (Math.abs(edgeY - adjFn(o)) < EPS) {
+            const ox1 = Math.max(c.x, o.x), ox2 = Math.min(r, o.x + o.w);
+            if (ox2 > ox1 + EPS) covered.push([ox1, ox2]);
+          }
+        }
+        for (const [sx1, sx2] of _subtractIntervals(c.x, r, covered)) {
+          ctx.moveTo(sx1, edgeY); ctx.lineTo(sx2, edgeY);
+        }
+      }
+
+      // 수직 변 (left, right)
+      for (const [edgeX, adjFn] of [
+        [c.x,  o => o.x + o.w],  // left: 접하는 셀의 우변 = c.x
+        [r,    o => o.x],         // right: 접하는 셀의 좌변 = c.x+c.w
+      ]) {
+        const covered = [];
+        for (const o of cells) {
+          if (o === c) continue;
+          if (Math.abs(edgeX - adjFn(o)) < EPS) {
+            const oy1 = Math.max(c.y, o.y), oy2 = Math.min(bot, o.y + o.h);
+            if (oy2 > oy1 + EPS) covered.push([oy1, oy2]);
+          }
+        }
+        for (const [sy1, sy2] of _subtractIntervals(c.y, bot, covered)) {
+          ctx.moveTo(edgeX, sy1); ctx.lineTo(edgeX, sy2);
+        }
+      }
     }
     ctx.stroke();
   } else {
     ctx.strokeRect(b.x, b.y, b.w, b.h);
   }
 }
-// 셀 c의 특정 변이 다른 셀과 완전히 접하는지 체크
-function hasAdjacentEdge(cells, c, side) {
-  const EPS = 0.5;
-  for (const o of cells) {
-    if (o === c) continue;
-    if (side === 'top') {
-      // c의 상변(y)에 o의 하변(y+h)이 접하고, 가로 범위가 완전히 포함
-      if (Math.abs(c.y - (o.y + o.h)) < EPS && o.x <= c.x + EPS && o.x + o.w >= c.x + c.w - EPS) return true;
-    } else if (side === 'bottom') {
-      if (Math.abs((c.y + c.h) - o.y) < EPS && o.x <= c.x + EPS && o.x + o.w >= c.x + c.w - EPS) return true;
-    } else if (side === 'left') {
-      if (Math.abs(c.x - (o.x + o.w)) < EPS && o.y <= c.y + EPS && o.y + o.h >= c.y + c.h - EPS) return true;
-    } else if (side === 'right') {
-      if (Math.abs((c.x + c.w) - o.x) < EPS && o.y <= c.y + EPS && o.y + o.h >= c.y + c.h - EPS) return true;
-    }
+// [start, end] 구간에서 covered 구간들을 뺀 나머지 구간 배열 반환
+function _subtractIntervals(start, end, covered) {
+  if (!covered.length) return [[start, end]];
+  covered.sort((a, b) => a[0] - b[0]);
+  const result = [];
+  let cur = start;
+  for (const [a, b] of covered) {
+    if (a > cur + 0.5) result.push([cur, a]);
+    cur = Math.max(cur, b);
   }
-  return false;
+  if (cur < end - 0.5) result.push([cur, end]);
+  return result;
 }
 // 텍스트 배치용 rect 반환
 // textPlacement: 'auto'(면적최대 cell) | 'wide'(가로 암 전체) | 'tall'(세로 암 전체)
