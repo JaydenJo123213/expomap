@@ -267,7 +267,7 @@ async function executeAssignGuideExport(quality) {
     const agMargin = _bgFillAG ? 0 : 10;
     const agContentW = pw - 2 * agMargin;
     const agContentH = ph - 2 * agMargin;
-    const dpi = (quality === 'hq') ? 350 : 250, mmToPx = dpi / 25.4;
+    const dpi = (quality === 'hq') ? 400 : 250, mmToPx = dpi / 25.4;
     const offW = Math.round(agContentW * mmToPx);
     const offH = Math.round(agContentH * mmToPx);
     const off = document.createElement('canvas');
@@ -964,88 +964,46 @@ async function _buildJsPDFVector(mode, filename, fileHandle, quality = 'web') {
     }
   }
 
-  if (quality === 'hq') {
-    // ── 고화질: 텍스트/로고는 jsPDF 벡터, 구조물·실측만 캔버스 오버레이 ──
-    const fonts = await _loadPretendardFonts();
-    _embedFonts(doc, fonts);
+  // Layer 3: 텍스트/로고/구조물/실측 — 캔버스 래스터
+  // 웹용: 250 DPI JPEG (배정안내와 동일), 고화질: 400 DPI JPEG (A3 인쇄 선명)
+  const dpi = (quality === 'hq') ? 400 : 250;
+  const mmpx = dpi / 25.4;
+  const oc = document.createElement('canvas');
+  oc.width = Math.round(cw * mmpx);
+  oc.height = Math.round(ch * mmpx);
+  const ctx = oc.getContext('2d');
+  ctx.clearRect(0, 0, oc.width, oc.height);
 
-    const mc = document.createElement('canvas').getContext('2d');
+  const wScale = scaleMm * mmpx;
+  const cOffX = (offX - margin) * mmpx, cOffY = (offY - margin) * mmpx;
+  ctx.save();
+  ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
+  ctx.scale(wScale, wScale);
 
-    // 부스 텍스트 & 로고 → jsPDF 벡터
-    for (const b of booths) _drawBoothTextVector(doc, b, scaleMm, toX, toY, toS, mc);
+  // 부스 텍스트 & 로고
+  for (const b of booths) drawBoothContent(ctx, b, wScale, '#111111', false);
 
-    // 기본부스번호 → jsPDF 벡터
-    for (const bn of state.baseNumbers) {
-      if (!bn.baseNo) continue;
-      const cov = booths.find(b2 =>
-        b2.x < bn.x + bn.w && b2.x + b2.w > bn.x && b2.y < bn.y + bn.h && b2.y + b2.h > bn.y &&
-        (b2.companyName || b2.companyNameEn));
-      if (cov) continue;
-      const fz = Math.min(bn.w, bn.h) * 0.35;
-      const ptSz = fz * scaleMm * (72 / 25.4);
-      if (ptSz < 0.5) continue;
-      doc.setFont('Pretendard', 'bold');
-      doc.setFontSize(ptSz);
-      doc.setTextColor(51, 51, 51);
-      doc.text(bn.baseNo, toX(bn.x + bn.w / 2), toY(bn.y + bn.h / 2), { align: 'center', baseline: 'middle' });
-    }
-
-    // 구조물·실측만 200 DPI 캔버스로
-    const dpiHQ = 200, mmpxHQ = dpiHQ / 25.4;
-    const ocHQ = document.createElement('canvas');
-    ocHQ.width = Math.round(cw * mmpxHQ);
-    ocHQ.height = Math.round(ch * mmpxHQ);
-    const ctxHQ = ocHQ.getContext('2d');
-    ctxHQ.clearRect(0, 0, ocHQ.width, ocHQ.height);
-    const wScaleHQ = scaleMm * mmpxHQ;
-    const cOffXHQ = (offX - margin) * mmpxHQ, cOffYHQ = (offY - margin) * mmpxHQ;
-    ctxHQ.save();
-    ctxHQ.translate(cOffXHQ - bounds.x1 * wScaleHQ, cOffYHQ - bounds.y1 * wScaleHQ);
-    ctxHQ.scale(wScaleHQ, wScaleHQ);
-    drawStructures(ctxHQ, wScaleHQ, false);
-    drawMeasureLayer(ctxHQ, wScaleHQ);
-    ctxHQ.restore();
-    doc.addImage(ocHQ.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
-
-  } else {
-    // ── 웹용: 텍스트 포함 전체 600 DPI 캔버스 오버레이 (기존 방식) ──
-    const dpi = 600, mmpx = dpi / 25.4;
-    const oc = document.createElement('canvas');
-    oc.width = Math.round(cw * mmpx);
-    oc.height = Math.round(ch * mmpx);
-    const ctx = oc.getContext('2d');
-    ctx.clearRect(0, 0, oc.width, oc.height);
-
-    const wScale = scaleMm * mmpx;
-    const cOffX = (offX - margin) * mmpx, cOffY = (offY - margin) * mmpx;
-    ctx.save();
-    ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
-    ctx.scale(wScale, wScale);
-
-    // 부스 텍스트 & 로고
-    for (const b of booths) drawBoothContent(ctx, b, wScale, '#111111', false);
-
-    // 기본부스번호
-    for (const bn of state.baseNumbers) {
-      if (!bn.baseNo) continue;
-      const cov = booths.find(b2 =>
-        b2.x < bn.x + bn.w && b2.x + b2.w > bn.x && b2.y < bn.y + bn.h && b2.y + b2.h > bn.y &&
-        (b2.companyName || b2.companyNameEn));
-      if (cov) continue;
-      const fz = Math.min(bn.w, bn.h) * 0.35;
-      ctx.fillStyle = '#333';
-      ctx.font = `600 ${fz}px Pretendard, sans-serif`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
-    }
-
-    // 구조물 & 실측
-    drawStructures(ctx, wScale, false);
-    drawMeasureLayer(ctx, wScale);
-
-    ctx.restore();
-    doc.addImage(oc.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
+  // 기본부스번호
+  for (const bn of state.baseNumbers) {
+    if (!bn.baseNo) continue;
+    const cov = booths.find(b2 =>
+      b2.x < bn.x + bn.w && b2.x + b2.w > bn.x && b2.y < bn.y + bn.h && b2.y + b2.h > bn.y &&
+      (b2.companyName || b2.companyNameEn));
+    if (cov) continue;
+    const fz = Math.min(bn.w, bn.h) * 0.35;
+    ctx.fillStyle = '#333';
+    ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
+
+  // 구조물 & 실측
+  drawStructures(ctx, wScale, false);
+  drawMeasureLayer(ctx, wScale);
+
+  ctx.restore();
+  const jpegQ = (quality === 'hq') ? 0.95 : 0.92;
+  doc.addImage(oc.toDataURL('image/jpeg', jpegQ), 'JPEG', margin, margin, cw, ch);
 
   await _writePDF(doc, filename, fileHandle);
 }

@@ -350,7 +350,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   if (!skipOther) drawOtherBadges(c, b, zoom);
 
   // 메모 인디케이터 — 좌하단 ✎ (관리자 모드에서만, 메모 있을 때)
-  if (!VIEWER_MODE && b.memo) {
+  if (!VIEWER_MODE && b.memo && !state._exporting) {
     const memoFz = Math.max(3, Math.min(b.w, b.h) * 0.18);
     c.font = `${memoFz}px sans-serif`;
     c.textAlign = 'left'; c.textBaseline = 'bottom';
