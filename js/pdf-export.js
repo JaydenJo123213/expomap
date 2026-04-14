@@ -1002,8 +1002,7 @@ async function _buildJsPDFVector(mode, filename, fileHandle, quality = 'web') {
   drawMeasureLayer(ctx, wScale);
 
   ctx.restore();
-  const jpegQ = (quality === 'hq') ? 0.95 : 0.92;
-  doc.addImage(oc.toDataURL('image/jpeg', jpegQ), 'JPEG', margin, margin, cw, ch);
+  doc.addImage(oc.toDataURL('image/png'), 'PNG', margin, margin, cw, ch);
 
   await _writePDF(doc, filename, fileHandle);
 }
