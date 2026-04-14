@@ -429,6 +429,241 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
   ectx.restore();
 }
 
+// ─── 벡터 PDF 헬퍼 ───
+
+// SVG 문자열 생성 (bg 이미지 포함, 기존 exportSVG()는 수정 없음)
+function _buildSVGString(mode) {
+  const booths = state.booths;
+  const lang = state.lang;
+
+  // Bounds: bg 이미지 기준 (없으면 부스 extents)
+  let bounds;
+  if (state.bg.img) {
+    const bg = state.bg;
+    bounds = { x1: bg.x, y1: bg.y, x2: bg.x + bg.w, y2: bg.y + bg.h };
+    for (const b of booths) {
+      bounds.x1 = Math.min(bounds.x1, b.x); bounds.y1 = Math.min(bounds.y1, b.y);
+      bounds.x2 = Math.max(bounds.x2, b.x + b.w); bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+    }
+  } else if (booths.length) {
+    bounds = { x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity };
+    for (const b of booths) {
+      bounds.x1 = Math.min(bounds.x1, b.x); bounds.y1 = Math.min(bounds.y1, b.y);
+      bounds.x2 = Math.max(bounds.x2, b.x + b.w); bounds.y2 = Math.max(bounds.y2, b.y + b.h);
+    }
+    bounds.x1 -= 50; bounds.y1 -= 50; bounds.x2 += 50; bounds.y2 += 50;
+  } else {
+    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
+  }
+
+  const vw = bounds.x2 - bounds.x1;
+  const vh = bounds.y2 - bounds.y1;
+  const p = [];
+  p.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${vw} ${vh}" width="${vw}" height="${vh}">`);
+  p.push(`<g transform="translate(${-bounds.x1} ${-bounds.y1})">`);
+
+  // ① 배경 이미지 (raster embed)
+  if (state.bg.img) {
+    const bgDataUrl = state.bg.dataUrl || _imgToDataUrl(state.bg.img);
+    if (bgDataUrl) {
+      const bg = state.bg;
+      const cx = bg.x + bg.w / 2, cy = bg.y + bg.h / 2;
+      const rotAttr = bg.rotation ? ` transform="rotate(${bg.rotation}, ${cx}, ${cy})"` : '';
+      p.push(`<image href="${bgDataUrl}" xlink:href="${bgDataUrl}" x="${bg.x}" y="${bg.y}" width="${bg.w}" height="${bg.h}" preserveAspectRatio="none"${rotAttr}/>`);
+    }
+  }
+
+  // ② 부스
+  p.push('<g id="booths">');
+  for (const b of booths) {
+    const isFacility = b.status === 'facility';
+    const isSpot = b.status === 'spot';
+    let fill, stroke;
+    if (mode === 'available') {
+      if (isFacility)   { fill = '#EFEFEF'; stroke = '#999999'; }
+      else if (isSpot)  { fill = '#FFD600'; stroke = '#F9A825'; }
+      else              { fill = VIEWER_STATUS_COLORS.available.fill; stroke = '#000000'; }
+    } else {
+      fill   = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
+      stroke = isFacility ? '#999999' : '#000000';
+    }
+    if (b.cells && b.cells.length > 1) {
+      p.push('<g>');
+      for (const c of b.cells) p.push(`<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="${fill}" stroke="none"/>`);
+      p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="${stroke}" stroke-width="0.5"/>`);
+      p.push('</g>');
+    } else {
+      p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${fill}" stroke="${stroke}" stroke-width="0.5"/>`);
+    }
+  }
+  p.push('</g>');
+
+  // ③ 기본부스번호
+  p.push('<g id="base-numbers">');
+  for (const bn of state.baseNumbers) {
+    if (!bn.baseNo) continue;
+    const covering = booths.find(b => b.x < bn.x+bn.w && b.x+b.w > bn.x && b.y < bn.y+bn.h && b.y+b.h > bn.y && (b.companyName || b.companyNameEn));
+    if (covering) continue;
+    const fz = Math.min(bn.w, bn.h) * 0.35;
+    p.push(`<text x="${bn.x+bn.w/2}" y="${bn.y+bn.h/2+fz*0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
+  }
+  p.push('</g>');
+
+  // ④ 구조물
+  p.push('<g id="structures">');
+  for (const s of state.structures) {
+    const col = s.color || '#888', fillCol = s.fillColor || '#5C5C5C', th = s.thickness || 2;
+    if (s.type === 'column') {
+      if (s.columnShape === 'square') {
+        const hw = (s.w || s.radius*2)/2, hh = (s.h || s.radius*2)/2;
+        p.push(`<rect x="${s.x-hw}" y="${s.y-hh}" width="${hw*2}" height="${hh*2}" fill="${fillCol}" stroke="${col}" stroke-width="0.5"/>`);
+      } else {
+        p.push(`<circle cx="${s.x}" cy="${s.y}" r="${s.radius}" fill="${fillCol}" stroke="${col}" stroke-width="0.5"/>`);
+      }
+    } else if (s.type === 'circle') {
+      p.push(`<circle cx="${s.x}" cy="${s.y}" r="${s.radius}" fill="${fillCol}" stroke="${col}" stroke-width="0.5"/>`);
+    } else if (s.type === 'wall' || s.type === 'line') {
+      p.push(`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="${col}" stroke-width="${th}" stroke-linecap="round"/>`);
+    } else if (s.type === 'arrow') {
+      const ang = Math.atan2(s.y2-s.y1, s.x2-s.x1), hl = 10;
+      p.push(`<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="${col}" stroke-width="${th}" stroke-linecap="round"/>`);
+      const ax1 = s.x2-hl*Math.cos(ang-Math.PI/6), ay1 = s.y2-hl*Math.sin(ang-Math.PI/6);
+      const ax2 = s.x2-hl*Math.cos(ang+Math.PI/6), ay2 = s.y2-hl*Math.sin(ang+Math.PI/6);
+      p.push(`<polyline points="${ax1},${ay1} ${s.x2},${s.y2} ${ax2},${ay2}" stroke="${col}" stroke-width="${th}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
+    } else if (s.type === 'text') {
+      const tfz = s.fontSize || 14;
+      p.push(`<text x="${s.x + (s.w||0)/2}" y="${s.y + (s.h||0)/2}" font-family="Pretendard,sans-serif" font-size="${tfz}" font-weight="${s.bold?'700':'400'}" fill="${col}" text-anchor="middle">${_escXml(s.text||'')}</text>`);
+    }
+    if (s.label) {
+      const lx = s.x !== undefined ? s.x : (s.x1+s.x2)/2;
+      const ly = (s.y !== undefined ? s.y : (s.y1+s.y2)/2) - 8;
+      p.push(`<text x="${lx}" y="${ly}" font-family="Pretendard,sans-serif" font-size="8" fill="${col}" text-anchor="middle">${_escXml(s.label)}</text>`);
+    }
+  }
+  p.push('</g>');
+
+  // ⑤ 부스 콘텐츠 (업체명/부스번호/로고) — fontSizeOverride 지원
+  const pLogos = [], pNos = [], pNames = [];
+  const mc = document.createElement('canvas').getContext('2d');
+  for (const b of booths) {
+    const isEnMode = lang === 'en';
+    const displayName = isEnMode ? (b.companyNameEn || '') : (b.companyName || '');
+    const fontSizeOverride = isEnMode ? (b.fontSizeEn ?? null) : (b.fontSize ?? null);
+    const pad = 2;
+    const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
+    const availW = tr.w - pad*2, availH = tr.h - pad*2;
+    const area = typeof getBoothAreaM2 === 'function' ? getBoothAreaM2(b) : (b.w/10)*(b.h/10);
+    const hasCompany = !!displayName, hasBoothNo = !!b.boothId;
+
+    const addBoothNo = (noFz) => {
+      pNos.push(`<text x="${tr.x+pad}" y="${tr.y+pad+noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="600" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
+    };
+
+    const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
+    let logoDrawn = false;
+    if (shouldDrawLogo) {
+      const logoImg = state.logoCache.get(b.id);
+      if (logoImg) {
+        const logoDataUrl = _imgToDataUrl(logoImg);
+        if (logoDataUrl) {
+          logoDrawn = true;
+          const scale = (b.logoScale ?? 100) / 100;
+          const gap = (b.logoGap ?? 0) * (tr.h / 100);
+          const noReserve = hasBoothNo ? calcFontSize(mc, b.boothId, 26) + 4 : 0;
+          const logoPad = tr.w * 0.08, logoTopPad = Math.max(tr.h*0.05, noReserve);
+          const logoAreaH = tr.h * 0.60;
+          const logoW = tr.w - logoPad*2, logoH = logoAreaH - logoTopPad - tr.h*0.02;
+          const imgAspect = (logoImg.naturalWidth||1) / (logoImg.naturalHeight||1);
+          const areaAspect = logoW / logoH;
+          let drawW, drawH;
+          if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW/imgAspect; }
+          else { drawH = logoH; drawW = logoH*imgAspect; }
+          drawW *= scale; drawH *= scale;
+          const logoX = tr.x + (tr.w-drawW)/2;
+          const logoY = tr.y + logoTopPad + logoH/2 - drawH/2;
+          pLogos.push(`<image href="${logoDataUrl}" xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
+
+          const textAreaY = tr.y + tr.h*0.58 + gap;
+          const textAreaH = tr.h*0.36 - gap;
+          const lines = wrapText(displayName);
+          const longestLine = lines.reduce((a,l) => a.length >= l.length ? a : l, '');
+          let fz = fontSizeOverride != null ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+            : (() => { let v = calcFontSize(mc, longestLine||'A', availW*0.85); if (textAreaH > 0) v = Math.min(v, (textAreaH/lines.length)/1.25); return Math.max(1.5, Math.min(v, 12)); })();
+          const lineH = fz*1.25, blockH = lines.length*lineH;
+          const startY = textAreaY + (textAreaH-blockH)/2 + fz*0.5;
+          { const cx = tr.x+tr.w/2, baseY = startY+fz*0.35;
+            const body = lines.length === 1 ? _escXml(lines[0]) : lines.map((l,i) => `<tspan x="${cx}" dy="${i===0?0:lineH}">${_escXml(l)}</tspan>`).join('');
+            pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
+          }
+          if (hasBoothNo) addBoothNo(calcFontSize(mc, b.boothId, 26));
+        }
+      }
+    }
+
+    if (!logoDrawn) {
+      if (hasCompany) {
+        const lines = wrapText(displayName);
+        const longestLine = lines.reduce((a,l) => a.length >= l.length ? a : l, '');
+        const noFz = hasBoothNo ? calcFontSize(mc, b.boothId, 26) : 0;
+        const topReserve = hasBoothNo ? noFz+2 : 0;
+        const textAreaH = availH - topReserve;
+        let fz = fontSizeOverride != null ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+          : (() => { let v = calcFontSize(mc, longestLine||'A', availW*0.9); if (textAreaH > 0) v = Math.min(v, (textAreaH/lines.length)/1.25); return Math.max(1.5, Math.min(v, 16)); })();
+        const lineH = fz*1.25, blockH = lines.length*lineH;
+        const startY = tr.y + topReserve + pad + (textAreaH-blockH)/2 + fz*0.5;
+        { const cx = tr.x+tr.w/2, baseY = startY+fz*0.35;
+          const body = lines.length === 1 ? _escXml(lines[0]) : lines.map((l,i) => `<tspan x="${cx}" dy="${i===0?0:lineH}">${_escXml(l)}</tspan>`).join('');
+          pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
+        }
+        if (hasBoothNo) addBoothNo(noFz);
+      } else if (hasBoothNo) {
+        addBoothNo(calcFontSize(mc, b.boothId, 26));
+      }
+    }
+  }
+  if (pLogos.length) { p.push('<g id="booth-logos">'); pLogos.forEach(e => p.push(e)); p.push('</g>'); }
+  if (pNos.length)   { p.push('<g id="booth-numbers">'); pNos.forEach(e => p.push(e)); p.push('</g>'); }
+  if (pNames.length) { p.push('<g id="company-names">'); pNames.forEach(e => p.push(e)); p.push('</g>'); }
+
+  // ⑥ 장식 로고
+  if (state.logos && state.logos.length) {
+    p.push('<g id="decorative-logos">');
+    for (const logo of state.logos) {
+      if (!logo.img) continue;
+      const dataUrl = logo.dataUrl || _imgToDataUrl(logo.img);
+      if (dataUrl) p.push(`<image href="${dataUrl}" xlink:href="${dataUrl}" x="${logo.x}" y="${logo.y}" width="${logo.w}" height="${logo.h}" preserveAspectRatio="xMidYMid meet"/>`);
+    }
+    p.push('</g>');
+  }
+
+  p.push('</g>');
+  p.push('</svg>');
+  return p.join('\n');
+}
+
+// SVG 문자열 → 벡터 PDF (svg2pdf.js 사용)
+async function _svgToPDF(svgString, filename, fileHandle) {
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(svgString, 'image/svg+xml');
+  const svgEl = svgDoc.documentElement;
+  // svg2pdf이 처리하려면 DOM에 부착 필요
+  svgEl.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;top:0;left:0';
+  document.body.appendChild(svgEl);
+  try {
+    const vb = svgEl.viewBox.baseVal;
+    const orientation = vb.width > vb.height ? 'landscape' : 'portrait';
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation, unit: 'mm', format: 'a3' });
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const margin = 10, cw = pw - margin*2, ch = ph - margin*2;
+    await svg2pdf(svgEl, doc, { x: margin, y: margin, width: cw, height: ch });
+    await _writePDF(doc, filename, fileHandle);
+  } finally {
+    document.body.removeChild(svgEl);
+  }
+}
+
 async function exportFloorplanPDF() {
   if (state.booths.length === 0) { alert('부스가 없습니다.'); return; }
 
@@ -442,119 +677,14 @@ async function exportFloorplanPDF() {
   if (fileHandle === 'aborted') return;
 
   state._exporting = true;
-  // PDF 방향/스케일 결정
-  const { jsPDF } = window.jspdf;
-  const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
-  // bgFill: BG 이미지 비율로 방향 결정, 아니면 portrait
-  const _pdfOrient = _bgFill ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
-  const pdf = new jsPDF({ orientation: _pdfOrient, unit: 'mm', format: 'a3' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = _bgFill ? 0 : 10;  // bgFill은 여백 없이 꽉 채움
-  const contentWidth = pageWidth - 2 * margin;
-  const contentHeight = pageHeight - 2 * margin;
-
-  // 캔버스 생성 및 렌더링
-  const canvas = document.createElement('canvas');
-  const dpi = 300;
-  const mmToPx = dpi / 25.4;
-  canvas.width = contentWidth * mmToPx;
-  canvas.height = contentHeight * mmToPx;
-
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // 도면 범위 계산
-  let bounds;
-  if (_bgFill) {
-    // BG 이미지 영역 기준 — BG가 A3를 꽉 채움
-    bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
-  } else {
-    bounds = state.bounds || { x1: 0, y1: 0, x2: 1200, y2: 800 };
-    if (!state.bounds) {
-      bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
-      for (const b of state.booths) {
-        bounds.x1 = Math.min(bounds.x1, b.x);
-        bounds.y1 = Math.min(bounds.y1, b.y);
-        bounds.x2 = Math.max(bounds.x2, b.x + b.w);
-        bounds.y2 = Math.max(bounds.y2, b.y + b.h);
-      }
-      bounds.x1 -= 50;
-      bounds.y1 -= 100;
-      bounds.x2 += 50;
-      bounds.y2 += 50;
-    }
+  try {
+    const svgString = _buildSVGString('floorplan');
+    await _svgToPDF(svgString, _fname0, fileHandle);
+  } catch (e) {
+    alert('PDF 생성 실패: ' + e.message);
+  } finally {
+    state._exporting = false;
   }
-
-  // 도면 렌더링 (모든 부스, 모든 업체명 표시)
-  const scaleX = canvas.width / (bounds.x2 - bounds.x1);
-  const scaleY = canvas.height / (bounds.y2 - bounds.y1);
-  const scale = _bgFill ? Math.min(scaleX, scaleY) : scaleX;
-  ctx.save();
-  ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
-  ctx.scale(scale, scale);
-
-  // 배경 렌더링 (항상 opacity 100%)
-  if (state.bg.img) {
-    ctx.globalAlpha = 1;
-    ctx.save();
-    if (state.bg.rotation) {
-      const cx = state.bg.x + state.bg.w / 2;
-      const cy = state.bg.y + state.bg.h / 2;
-      ctx.translate(cx, cy);
-      ctx.rotate(state.bg.rotation * Math.PI / 180);
-      ctx.translate(-cx, -cy);
-    }
-    ctx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
-    ctx.restore();
-    ctx.globalAlpha = 1;
-  }
-
-  // 부스 렌더링 — L자 부스 지원, 전시회별 색상
-  for (const booth of state.booths) {
-    const isFacility = booth.status === 'facility';
-    ctx.fillStyle = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
-    fillBoothShape(ctx, booth);
-    ctx.strokeStyle = isFacility ? '#999999' : VIEWER_STATUS_COLORS.available.stroke;
-    ctx.lineWidth = 1 / scale;
-    strokeBoothShape(ctx, booth, scale);
-
-    drawBoothContent(ctx, booth, scale, '#111111', false);
-  }
-
-  // 기본부스번호 렌더링 (부스에 업체명/부스번호 있으면 숨김)
-  for (const bn of state.baseNumbers) {
-    if (!bn.baseNo) continue;
-    const covering = state.booths.find(b =>
-      b.x < bn.x + bn.w && b.x + b.w > bn.x &&
-      b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.companyName || b.companyNameEn)
-    );
-    if (covering) continue;
-    ctx.fillStyle = '#333';
-    const bnFz = Math.min(bn.w, bn.h) * 0.35;
-    ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
-  }
-
-  // 구조물 렌더링 (부스 위에)
-  drawStructures(ctx, scale, false);
-
-  // 실측 레이어 (showMeasure ON 시 PDF에도 반영)
-  drawMeasureLayer(ctx, scale);
-
-  ctx.restore();
-
-  // PDF에 이미지 추가
-  const imgData = canvas.toDataURL('image/png');
-  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight, undefined, 'SLOW');
-
-  // ② PDF 생성 완료 후 핸들에 저장
-  await _writePDF(pdf, _fname0, fileHandle);
-  state._exporting = false;
 }
 
 async function exportAvailablePDF() {
@@ -570,118 +700,14 @@ async function exportAvailablePDF() {
   if (fileHandle2 === 'aborted') return;
 
   state._exporting = true;
-  const { jsPDF } = window.jspdf;
-  const _bgFill2 = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
-  const _pdfOrient2 = _bgFill2 ? (state.bg.w > state.bg.h ? 'landscape' : 'portrait') : 'portrait';
-  const pdf = new jsPDF({ orientation: _pdfOrient2, unit: 'mm', format: 'a3' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = _bgFill2 ? 0 : 10;
-  const contentWidth = pageWidth - 2 * margin;
-  const contentHeight = pageHeight - 2 * margin;
-
-  const canvas = document.createElement('canvas');
-  const dpi = 300;
-  const mmToPx = dpi / 25.4;
-  canvas.width = contentWidth * mmToPx;
-  canvas.height = contentHeight * mmToPx;
-
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  let bounds;
-  if (_bgFill2) {
-    bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
-  } else {
-    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
-    for (const b of state.booths) {
-      bounds.x1 = Math.min(bounds.x1, b.x);
-      bounds.y1 = Math.min(bounds.y1, b.y);
-      bounds.x2 = Math.max(bounds.x2, b.x + b.w);
-      bounds.y2 = Math.max(bounds.y2, b.y + b.h);
-    }
-    bounds.x1 -= 50;
-    bounds.y1 -= 100;
-    bounds.x2 += 50;
-    bounds.y2 += 50;
+  try {
+    const svgString = _buildSVGString('available');
+    await _svgToPDF(svgString, _fname2, fileHandle2);
+  } catch (e) {
+    alert('PDF 생성 실패: ' + e.message);
+  } finally {
+    state._exporting = false;
   }
-
-  const scaleX2 = canvas.width / (bounds.x2 - bounds.x1);
-  const scaleY2 = canvas.height / (bounds.y2 - bounds.y1);
-  const scale = _bgFill2 ? Math.min(scaleX2, scaleY2) : scaleX2;
-  ctx.save();
-  ctx.translate(-bounds.x1 * scale, -bounds.y1 * scale);
-  ctx.scale(scale, scale);
-
-  // 배경 렌더링 (항상 opacity 100%)
-  if (state.bg.img) {
-    ctx.globalAlpha = 1;
-    ctx.save();
-    if (state.bg.rotation) {
-      const cx = state.bg.x + state.bg.w / 2;
-      const cy = state.bg.y + state.bg.h / 2;
-      ctx.translate(cx, cy);
-      ctx.rotate(state.bg.rotation * Math.PI / 180);
-      ctx.translate(-cx, -cy);
-    }
-    ctx.drawImage(state.bg.img, state.bg.x, state.bg.y, state.bg.w, state.bg.h);
-    ctx.restore();
-    ctx.globalAlpha = 1;
-  }
-
-  // 부스 렌더링 — 배정가능위치(spot)만 노란색, 나머지 전시회별 색상, L자 지원
-  for (const booth of state.booths) {
-    const isFacility = booth.status === 'facility';
-    const isSpot = booth.status === 'spot';
-    let fill, stroke;
-    if (isFacility) {
-      fill = '#EFEFEF'; stroke = '#999999';
-    } else if (isSpot) {
-      fill = '#FFD600'; stroke = '#F9A825';
-    } else {
-      fill = VIEWER_STATUS_COLORS.available.fill; stroke = VIEWER_STATUS_COLORS.available.stroke;
-    }
-    ctx.fillStyle = fill;
-    fillBoothShape(ctx, booth);
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1 / scale;
-    strokeBoothShape(ctx, booth, scale);
-
-    drawBoothContent(ctx, booth, scale, '#111111', false);
-  }
-
-  // 기본부스번호 렌더링 (부스에 업체명/부스번호 있으면 숨김)
-  for (const bn of state.baseNumbers) {
-    if (!bn.baseNo) continue;
-    const covering = state.booths.find(b =>
-      b.x < bn.x + bn.w && b.x + b.w > bn.x &&
-      b.y < bn.y + bn.h && b.y + b.h > bn.y &&
-      (b.companyName || b.companyNameEn)
-    );
-    if (covering) continue;
-    ctx.fillStyle = '#333';
-    const bnFz = Math.min(bn.w, bn.h) * 0.35;
-    ctx.font = `600 ${bnFz}px Pretendard, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
-  }
-
-  // 구조물 렌더링 (부스 위에)
-  drawStructures(ctx, scale, false);
-
-  // 실측 레이어 (showMeasure ON 시 PDF에도 반영)
-  drawMeasureLayer(ctx, scale);
-
-  ctx.restore();
-
-  const imgData = canvas.toDataURL('image/png');
-  pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight, undefined, 'SLOW');
-
-  // ② PDF 생성 완료 후 핸들에 저장
-  await _writePDF(pdf, _fname2, fileHandle2);
-  state._exporting = false;
 }
 
 // ─── SVG 대형출력 Export ───
