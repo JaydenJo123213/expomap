@@ -657,7 +657,14 @@ async function _svgToPDF(svgString, filename, fileHandle) {
     const pw = doc.internal.pageSize.getWidth();
     const ph = doc.internal.pageSize.getHeight();
     const margin = 10, cw = pw - margin*2, ch = ph - margin*2;
-    await svg2pdf(svgEl, doc, { x: margin, y: margin, width: cw, height: ch });
+    // svg2pdf.js v2 UMD: 전역이 함수 직접이거나 {svg2pdf: fn} 객체일 수 있음
+    const svg2pdfFn = (typeof svg2pdf === 'function')
+      ? svg2pdf
+      : (window.svg2pdf && typeof window.svg2pdf.svg2pdf === 'function')
+        ? window.svg2pdf.svg2pdf
+        : null;
+    if (!svg2pdfFn) throw new Error('svg2pdf 라이브러리가 로드되지 않았습니다.');
+    await svg2pdfFn(svgEl, doc, { x: margin, y: margin, width: cw, height: ch });
     await _writePDF(doc, filename, fileHandle);
   } finally {
     document.body.removeChild(svgEl);
