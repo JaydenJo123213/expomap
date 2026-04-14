@@ -91,7 +91,7 @@ async function executeAssignGuideExport() {
     const { PDFDocument } = PDFLib;
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([pgWpt, pgHpt]);
-    const pngBuf = await new Promise(resolve => off.toBlob(b => b.arrayBuffer().then(resolve), 'image/png'));
+    const pngBuf = await _canvasToArrayBuffer(off);
     const pngImg = await pdfDoc.embedPng(pngBuf);
     page.drawImage(pngImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
 
@@ -862,6 +862,18 @@ function _drawBaseNumbersPdfLib(page, booths, fontReg, scalePt, toX, toY, pageH)
   }
 }
 
+// ─── 캔버스 → ArrayBuffer 헬퍼 (toBlob 타임아웃/null 방어) ───
+function _canvasToArrayBuffer(canvas, type = 'image/png') {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('toBlob 타임아웃')), 15000);
+    canvas.toBlob(blob => {
+      clearTimeout(timer);
+      if (!blob) { reject(new Error('toBlob 결과 null')); return; }
+      blob.arrayBuffer().then(resolve).catch(reject);
+    }, type);
+  });
+}
+
 // ─── pdf-lib: 메인 PDF 빌더 (벡터 부스+텍스트, 래스터 bg+구조물) ───
 async function _buildPDFLibDocument(mode, options = {}) {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -909,18 +921,6 @@ async function _buildPDFLibDocument(mode, options = {}) {
   const toS     = px => px * scalePt;
 
   const pdfDoc = await PDFDocument.create();
-  pdfDoc.registerFontkit(fontkit);
-
-  // ── 폰트 임베딩 (WOFF1 — fontkit 안정 지원) ──
-  let fontRegEmbed = null, fontBoldEmbed = null;
-  try {
-    const fontBufs = await _loadPretendardWoff2();
-    fontRegEmbed  = await pdfDoc.embedFont(fontBufs.regular);
-    fontBoldEmbed = await pdfDoc.embedFont(fontBufs.semibold);
-  } catch(e) {
-    console.warn('폰트 임베딩 실패, 텍스트는 캔버스 래스터로 대체:', e.message);
-  }
-
   const page = pdfDoc.addPage([pgWpt, pgHpt]);
   page.drawRectangle({ x: 0, y: 0, width: pgWpt, height: pgHpt, color: rgb(1,1,1) });
 
@@ -938,7 +938,7 @@ async function _buildPDFLibDocument(mode, options = {}) {
       bctx.scale(wScale, wScale);
       _drawBgCanvas(bctx);
       bctx.restore();
-      const bgPng = await new Promise(res => bc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
+      const bgPng = await _canvasToArrayBuffer(bc);
       const bgImg = await pdfDoc.embedPng(bgPng);
       page.drawImage(bgImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
     } catch(e) { console.warn('bg 레이어 실패:', e.message); }
@@ -970,37 +970,29 @@ async function _buildPDFLibDocument(mode, options = {}) {
     }
   }
 
-  // Layer 3: 텍스트
-  if (fontRegEmbed && fontBoldEmbed) {
-    // 벡터 텍스트 (폰트 임베딩 성공 시)
-    const mc = document.createElement('canvas').getContext('2d');
-    for (const b of booths) _drawBoothTextPdfLib(page, b, fontRegEmbed, fontBoldEmbed, scalePt, toX, toY, pgHpt, mc);
-    _drawBaseNumbersPdfLib(page, booths, fontRegEmbed, scalePt, toX, toY, pgHpt);
-  } else {
-    // 래스터 텍스트 폴백 (폰트 임베딩 실패 시)
-    try {
-      const DPI = 200, mmToPx = DPI / 25.4;
-      const tc = document.createElement('canvas');
-      tc.width = Math.round(pgWmm * mmToPx); tc.height = Math.round(pgHmm * mmToPx);
-      const tctx = tc.getContext('2d');
-      const wScale = scalePt * mmToPx / MM_TO_PT;
-      tctx.clearRect(0, 0, tc.width, tc.height);
-      tctx.save();
-      tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
-                     offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
-      tctx.scale(wScale, wScale);
-      const textColor = _boothColorOverride ? '#111111' : null;
-      for (const b of booths) {
-        const tc2 = textColor || (() => { const r = _boothColors(b, mode); return r.text || '#111111'; })();
-        drawBoothContent(tctx, b, wScale, tc2, false);
-      }
-      _drawBaseNumbersCanvas(tctx, booths);
-      tctx.restore();
-      const tPng = await new Promise(res => tc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
-      const tImg = await pdfDoc.embedPng(tPng);
-      page.drawImage(tImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
-    } catch(e) { console.warn('텍스트 래스터 실패:', e.message); }
-  }
+  // Layer 3: 텍스트 캔버스 (CSS Pretendard 웹폰트 사용)
+  try {
+    const DPI = 200, mmToPx = DPI / 25.4;
+    const tc = document.createElement('canvas');
+    tc.width = Math.round(pgWmm * mmToPx); tc.height = Math.round(pgHmm * mmToPx);
+    const tctx = tc.getContext('2d');
+    const wScale = scalePt * mmToPx / MM_TO_PT;
+    tctx.clearRect(0, 0, tc.width, tc.height);
+    tctx.save();
+    tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
+                   offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
+    tctx.scale(wScale, wScale);
+    const textColor = _boothColorOverride ? '#111111' : null;
+    for (const b of booths) {
+      const tc2 = textColor || (_boothColors(b, mode).text || '#111111');
+      drawBoothContent(tctx, b, wScale, tc2, false);
+    }
+    _drawBaseNumbersCanvas(tctx, booths);
+    tctx.restore();
+    const tPng = await _canvasToArrayBuffer(tc);
+    const tImg = await pdfDoc.embedPng(tPng);
+    page.drawImage(tImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+  } catch(e) { console.warn('텍스트 레이어 실패:', e.message); }
 
   // Layer 4: 구조물 + 실측 → 투명 캔버스
   try {
@@ -1018,7 +1010,7 @@ async function _buildPDFLibDocument(mode, options = {}) {
       if (typeof drawStructures === 'function') drawStructures(ctx, wScale, false);
       if (typeof drawMeasureLayer === 'function') drawMeasureLayer(ctx, wScale);
       ctx.restore();
-      const sPng = await new Promise(res => oc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
+      const sPng = await _canvasToArrayBuffer(oc);
       const sImg = await pdfDoc.embedPng(sPng);
       page.drawImage(sImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
     }
