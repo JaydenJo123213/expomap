@@ -1,14 +1,5 @@
 // ─── PDF Export ───
 
-function _showPdfLoading() {
-  const el = document.getElementById('pdfLoadingOverlay');
-  if (el) el.style.display = 'flex';
-}
-function _hidePdfLoading() {
-  const el = document.getElementById('pdfLoadingOverlay');
-  if (el) el.style.display = 'none';
-}
-
 // 저장 다이얼로그 (Chrome/Edge: 경로 선택 가능 / Safari·Firefox: 기본 다운로드)
 async function _savePDF(doc, filename) {
   if (window.showSaveFilePicker) {
@@ -106,7 +97,6 @@ async function executeAssignGuideExport() {
   const assignLang = document.querySelector('input[name="assignLang"]:checked')?.value || 'ko';
   const prevLang = state.lang;
   state.lang = assignLang;
-  _showPdfLoading();
   try {
     // exportFloorplanPDF와 동일한 캔버스/스케일 방식 사용
     const _bgFillAG = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
@@ -118,7 +108,7 @@ async function executeAssignGuideExport() {
     const agMargin = _bgFillAG ? 0 : 10;
     const agContentW = pw - 2 * agMargin;
     const agContentH = ph - 2 * agMargin;
-    const dpi = 500, mmToPx = dpi / 25.4;
+    const dpi = 300, mmToPx = dpi / 25.4;
     const offW = Math.round(agContentW * mmToPx);
     const offH = Math.round(agContentH * mmToPx);
     const off = document.createElement('canvas');
@@ -141,7 +131,6 @@ async function executeAssignGuideExport() {
   } finally {
     state.lang = prevLang;  // 원래 언어로 복원 (항상 실행)
     state._exporting = false;
-    _hidePdfLoading();
   }
 }
 
@@ -441,8 +430,6 @@ async function exportFloorplanPDF() {
     state._exporting = false;
     return;
   }
-  _showPdfLoading();
-  try {
 
   // PDF 방향/스케일 결정
   const { jsPDF } = window.jspdf;
@@ -458,7 +445,7 @@ async function exportFloorplanPDF() {
 
   // 캔버스 생성 및 렌더링
   const canvas = document.createElement('canvas');
-  const dpi = 500;
+  const dpi = 300;
   const mmToPx = dpi / 25.4;
   canvas.width = contentWidth * mmToPx;
   canvas.height = contentHeight * mmToPx;
@@ -559,12 +546,7 @@ async function exportFloorplanPDF() {
   const dateStr = String(today.getFullYear()).slice(2) + String(today.getMonth() + 1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
   const langSuffix = state.lang === 'en' ? '_EN' : '';
   await _savePDF(pdf, `${_pdfPre}_Floor Plan_${dateStr}${langSuffix}.pdf`);
-  } catch (e) {
-    alert('PDF 생성 실패: ' + e.message);
-  } finally {
-    state._exporting = false;
-    _hidePdfLoading();
-  }
+  state._exporting = false;
 }
 
 async function exportAvailablePDF() {
@@ -574,8 +556,6 @@ async function exportAvailablePDF() {
     state._exporting = false;
     return;
   }
-  _showPdfLoading();
-  try {
 
   const { jsPDF } = window.jspdf;
   const _bgFill2 = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
@@ -588,7 +568,7 @@ async function exportAvailablePDF() {
   const contentHeight = pageHeight - 2 * margin;
 
   const canvas = document.createElement('canvas');
-  const dpi = 500;
+  const dpi = 300;
   const mmToPx = dpi / 25.4;
   canvas.width = contentWidth * mmToPx;
   canvas.height = contentHeight * mmToPx;
@@ -691,12 +671,7 @@ async function exportAvailablePDF() {
   const langSuffix = state.lang === 'en' ? '_EN' : '';
   const _pdfPre2 = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
   await _savePDF(pdf, `${_pdfPre2}_Floor Plan_${dateStr}_Available${langSuffix}.pdf`);
-  } catch (e) {
-    alert('PDF 생성 실패: ' + e.message);
-  } finally {
-    state._exporting = false;
-    _hidePdfLoading();
-  }
+  state._exporting = false;
 }
 
 // ─── SVG 대형출력 Export ───
