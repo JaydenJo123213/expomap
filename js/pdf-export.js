@@ -4,7 +4,7 @@ let _pretendardWoff2Cache = null;
 
 async function _loadPretendardWoff2() {
   if (_pretendardWoff2Cache) return _pretendardWoff2Cache;
-  const base = 'https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/public/static/';
+  const base = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/';
   const fetchBuf = url => fetch(url).then(r => {
     if (!r.ok) throw new Error(`폰트 로드 실패: ${url} (${r.status})`);
     return r.arrayBuffer();
