@@ -758,14 +758,11 @@ async function _buildJsPDFVector(mode, filename, fileHandle) {
     const fr = hexRgb(fillHex), sr = hexRgb(strokeHex);
 
     if (b.cells && b.cells.length > 1) {
-      // L자: 셀 fill만, 셀 간 경계선 없음
+      // L자: 셀 fill만 ('F'), 외곽선은 canvas overlay에서 strokeBoothShape으로 처리
       for (const c of b.cells) {
         doc.setFillColor(fr.r, fr.g, fr.b);
-        doc.setDrawColor(fr.r, fr.g, fr.b);
-        doc.rect(toX(c.x), toY(c.y), toS(c.w), toS(c.h), 'FD');
+        doc.rect(toX(c.x), toY(c.y), toS(c.w), toS(c.h), 'F');
       }
-      doc.setDrawColor(sr.r, sr.g, sr.b);
-      doc.rect(toX(b.x), toY(b.y), toS(b.w), toS(b.h), 'S');
     } else {
       doc.setFillColor(fr.r, fr.g, fr.b);
       doc.setDrawColor(sr.r, sr.g, sr.b);
@@ -787,6 +784,19 @@ async function _buildJsPDFVector(mode, filename, fileHandle) {
   ctx.save();
   ctx.translate(cOffX - bounds.x1 * wScale, cOffY - bounds.y1 * wScale);
   ctx.scale(wScale, wScale);
+
+  // L자 부스 외곽선 — strokeBoothShape으로 정확한 L형 윤곽 (배정안내와 동일)
+  ctx.lineWidth = 0.5 / wScale; // 배정안내: lineWidth = 0.5 / zoom 과 동일
+  for (const b of booths) {
+    if (!(b.cells && b.cells.length > 1)) continue;
+    const isFacility = b.status === 'facility', isSpot = b.status === 'spot';
+    if (mode === 'available') {
+      ctx.strokeStyle = isFacility ? '#999999' : isSpot ? '#F9A825' : '#000000';
+    } else {
+      ctx.strokeStyle = isFacility ? '#999999' : '#000000';
+    }
+    strokeBoothShape(ctx, b, wScale);
+  }
 
   // 부스 텍스트 & 로고
   for (const b of booths) drawBoothContent(ctx, b, wScale, '#111111', false);
