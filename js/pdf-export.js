@@ -200,6 +200,9 @@ function renderForExport(ectx, W, H, preset, bgFill = false) {
     drawBoothContent(ectx, b, zoom, textColor, isConstruction, false, false, isConstruction ? null : '#000000');
   });
 
+  // Base numbers
+  _drawBaseNumbersCanvas(ectx, booths);
+
   // Structures (부스 위에)
   drawStructures(ectx, zoom, isConstruction);
 
@@ -856,12 +859,11 @@ function _drawBaseNumbersPdfLib(page, booths, fontReg, scalePt, toX, toY, pageH)
   }
 }
 
-// ─── pdf-lib: 메인 PDF 빌더 ───
+// ─── pdf-lib: 메인 PDF 빌더 (renderForExport 기반 단일 캔버스) ───
 async function _buildPDFLibDocument(mode, options = {}) {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const { PDFDocument, rgb } = PDFLib;
+  const { PDFDocument } = PDFLib;
   const MM_TO_PT = 72 / 25.4;
-  const booths = state.booths;
   const _bgFill = _currentExpo && _currentExpo.pdfMode === 'bgFill' && state.bg.img;
 
   // 페이지 크기 결정
@@ -871,140 +873,29 @@ async function _buildPDFLibDocument(mode, options = {}) {
     if (options.orientation === 'portrait' && pgWmm > pgHmm) [pgWmm, pgHmm] = [pgHmm, pgWmm];
     if (options.orientation === 'landscape' && pgHmm > pgWmm) [pgWmm, pgHmm] = [pgHmm, pgWmm];
   } else {
-    // A3
     pgWmm = options.orientation === 'landscape' ? 420 : 297;
     pgHmm = options.orientation === 'landscape' ? 297 : 420;
   }
   const pgWpt = pgWmm * MM_TO_PT, pgHpt = pgHmm * MM_TO_PT;
 
-  // Bounds 계산
-  let bounds;
-  if (_bgFill) {
-    bounds = { x1: state.bg.x, y1: state.bg.y, x2: state.bg.x + state.bg.w, y2: state.bg.y + state.bg.h };
-  } else {
-    bounds = { x1: 0, y1: 0, x2: 1200, y2: 800 };
-    if (booths.length) {
-      for (const b of booths) {
-        bounds.x1 = Math.min(bounds.x1, b.x); bounds.y1 = Math.min(bounds.y1, b.y);
-        bounds.x2 = Math.max(bounds.x2, b.x + b.w); bounds.y2 = Math.max(bounds.y2, b.y + b.h);
-      }
-      bounds.x1 -= 50; bounds.y1 -= 100; bounds.x2 += 50; bounds.y2 += 50;
-    }
-  }
-  const vw = bounds.x2 - bounds.x1, vh = bounds.y2 - bounds.y1;
-  const scaleX = pgWpt / vw, scaleY = pgHpt / vh;
-  const scalePt = _bgFill ? Math.min(scaleX, scaleY) : scaleX;
-  const offX = _bgFill ? (pgWpt - vw * scalePt) / 2 : 0;
-  const offY = _bgFill ? (pgHpt - vh * scalePt) / 2 : 0;
+  // 300 DPI 오프스크린 캔버스에 전체 씬 렌더
+  const DPI = 300, mmToPx = DPI / 25.4;
+  const offW = Math.round(pgWmm * mmToPx), offH = Math.round(pgHmm * mmToPx);
+  const off = document.createElement('canvas');
+  off.width = offW; off.height = offH;
+  const octx = off.getContext('2d');
+  if (!octx) throw new Error('캔버스 컨텍스트 생성 실패 (캔버스 크기 초과?)');
 
-  // pdf-lib y=0은 하단 → 좌표 변환
-  // toX: world px → pdf pt (left-origin)
-  // toY: world px → pdf pt (top-origin, 미사용, toPageY를 사용)
-  const toX   = wx => offX + (wx - bounds.x1) * scalePt;
-  const toY   = wy => offY + (wy - bounds.y1) * scalePt; // top-origin (used for rect height calc)
-  const toPageY = wy => pgHpt - (offY + (wy - bounds.y1) * scalePt); // bottom-origin for pdf-lib
-  const toS   = px => px * scalePt;
+  // renderForExport: bg + booths + base numbers + structures 전부 렌더
+  // mode 'available'이면 viewer 색상 프리셋, 그 외 status 색상
+  renderForExport(octx, offW, offH, mode === 'available' ? 'available' : 'status', !!_bgFill);
 
-  // pdf-lib document
+  // pdf-lib로 PDF 생성
   const pdfDoc = await PDFDocument.create();
-
   const page = pdfDoc.addPage([pgWpt, pgHpt]);
-
-  // 흰 배경
-  page.drawRectangle({ x: 0, y: 0, width: pgWpt, height: pgHpt, color: rgb(1,1,1) });
-
-  // Layer 1: 배경 이미지
-  if (state.bg.img && (state.bg.dataUrl || state.bg.storageUrl)) {
-    try {
-      const bgUrl = state.bg.dataUrl || state.bg.storageUrl;
-      let imgBuf;
-      if (bgUrl.startsWith('data:')) {
-        const b64 = bgUrl.split(',')[1];
-        imgBuf = Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
-      } else {
-        imgBuf = await fetch(bgUrl).then(r => r.arrayBuffer());
-      }
-      const bgImg = bgUrl.toLowerCase().includes('jpg') || bgUrl.toLowerCase().includes('jpeg')
-        ? await pdfDoc.embedJpg(imgBuf) : await pdfDoc.embedPng(imgBuf);
-      const bx = toX(state.bg.x), bw = toS(state.bg.w), bh = toS(state.bg.h);
-      page.drawImage(bgImg, { x: bx, y: toPageY(state.bg.y) - bh, width: bw, height: bh });
-    } catch(e) { /* 배경 없이 계속 */ }
-  }
-
-  // Layer 2: 부스 fill/stroke (벡터)
-  const hexToRgb = h => {
-    const r = parseInt(h.slice(1,3),16)/255, g = parseInt(h.slice(3,5),16)/255, b = parseInt(h.slice(5,7),16)/255;
-    return rgb(r, g, b);
-  };
-  const lw = Math.max(0.3, 0.5 * scalePt / MM_TO_PT);
-  for (const b of booths) {
-    const { fill: fillHex, stroke: strokeHex } = _boothColors(b, mode);
-    const fillC = hexToRgb(fillHex), strokeC = hexToRgb(strokeHex);
-    if (b.cells && b.cells.length > 1) {
-      for (const c of b.cells) {
-        page.drawRectangle({
-          x: toX(c.x), y: toPageY(c.y + c.h), width: toS(c.w), height: toS(c.h),
-          color: fillC, borderWidth: 0,
-        });
-      }
-      _strokeLShapePdfLib(page, b, toX, toY, pgHpt, strokeC, lw);
-    } else {
-      page.drawRectangle({
-        x: toX(b.x), y: toPageY(b.y + b.h), width: toS(b.w), height: toS(b.h),
-        color: fillC, borderColor: strokeC, borderWidth: lw,
-      });
-    }
-  }
-
-  // Layer 3: 텍스트 → 투명 캔버스 래스터 (CSS Pretendard 웹폰트 사용, fontkit 임베딩 우회)
-  try {
-    const DPI = 200, mmToPx = DPI / 25.4;
-    const tc = document.createElement('canvas');
-    tc.width  = Math.round(pgWmm * mmToPx);
-    tc.height = Math.round(pgHmm * mmToPx);
-    const tctx = tc.getContext('2d');
-    if (tctx) {
-      const wScale = scalePt * mmToPx / MM_TO_PT;
-      tctx.clearRect(0, 0, tc.width, tc.height);
-      tctx.save();
-      tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
-                     offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
-      tctx.scale(wScale, wScale);
-      for (const b of booths) {
-        if (typeof drawBoothContent === 'function')
-          drawBoothContent(tctx, b, wScale, '#111111', false);
-      }
-      if (typeof _drawBaseNumbersCanvas === 'function')
-        _drawBaseNumbersCanvas(tctx, wScale);
-      tctx.restore();
-      const tPngBuf = await new Promise(res => tc.toBlob(bl => bl.arrayBuffer().then(res), 'image/png'));
-      const textImg = await pdfDoc.embedPng(tPngBuf);
-      page.drawImage(textImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
-    }
-  } catch(e) { /* 텍스트 없이 계속 */ }
-
-  // Layer 4: 구조물 + 실측 → 투명 캔버스 래스터
-  try {
-    const DPI = 200, mmToPx = DPI / 25.4;
-    const oc = document.createElement('canvas');
-    oc.width  = Math.round(pgWmm * mmToPx);
-    oc.height = Math.round(pgHmm * mmToPx);
-    const ctx = oc.getContext('2d');
-    if (ctx) {
-      const wScale = scalePt * mmToPx / MM_TO_PT;
-      ctx.clearRect(0, 0, oc.width, oc.height);
-      ctx.save();
-      ctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
-                    offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
-      ctx.scale(wScale, wScale);
-      if (typeof drawStructures === 'function') drawStructures(ctx, wScale, false);
-      if (typeof drawMeasureLayer === 'function') drawMeasureLayer(ctx, wScale);
-      ctx.restore();
-      const pngBuf = await new Promise(res => oc.toBlob(b2 => b2.arrayBuffer().then(res), 'image/png'));
-      const structImg = await pdfDoc.embedPng(pngBuf);
-      page.drawImage(structImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
-    }
-  } catch(e) { /* 구조물 없이 계속 */ }
+  const pngBuf = await new Promise(resolve => off.toBlob(b => b.arrayBuffer().then(resolve), 'image/png'));
+  const pngImg = await pdfDoc.embedPng(pngBuf);
+  page.drawImage(pngImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
 
   return pdfDoc;
 }
