@@ -3,28 +3,30 @@ let _pretendardFonts = null; // { regular: base64, semibold: base64 }
 
 async function _loadPretendardFonts() {
   if (_pretendardFonts) return _pretendardFonts;
-  const base = 'https://cdn.jsdelivr.net/npm/pretendard@latest/dist/public/static/';
+  const base = 'https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/public/static/';
   async function fetchBase64(url) {
-    const buf = await (await fetch(url)).arrayBuffer();
-    return new Promise(res => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`폰트 로드 실패: ${url} (${res.status})`);
+    const buf = await res.arrayBuffer();
+    return new Promise(resolve => {
       const fr = new FileReader();
-      fr.onload = () => res(fr.result.split(',')[1]);
+      fr.onload = () => resolve(fr.result.split(',')[1]);
       fr.readAsDataURL(new Blob([buf]));
     });
   }
   const [regular, semibold] = await Promise.all([
-    fetchBase64(base + 'Pretendard-Regular.ttf'),
-    fetchBase64(base + 'Pretendard-SemiBold.ttf'),
+    fetchBase64(base + 'Pretendard-Regular.otf'),
+    fetchBase64(base + 'Pretendard-SemiBold.otf'),
   ]);
   _pretendardFonts = { regular, semibold };
   return _pretendardFonts;
 }
 
 function _embedFonts(doc, fonts) {
-  doc.addFileToVFS('Pretendard-Regular.ttf', fonts.regular);
-  doc.addFont('Pretendard-Regular.ttf', 'Pretendard', 'normal');
-  doc.addFileToVFS('Pretendard-SemiBold.ttf', fonts.semibold);
-  doc.addFont('Pretendard-SemiBold.ttf', 'Pretendard', 'bold');
+  doc.addFileToVFS('Pretendard-Regular.otf', fonts.regular);
+  doc.addFont('Pretendard-Regular.otf', 'Pretendard', 'normal');
+  doc.addFileToVFS('Pretendard-SemiBold.otf', fonts.semibold);
+  doc.addFont('Pretendard-SemiBold.otf', 'Pretendard', 'bold');
 }
 
 // 부스 텍스트·로고를 jsPDF 벡터로 그리기 (고화질 모드)
