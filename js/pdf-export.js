@@ -1,17 +1,17 @@
-// ─── Pretendard woff2 캐시 (pdf-lib/fontkit용) ───
-// pdf-lib + fontkit은 woff2(CFF 포함) 올바르게 임베딩
+// ─── Pretendard OTF 캐시 (pdf-lib/fontkit용) ───
+// woff2는 fontkit에서 인코딩 오류 발생 → OTF 직접 사용
 let _pretendardWoff2Cache = null;
 
 async function _loadPretendardWoff2() {
   if (_pretendardWoff2Cache) return _pretendardWoff2Cache;
-  const base = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/static/woff2/';
+  const base = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/public/static/';
   const fetchBuf = url => fetch(url).then(r => {
     if (!r.ok) throw new Error(`폰트 로드 실패: ${url} (${r.status})`);
     return r.arrayBuffer();
   });
   const [regular, semibold] = await Promise.all([
-    fetchBuf(base + 'Pretendard-Regular.woff2'),
-    fetchBuf(base + 'Pretendard-SemiBold.woff2'),
+    fetchBuf(base + 'Pretendard-Regular.otf'),
+    fetchBuf(base + 'Pretendard-SemiBold.otf'),
   ]);
   _pretendardWoff2Cache = { regular, semibold };
   return _pretendardWoff2Cache;
