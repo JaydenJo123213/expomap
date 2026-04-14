@@ -471,7 +471,7 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
     if (covering) continue;
     ectx.fillStyle = '#333';
     const bnFz = Math.min(bn.w, bn.h) * 0.35;
-    ectx.font = `600 ${bnFz}px Pretendard, sans-serif`;
+    ectx.font = `400 ${bnFz}px Pretendard, sans-serif`;
     ectx.textAlign = 'center';
     ectx.textBaseline = 'middle';
     ectx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
@@ -696,7 +696,7 @@ function _buildSVGString(mode) {
     const covering = booths.find(b => b.x < bn.x+bn.w && b.x+b.w > bn.x && b.y < bn.y+bn.h && b.y+b.h > bn.y && (b.companyName || b.companyNameEn));
     if (covering) continue;
     const fz = Math.min(bn.w, bn.h) * 0.35;
-    p.push(`<text x="${bn.x+bn.w/2}" y="${bn.y+bn.h/2+fz*0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
+    p.push(`<text x="${bn.x+bn.w/2}" y="${bn.y+bn.h/2+fz*0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
   }
   p.push('</g>');
 
@@ -992,7 +992,7 @@ async function _buildJsPDFVector(mode, filename, fileHandle, quality = 'web') {
     if (cov) continue;
     const fz = Math.min(bn.w, bn.h) * 0.35;
     ctx.fillStyle = '#333';
-    ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+    ctx.font = `400 ${fz}px Pretendard, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
@@ -1151,7 +1151,7 @@ async function exportSVG(lang = 'ko') {
       );
       if (covering) continue;
       const fz = Math.min(bn.w, bn.h) * 0.35;
-      p.push(`<text x="${bn.x + bn.w/2}" y="${bn.y + bn.h/2 + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="600" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
+      p.push(`<text x="${bn.x + bn.w/2}" y="${bn.y + bn.h/2 + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
     }
     p.push('</g>');
 

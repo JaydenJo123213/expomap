@@ -169,7 +169,7 @@ function drawBaseNumbers(c, zoom) {
     if (covering) return;
 
     // Match booth boothId text style
-    c.font = `500 7px Pretendard, sans-serif`;
+    c.font = `400 7px Pretendard, sans-serif`;
     c.fillStyle = '#8B8FA3';
     c.globalAlpha = 0.65;
     c.textAlign = 'center';
