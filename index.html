@@ -1241,7 +1241,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeModal('modalAssignGuide')">Cancel</button>
-      <button class="btn btn-ok" onclick="executeAssignGuideExport()">PDF 생성</button>
+      <button class="btn btn-ok" onclick="executeAssignGuideExport(typeof _pendingAssignQuality !== 'undefined' ? _pendingAssignQuality : 'web')">PDF 생성</button>
     </div>
   </div>
 </div>
@@ -1459,18 +1459,7 @@ CREATE POLICY "anon_all" ON expomap_state
   </div>
 </div>
 
-<script src="js/state.js"></script>
-<script src="js/supabase.js"></script>
-<script src="js/booth-ops.js"></script>
-<script src="js/render.js"></script>
-<script src="js/measure.js"></script>
-<script src="js/pdf-export.js"></script>
-<script src="js/events.js"></script>
-<script src="js/versions.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/init.js"></script>
-
-<!-- PDF 품질 선택 팝오버 -->
+<!-- PDF 품질 선택 팝오버 (script보다 먼저 DOM에 있어야 함) -->
 <div id="pdfQualityPopover" style="display:none;position:fixed;z-index:9998;
   background:#fff;border-radius:12px;padding:18px 22px;box-shadow:0 4px 24px rgba(0,0,0,0.18);
   min-width:200px;font-family:Pretendard,sans-serif;">
@@ -1485,6 +1474,17 @@ CREATE POLICY "anon_all" ON expomap_state
     style="width:100%;padding:8px 0;background:#4F8CFF;color:#fff;border:none;border-radius:7px;
     font-size:13px;font-weight:600;cursor:pointer">PDF 생성</button>
 </div>
+
+<script src="js/state.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/booth-ops.js"></script>
+<script src="js/render.js"></script>
+<script src="js/measure.js"></script>
+<script src="js/pdf-export.js"></script>
+<script src="js/events.js"></script>
+<script src="js/versions.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/init.js"></script>
 
 <!-- PDF 로딩 오버레이 -->
 <div id="pdfLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.52);align-items:center;justify-content:center;">
