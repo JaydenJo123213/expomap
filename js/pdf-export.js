@@ -1,17 +1,18 @@
-// ─── Pretendard WOFF 캐시 (pdf-lib/fontkit용) ───
-// OTF → CFF2 파싱 오류, woff2 → 인코딩 오류. woff1(zlib)은 fontkit이 안정 지원
+// ─── Spoqa Han Sans Neo TTF 캐시 (pdf-lib/fontkit 벡터용) ───
+// Pretendard OTF=CFF2 파싱 오류 → Spoqa Han Sans Neo TTF(TrueType) 로 교체
+// 한글+영문+숫자+특수문자 완전 지원, 512KB subset, fontkit 완벽 호환
 let _pretendardFontCache = null;
 
 async function _loadPretendardWoff2() {
   if (_pretendardFontCache) return _pretendardFontCache;
-  const base = 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/static/woff/';
+  const BASE = 'https://cdn.jsdelivr.net/gh/spoqa/spoqa-han-sans@latest/Subset/SpoqaHanSansNeo/';
   const fetchBuf = url => fetch(url).then(r => {
     if (!r.ok) throw new Error(`폰트 로드 실패: ${url} (${r.status})`);
     return r.arrayBuffer();
   });
   const [regular, semibold] = await Promise.all([
-    fetchBuf(base + 'Pretendard-Regular.woff'),
-    fetchBuf(base + 'Pretendard-SemiBold.woff'),
+    fetchBuf(BASE + 'SpoqaHanSansNeo-Regular.ttf'),
+    fetchBuf(BASE + 'SpoqaHanSansNeo-Bold.ttf'),
   ]);
   _pretendardFontCache = { regular, semibold };
   return _pretendardFontCache;
@@ -921,6 +922,18 @@ async function _buildPDFLibDocument(mode, options = {}) {
   const toS     = px => px * scalePt;
 
   const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  // ── Spoqa Han Sans Neo TTF 임베딩 (벡터 텍스트) ──
+  let fontRegEmbed = null, fontBoldEmbed = null;
+  try {
+    const fontBufs = await _loadPretendardWoff2();
+    fontRegEmbed  = await pdfDoc.embedFont(fontBufs.regular);
+    fontBoldEmbed = await pdfDoc.embedFont(fontBufs.semibold);
+  } catch(e) {
+    console.warn('폰트 임베딩 실패, 캔버스 래스터로 대체:', e.message);
+  }
+
   const page = pdfDoc.addPage([pgWpt, pgHpt]);
   page.drawRectangle({ x: 0, y: 0, width: pgWpt, height: pgHpt, color: rgb(1,1,1) });
 
@@ -970,29 +983,37 @@ async function _buildPDFLibDocument(mode, options = {}) {
     }
   }
 
-  // Layer 3: 텍스트 캔버스 (CSS Pretendard 웹폰트 사용)
-  try {
-    const DPI = 200, mmToPx = DPI / 25.4;
-    const tc = document.createElement('canvas');
-    tc.width = Math.round(pgWmm * mmToPx); tc.height = Math.round(pgHmm * mmToPx);
-    const tctx = tc.getContext('2d');
-    const wScale = scalePt * mmToPx / MM_TO_PT;
-    tctx.clearRect(0, 0, tc.width, tc.height);
-    tctx.save();
-    tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
-                   offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
-    tctx.scale(wScale, wScale);
-    const textColor = _boothColorOverride ? '#111111' : null;
-    for (const b of booths) {
-      const tc2 = textColor || (_boothColors(b, mode).text || '#111111');
-      drawBoothContent(tctx, b, wScale, tc2, false);
-    }
-    _drawBaseNumbersCanvas(tctx, booths);
-    tctx.restore();
-    const tPng = await _canvasToArrayBuffer(tc);
-    const tImg = await pdfDoc.embedPng(tPng);
-    page.drawImage(tImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
-  } catch(e) { console.warn('텍스트 레이어 실패:', e.message); }
+  // Layer 3: 텍스트 — 벡터(폰트 임베딩 성공) / 래스터 폴백
+  if (fontRegEmbed && fontBoldEmbed) {
+    // 벡터 텍스트 (Spoqa Han Sans Neo TTF 임베딩)
+    const mc = document.createElement('canvas').getContext('2d');
+    for (const b of booths) _drawBoothTextPdfLib(page, b, fontRegEmbed, fontBoldEmbed, scalePt, toX, toY, pgHpt, mc);
+    _drawBaseNumbersPdfLib(page, booths, fontRegEmbed, scalePt, toX, toY, pgHpt);
+  } else {
+    // 래스터 텍스트 폴백
+    try {
+      const DPI = 200, mmToPx = DPI / 25.4;
+      const tc = document.createElement('canvas');
+      tc.width = Math.round(pgWmm * mmToPx); tc.height = Math.round(pgHmm * mmToPx);
+      const tctx = tc.getContext('2d');
+      const wScale = scalePt * mmToPx / MM_TO_PT;
+      tctx.clearRect(0, 0, tc.width, tc.height);
+      tctx.save();
+      tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
+                     offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
+      tctx.scale(wScale, wScale);
+      const textColor = _boothColorOverride ? '#111111' : null;
+      for (const b of booths) {
+        const tc2 = textColor || (_boothColors(b, mode).text || '#111111');
+        drawBoothContent(tctx, b, wScale, tc2, false);
+      }
+      _drawBaseNumbersCanvas(tctx, booths);
+      tctx.restore();
+      const tPng = await _canvasToArrayBuffer(tc);
+      const tImg = await pdfDoc.embedPng(tPng);
+      page.drawImage(tImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+    } catch(e) { console.warn('텍스트 레이어 실패:', e.message); }
+  }
 
   // Layer 4: 구조물 + 실측 → 투명 캔버스
   try {
