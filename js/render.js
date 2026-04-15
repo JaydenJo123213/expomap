@@ -1,7 +1,7 @@
 // ─── Booth Content Drawing (shared) ───
 function calcFontSize(c, text, maxW) {
   const refSize = 100;
-  c.font = `600 ${refSize}px Pretendard, sans-serif`;
+  c.font = `600 ${refSize}px 'Spoqa Han Sans Neo', sans-serif`;
   const refWidth = c.measureText(text).width;
   if (refWidth === 0) return maxW * 0.3;
   return (maxW / refWidth) * refSize;
@@ -196,7 +196,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
 
       c.fillStyle = textColor;
-      c.font = `400 ${fz}px Pretendard, sans-serif`;
+      c.font = `400 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
 
@@ -204,7 +204,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       if (hasBoothNo) {
         const noFz = calcFontSize(c, b.boothId, 26);
         c.fillStyle = boothNoColor ?? textColor;
-        c.font = `600 ${noFz}px Pretendard, sans-serif`;
+        c.font = `600 ${noFz}px 'Spoqa Han Sans Neo', sans-serif`;
         c.textAlign = 'left'; c.textBaseline = 'top';
         c.globalAlpha = 0.65;
         c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -230,7 +230,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       if (showSize) {
         const szFz = Math.max(1.5, Math.min(availH * 0.12, 10));
         c.fillStyle = textColor;
-        c.font = `400 ${szFz}px Pretendard, sans-serif`;
+        c.font = `400 ${szFz}px 'Spoqa Han Sans Neo', sans-serif`;
         c.textAlign = 'right'; c.textBaseline = 'bottom';
         c.globalAlpha = 0.45;
         c.fillText(`${wm}×${hm}m`, tr.x + tr.w - pad, tr.y + tr.h - pad);
@@ -247,14 +247,14 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     if (hasBoothNo) {
       let fz = Math.min(calcFontSize(c, b.boothId, availW * 0.9), availH * 0.35);
       fz = Math.max(2, Math.min(fz, 14));
-      c.font = `400 ${fz}px Pretendard, sans-serif`;
+      c.font = `400 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText(b.boothId, tr.x + tr.w / 2, tr.y + tr.h * 0.4);
     }
     const dimText = `${wm}×${hm}m`;
     let dimFz = Math.min(calcFontSize(c, dimText, availW * 0.85), availH * 0.25);
     dimFz = Math.max(1.5, Math.min(dimFz, 10));
-    c.font = `400 ${dimFz}px Pretendard, sans-serif`;
+    c.font = `400 ${dimFz}px 'Spoqa Han Sans Neo', sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.globalAlpha = 0.6;
     c.fillText(dimText, tr.x + tr.w / 2, tr.y + tr.h * 0.65);
@@ -283,14 +283,14 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2 + fz * 0.5;
 
     c.fillStyle = textColor;
-    c.font = `400 ${fz}px Pretendard, sans-serif`;
+    c.font = `400 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
     c.textAlign = 'center'; c.textBaseline = 'middle';
     lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
 
     // Booth No.: 좌상단 (고정 작은 폰트)
     if (hasBoothNo) {
       c.fillStyle = boothNoColor ?? textColor;
-      c.font = `600 ${noFz}px Pretendard, sans-serif`;
+      c.font = `600 ${noFz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'left'; c.textBaseline = 'top';
       c.globalAlpha = 0.65;
       c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -299,7 +299,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
     // 사이즈: 우하단 (고정 작은 폰트)
     if (showSize) {
-      c.font = `400 ${szFz}px Pretendard, sans-serif`;
+      c.font = `400 ${szFz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'right'; c.textBaseline = 'bottom';
       c.globalAlpha = 0.45;
       c.fillText(`${wm}×${hm}m`, tr.x + tr.w - pad, tr.y + tr.h - pad);
@@ -309,7 +309,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     // Booth No.만 → 좌상단 (기본부스번호와 공존)
     const noFz = calcFontSize(c, b.boothId, 26);
     c.fillStyle = boothNoColor ?? textColor;
-    c.font = `600 ${noFz}px Pretendard, sans-serif`;
+    c.font = `600 ${noFz}px 'Spoqa Han Sans Neo', sans-serif`;
     c.textAlign = 'left'; c.textBaseline = 'top';
     c.globalAlpha = 0.65;
     c.fillText(b.boothId, tr.x + pad, tr.y + pad);
@@ -319,7 +319,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       const szText = `${wm}×${hm}m`;
       let szFz = Math.max(1.5, noFz * 0.4);
       szFz = Math.min(szFz, 8);
-      c.font = `400 ${szFz}px Pretendard, sans-serif`;
+      c.font = `400 ${szFz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'right'; c.textBaseline = 'bottom';
       c.globalAlpha = 0.45;
       c.fillText(szText, tr.x + tr.w - pad, tr.y + tr.h - pad);
@@ -446,7 +446,7 @@ function drawElecBadges(c, b, zoom) {
     const numStr = val > 99 ? '+' : String(val);
     const fz = r * 1.1; // world 기준 폰트 — zoom과 함께 커짐
     c.fillStyle = t.textColor;
-    c.font = `700 ${fz}px Pretendard, sans-serif`;
+    c.font = `700 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(numStr, cx, cy);
@@ -488,7 +488,7 @@ function drawOtherBadges(c, b, zoom) {
       c.stroke();
       const fz = r * 0.85;
       c.fillStyle = t.textColor;
-      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.font = `700 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText(t.label, cx, cy);
@@ -507,7 +507,7 @@ function drawOtherBadges(c, b, zoom) {
       c.stroke();
       const fz = r * 0.85;
       c.fillStyle = t.textColor;
-      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.font = `700 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText(t.label, cx, cy);
@@ -529,7 +529,7 @@ function drawOtherBadges(c, b, zoom) {
       c.stroke();
       const fz = r * 0.85;
       c.fillStyle = t.textColor;
-      c.font = `700 ${fz}px Pretendard, sans-serif`;
+      c.font = `700 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText(t.label, cx, cy);
@@ -605,7 +605,7 @@ function drawStructures(c, zoom, isConstruction) {
       // 텍스트 가운데 렌더링
       if (s.text) {
         const fz = Math.min(s.fontSize || 14, s.h * 0.6, s.w * 0.18);
-        c.font = `${s.fontWeight || 600} ${fz}px Pretendard, sans-serif`;
+        c.font = `${s.fontWeight || 600} ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
         c.fillStyle = s.color || '#E8EAED';
         c.textAlign = 'center';
         c.textBaseline = 'middle';
@@ -617,7 +617,7 @@ function drawStructures(c, zoom, isConstruction) {
       }
     } else if (s.type === 'text') {
       const fz = s.fontSize || 12;
-      c.font = `${s.fontWeight || 600} ${fz}px Pretendard, sans-serif`;
+      c.font = `${s.fontWeight || 600} ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.fillStyle = sel ? '#4F8CFF' : (s.color || '#E8EAED');
       c.textAlign = 'left'; c.textBaseline = 'bottom';
       c.fillText(s.text || '', s.x, s.y);
@@ -738,7 +738,7 @@ function drawNeighborDistances(ctx, state) {
     ctx.setLineDash([]);
     const lx = (x1 + x2) / 2, ly = (y1 + y2) / 2;
     const label = dm.toFixed(1) + 'm';
-    ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+    ctx.font = `600 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
     const tw = ctx.measureText(label).width;
     ctx.fillStyle = 'rgba(255,82,82,0.9)';
     ctx.fillRect(lx - tw / 2 - 2 / z, ly - fz / 2 - 1 / z, tw + 4 / z, fz + 2 / z);
@@ -848,7 +848,7 @@ function render() {
     ctx.setLineDash([6/state.zoom, 4/state.zoom]);
     ctx.strokeRect(r.x, r.y, r.w, r.h);
     ctx.setLineDash([]);
-    ctx.font = `${11/state.zoom}px Pretendard, sans-serif`;
+    ctx.font = `${11/state.zoom}px 'Spoqa Han Sans Neo', sans-serif`;
     ctx.fillStyle = '#FFD700';
     ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
     ctx.fillText('📤 Export', r.x + 4/state.zoom, r.y - 2/state.zoom);
@@ -925,7 +925,7 @@ function render() {
     ctx.strokeRect(bounds.x - pad, bounds.y - pad, (bounds.x2 - bounds.x) + pad*2, (bounds.y2 - bounds.y) + pad*2);
     ctx.setLineDash([]);
     if (state.zoom > 0.5) {
-      ctx.font = `600 ${10 / state.zoom}px Pretendard, sans-serif`;
+      ctx.font = `600 ${10 / state.zoom}px 'Spoqa Han Sans Neo', sans-serif`;
       ctx.fillStyle = '#4F8CFF';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
@@ -987,7 +987,7 @@ function render() {
     ctx.strokeRect(rx, ry, rw, rh);
     ctx.setLineDash([]);
     if (rw > 5 && rh > 5) {
-      ctx.font = `600 ${11 / state.zoom}px Pretendard, sans-serif`;
+      ctx.font = `600 ${11 / state.zoom}px 'Spoqa Han Sans Neo', sans-serif`;
       ctx.fillStyle = state.isDiscussDrawing ? '#FFD600' : '#4F8CFF';
       ctx.textAlign = 'center';
       const label = state.isDrawing ? `${pxToM(rw)}m × ${pxToM(rh)}m` : (state.isBaseDrawing ? 'BaseNo' : '배정논의');

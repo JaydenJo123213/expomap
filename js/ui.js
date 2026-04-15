@@ -200,7 +200,7 @@ function _doRenderExportPreview() {
 
   // 스케일 텍스트
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = '11px Pretendard, sans-serif';
+  ctx.font = "11px 'Spoqa Han Sans Neo', sans-serif";
   ctx.fillText(Math.round(_exportState.scale * 100) + '%', 8, H - 8);
 }
 

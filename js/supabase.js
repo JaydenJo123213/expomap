@@ -158,7 +158,7 @@ function drawRemoteCursors() {
 
     // Name tag
     const label = cursor.name;
-    ctx.font = '600 11px Pretendard, sans-serif';
+    ctx.font = "600 11px 'Spoqa Han Sans Neo', sans-serif";
     const tw = ctx.measureText(label).width;
     const pad = 4;
     const tagX = 4;

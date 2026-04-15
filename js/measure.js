@@ -229,7 +229,7 @@ function _drawMeasureLine(ctx, x1, y1, x2, y2, zoom, color) {
   const label = pxToM(lengthPx).toFixed(1) + 'm';
   const fz = Math.max(9 / zoom, 5);
 
-  ctx.font = `600 ${fz}px Pretendard, sans-serif`;
+  ctx.font = `600 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
   const tw = ctx.measureText(label).width;
   const ph = 2/zoom, pw = 3/zoom;
   const OFFSET = 10 / zoom;

@@ -1,9 +1,9 @@
 // ─── Spoqa Han Sans Neo TTF 캐시 (pdf-lib/fontkit 벡터용) ───
-// Pretendard OTF=CFF2 파싱 오류 → Spoqa Han Sans Neo TTF(TrueType) 로 교체
+// 'Spoqa Han Sans Neo' OTF=CFF2 파싱 오류 → Spoqa Han Sans Neo TTF(TrueType) 로 교체
 // 한글+영문+숫자+특수문자 완전 지원, 512KB subset, fontkit 완벽 호환
 let _pretendardFontCache = null;
 
-async function _loadPretendardWoff2() {
+async function _loadSpoqaFontTTF() {
   if (_pretendardFontCache) return _pretendardFontCache;
   const BASE = 'https://cdn.jsdelivr.net/gh/spoqa/spoqa-han-sans@latest/Subset/SpoqaHanSansNeo/';
   const fetchBuf = url => fetch(url).then(r => {
@@ -296,7 +296,7 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
     if (covering) continue;
     ectx.fillStyle = '#333';
     const bnFz = Math.min(bn.w, bn.h) * 0.35;
-    ectx.font = `400 ${bnFz}px Pretendard, sans-serif`;
+    ectx.font = `400 ${bnFz}px 'Spoqa Han Sans Neo', sans-serif`;
     ectx.textAlign = 'center';
     ectx.textBaseline = 'middle';
     ectx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
@@ -320,7 +320,7 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
     // 라벨 (검정색, </br> 줄바꿈 지원)
     if (ov.label) {
       const fz = Math.max(10/zoom, 8);
-      ectx.font = `600 ${fz}px Pretendard, sans-serif`;
+      ectx.font = `600 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       ectx.fillStyle = '#000000';
       ectx.textAlign = 'center';
       ectx.textBaseline = 'middle';
@@ -391,7 +391,7 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
       if (boothCount >= 1) {
         const boothText = boothCount % 1 === 0 ? String(Math.round(boothCount)) : boothCount.toFixed(2);
         const boothFontSize = Math.max(15/zoom, 12);
-        ectx.font = `600 ${boothFontSize}px Pretendard, sans-serif`;
+        ectx.font = `600 ${boothFontSize}px 'Spoqa Han Sans Neo', sans-serif`;
         ectx.fillStyle = '#E53935';
         ectx.textAlign = 'center';
         ectx.textBaseline = 'bottom';
@@ -477,7 +477,7 @@ function _buildSVGString(mode) {
     const covering = booths.find(b => b.x < bn.x+bn.w && b.x+b.w > bn.x && b.y < bn.y+bn.h && b.y+b.h > bn.y && (b.companyName || b.companyNameEn));
     if (covering) continue;
     const fz = Math.min(bn.w, bn.h) * 0.35;
-    p.push(`<text x="${bn.x+bn.w/2}" y="${bn.y+bn.h/2+fz*0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
+    p.push(`<text x="${bn.x+bn.w/2}" y="${bn.y+bn.h/2+fz*0.35}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
   }
   p.push('</g>');
 
@@ -504,12 +504,12 @@ function _buildSVGString(mode) {
       p.push(`<polyline points="${ax1},${ay1} ${s.x2},${s.y2} ${ax2},${ay2}" stroke="${col}" stroke-width="${th}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
     } else if (s.type === 'text') {
       const tfz = s.fontSize || 14;
-      p.push(`<text x="${s.x + (s.w||0)/2}" y="${s.y + (s.h||0)/2}" font-family="Pretendard,sans-serif" font-size="${tfz}" font-weight="${s.bold?'700':'400'}" fill="${col}" text-anchor="middle">${_escXml(s.text||'')}</text>`);
+      p.push(`<text x="${s.x + (s.w||0)/2}" y="${s.y + (s.h||0)/2}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${tfz}" font-weight="${s.bold?'700':'400'}" fill="${col}" text-anchor="middle">${_escXml(s.text||'')}</text>`);
     }
     if (s.label) {
       const lx = s.x !== undefined ? s.x : (s.x1+s.x2)/2;
       const ly = (s.y !== undefined ? s.y : (s.y1+s.y2)/2) - 8;
-      p.push(`<text x="${lx}" y="${ly}" font-family="Pretendard,sans-serif" font-size="8" fill="${col}" text-anchor="middle">${_escXml(s.label)}</text>`);
+      p.push(`<text x="${lx}" y="${ly}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="8" fill="${col}" text-anchor="middle">${_escXml(s.label)}</text>`);
     }
   }
   p.push('</g>');
@@ -528,7 +528,7 @@ function _buildSVGString(mode) {
     const hasCompany = !!displayName, hasBoothNo = !!b.boothId;
 
     const addBoothNo = (noFz) => {
-      pNos.push(`<text x="${tr.x+pad}" y="${tr.y+pad+noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="600" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
+      pNos.push(`<text x="${tr.x+pad}" y="${tr.y+pad+noFz}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${noFz}" font-weight="600" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
     };
 
     const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
@@ -565,7 +565,7 @@ function _buildSVGString(mode) {
           const startY = textAreaY + (textAreaH-blockH)/2 + fz*0.5;
           { const cx = tr.x+tr.w/2, baseY = startY+fz*0.35;
             const body = lines.length === 1 ? _escXml(lines[0]) : lines.map((l,i) => `<tspan x="${cx}" dy="${i===0?0:lineH}">${_escXml(l)}</tspan>`).join('');
-            pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
+            pNames.push(`<text x="${cx}" y="${baseY}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
           }
           if (hasBoothNo) addBoothNo(calcFontSize(mc, b.boothId, 26));
         }
@@ -585,7 +585,7 @@ function _buildSVGString(mode) {
         const startY = tr.y + topReserve + pad + (textAreaH-blockH)/2 + fz*0.5;
         { const cx = tr.x+tr.w/2, baseY = startY+fz*0.35;
           const body = lines.length === 1 ? _escXml(lines[0]) : lines.map((l,i) => `<tspan x="${cx}" dy="${i===0?0:lineH}">${_escXml(l)}</tspan>`).join('');
-          pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
+          pNames.push(`<text x="${cx}" y="${baseY}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
         }
         if (hasBoothNo) addBoothNo(noFz);
       } else if (hasBoothNo) {
@@ -680,7 +680,7 @@ function _drawBaseNumbersCanvas(ctx, booths) {
     if (cov) continue;
     const fz = Math.min(bn.w, bn.h) * 0.35;
     ctx.fillStyle = '#333';
-    ctx.font = `400 ${fz}px Pretendard, sans-serif`;
+    ctx.font = `400 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(bn.baseNo, bn.x + bn.w / 2, bn.y + bn.h / 2);
   }
@@ -927,7 +927,7 @@ async function _buildPDFLibDocument(mode, options = {}) {
   // ── Spoqa Han Sans Neo TTF 임베딩 (벡터 텍스트) ──
   let fontRegEmbed = null, fontBoldEmbed = null;
   try {
-    const fontBufs = await _loadPretendardWoff2();
+    const fontBufs = await _loadSpoqaFontTTF();
     fontRegEmbed  = await pdfDoc.embedFont(fontBufs.regular);
     fontBoldEmbed = await pdfDoc.embedFont(fontBufs.semibold);
   } catch(e) {
@@ -1164,7 +1164,7 @@ async function exportSVG(lang = 'ko') {
       );
       if (covering) continue;
       const fz = Math.min(bn.w, bn.h) * 0.35;
-      p.push(`<text x="${bn.x + bn.w/2}" y="${bn.y + bn.h/2 + fz * 0.35}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
+      p.push(`<text x="${bn.x + bn.w/2}" y="${bn.y + bn.h/2 + fz * 0.35}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#333" text-anchor="middle">${_escXml(bn.baseNo)}</text>`);
     }
     p.push('</g>');
 
@@ -1196,7 +1196,7 @@ async function exportSVG(lang = 'ko') {
       if (s.label) {
         const lx = s.x !== undefined ? s.x : (s.x1 + s.x2) / 2;
         const ly = (s.y !== undefined ? s.y : (s.y1 + s.y2) / 2) - 8;
-        p.push(`<text x="${lx}" y="${ly}" font-family="Pretendard,sans-serif" font-size="8" fill="${col}" text-anchor="middle">${_escXml(s.label)}</text>`);
+        p.push(`<text x="${lx}" y="${ly}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="8" fill="${col}" text-anchor="middle">${_escXml(s.label)}</text>`);
       }
     }
     p.push('</g>');
@@ -1218,7 +1218,7 @@ async function exportSVG(lang = 'ko') {
       const hasBoothNo = !!b.boothId;
 
       const addBoothNo = (noFz) => {
-        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="Pretendard,sans-serif" font-size="${noFz}" font-weight="600" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
+        pNos.push(`<text x="${tr.x + pad}" y="${tr.y + pad + noFz}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${noFz}" font-weight="600" fill="#000000" opacity="0.65">${_escXml(b.boothId)}</text>`);
       };
 
       // Case 1: 로고 있음 (render.js:106-190)
@@ -1268,7 +1268,7 @@ async function exportSVG(lang = 'ko') {
               const body = lines.length === 1
                 ? _escXml(lines[0])
                 : lines.map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineH}">${_escXml(l)}</tspan>`).join('');
-              pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
+              pNames.push(`<text x="${cx}" y="${baseY}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
             }
 
             if (hasBoothNo) addBoothNo(calcFontSize(mc, b.boothId, 26));
@@ -1294,7 +1294,7 @@ async function exportSVG(lang = 'ko') {
             const body = lines.length === 1
               ? _escXml(lines[0])
               : lines.map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineH}">${_escXml(l)}</tspan>`).join('');
-            pNames.push(`<text x="${cx}" y="${baseY}" font-family="Pretendard,sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
+            pNames.push(`<text x="${cx}" y="${baseY}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
           }
           if (hasBoothNo) addBoothNo(noFz);
         } else if (hasBoothNo) {

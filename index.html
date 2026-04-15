@@ -9,7 +9,9 @@
 <script src="https://unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+  @font-face { font-family: 'Spoqa Han Sans Neo'; font-weight: 400; src: url('https://cdn.jsdelivr.net/gh/spoqa/spoqa-han-sans@latest/Subset/SpoqaHanSansNeo/SpoqaHanSansNeo-Regular.ttf') format('truetype'); }
+  @font-face { font-family: 'Spoqa Han Sans Neo'; font-weight: 500; src: url('https://cdn.jsdelivr.net/gh/spoqa/spoqa-han-sans@latest/Subset/SpoqaHanSansNeo/SpoqaHanSansNeo-Medium.ttf') format('truetype'); }
+  @font-face { font-family: 'Spoqa Han Sans Neo'; font-weight: 700; src: url('https://cdn.jsdelivr.net/gh/spoqa/spoqa-han-sans@latest/Subset/SpoqaHanSansNeo/SpoqaHanSansNeo-Bold.ttf') format('truetype'); }
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
@@ -27,7 +29,7 @@
     --assigned: #2E8B57; --assigned-stroke: #3DAF6E;
   }
 
-  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+  body { font-family: 'Spoqa Han Sans Neo', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
 
   /* ─── Top Bar ─── */
   .topbar { height: 48px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 8px; z-index: 100; flex-wrap: nowrap; overflow-x: auto; }
@@ -312,7 +314,7 @@
 <body>
 
 <!-- ─── Exhibition Selector (no ?expo= param) ─── -->
-<div id="expoSelector" style="display:none;position:fixed;inset:0;z-index:9999;background:#1a1a2e;color:#fff;font-family:'Pretendard',system-ui,sans-serif;overflow-y:auto">
+<div id="expoSelector" style="display:none;position:fixed;inset:0;z-index:9999;background:#1a1a2e;color:#fff;font-family:'Spoqa Han Sans Neo',system-ui,sans-serif;overflow-y:auto">
   <div style="max-width:520px;margin:0 auto;padding:60px 24px;text-align:center">
     <div style="font-size:32px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px">ExpoMap</div>
     <div style="font-size:13px;color:#999;margin-bottom:40px">Exhibition Floor Plan Platform</div>

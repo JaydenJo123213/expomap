@@ -124,7 +124,7 @@ function drawDiscussOverlays(c, zoom) {
     // 라벨 텍스트 (</br> 줄바꿈 지원)
     if (ov.label) {
       const fz = 7;
-      c.font = `500 ${fz}px Pretendard, sans-serif`;
+      c.font = `500 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
       c.fillStyle = '#FFD600';
       c.globalAlpha = 0.9;
       c.textAlign = 'center';
@@ -169,7 +169,7 @@ function drawBaseNumbers(c, zoom) {
     if (covering) return;
 
     // Match booth boothId text style
-    c.font = `400 7px Pretendard, sans-serif`;
+    c.font = `400 7px 'Spoqa Han Sans Neo', sans-serif`;
     c.fillStyle = '#8B8FA3';
     c.globalAlpha = 0.65;
     c.textAlign = 'center';
