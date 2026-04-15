@@ -761,7 +761,8 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
     const ptSz = toPt(noFz);
     if (ptSz < 0.5) return;
     const tx = toX(tr.x + pad);
-    const ty = toPageY(tr.y + pad + noFz);
+    // canvas textBaseline='top' → baseline ≈ top + 0.80 * fz (Spoqa Han Sans Neo ascender ≈ 0.80)
+    const ty = toPageY(tr.y + pad + noFz * 0.80);
     page.drawText(b.boothId, { x: tx, y: ty, size: ptSz, font: fontBold, color: rgb(0,0,0), opacity: 0.65 });
   };
 
@@ -774,7 +775,11 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
     lines.forEach((line, i) => {
       const tw = fontReg.widthOfTextAtSize(line, ptSz);
       const tx = toX(cx) - tw / 2;
-      const ty = toPageY(startY + fz * 0.35 + i * lineH + fz);
+      // canvas textBaseline='middle' → center 기준, pdf-lib은 baseline 기준
+      // Spoqa Han Sans Neo: baseline = middle + 0.30 * fz
+      // startY는 canvas의 (textAreaTop + (blockH 여백)/2) 로 넘어옴 → center = startY + fz*0.5
+      // pdf baseline = center + 0.30*fz = startY + fz*0.80
+      const ty = toPageY(startY + i * lineH + fz * 0.80);
       page.drawText(line, { x: tx, y: ty, size: ptSz, font: fontReg, color: rgb(0.067,0.067,0.067) });
     });
   };
@@ -983,12 +988,55 @@ async function _buildPDFLibDocument(mode, options = {}) {
     }
   }
 
-  // Layer 3: 텍스트 — 벡터(폰트 임베딩 성공) / 래스터 폴백
+  // Layer 3: 텍스트 + 로고 — 벡터(폰트 임베딩 성공) / 래스터 폴백
   if (fontRegEmbed && fontBoldEmbed) {
     // 벡터 텍스트 (Spoqa Han Sans Neo TTF 임베딩)
     const mc = document.createElement('canvas').getContext('2d');
     for (const b of booths) _drawBoothTextPdfLib(page, b, fontRegEmbed, fontBoldEmbed, scalePt, toX, toY, pgHpt, mc);
     _drawBaseNumbersPdfLib(page, booths, fontRegEmbed, scalePt, toX, toY, pgHpt);
+
+    // 로고 임베딩 (pdfDoc 참조가 여기 필요)
+    for (const b of booths) {
+      const area = (b.w / 10) * (b.h / 10);
+      if (area < 36 || !b.companyLogoUrl || !b.companyName) continue;
+      const logoImg = state.logoCache?.get(b.id);
+      if (!logoImg) continue;
+      try {
+        const logoDataUrl = _imgToDataUrl(logoImg);
+        if (!logoDataUrl) continue;
+        const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
+        const scale = (b.logoScale ?? 100) / 100;
+        const noFz = b.boothId ? calcFontSize(mc, b.boothId, 26) : 0;
+        const noReserve = noFz ? noFz + 4 : 0;
+        const logoPad = tr.w * 0.08;
+        const logoTopPad = Math.max(tr.h * 0.05, noReserve);
+        const logoAreaH = tr.h * 0.60;
+        const logoW = tr.w - logoPad * 2;
+        const logoH = logoAreaH - logoTopPad - tr.h * 0.02;
+        const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
+        const areaAspect = logoW / logoH;
+        let drawW, drawH;
+        if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW / imgAspect; }
+        else { drawH = logoH; drawW = logoH * imgAspect; }
+        drawW *= scale; drawH *= scale;
+        const logoX = tr.x + (tr.w - drawW) / 2;
+        const logoY = tr.y + logoTopPad + logoH / 2 - drawH / 2;
+        // base64 → Uint8Array
+        const b64 = logoDataUrl.split(',')[1];
+        const binStr = atob(b64);
+        const imgBytes = new Uint8Array(binStr.length);
+        for (let j = 0; j < binStr.length; j++) imgBytes[j] = binStr.charCodeAt(j);
+        const isJpeg = logoDataUrl.startsWith('data:image/jpeg') || logoDataUrl.startsWith('data:image/jpg');
+        const embImg = isJpeg ? await pdfDoc.embedJpg(imgBytes) : await pdfDoc.embedPng(imgBytes);
+        page.drawImage(embImg, {
+          x: toX(logoX),
+          y: toPageY(logoY + drawH), // pdf-lib y = 이미지 하단
+          width: toS(drawW),
+          height: toS(drawH),
+          opacity: 0.9,
+        });
+      } catch(e) { console.warn('로고 임베딩 실패:', b.id, e.message); }
+    }
   } else {
     // 래스터 텍스트 폴백
     try {
