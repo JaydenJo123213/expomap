@@ -1196,9 +1196,9 @@
         <button class="export-format-btn" id="exportFmtSVG" onclick="_setExportFormat('svg')">✏️ SVG</button>
       </div>
 
-      <!-- 프리셋 -->
-      <div class="export-section-label">프리셋</div>
-      <div class="export-preset-row">
+      <!-- 프리셋 (숨김 - PDF: 메일용, SVG: 일러스트용 자동지정) -->
+      <div class="export-section-label" style="display:none">프리셋</div>
+      <div class="export-preset-row" style="display:none">
         <button class="export-preset-btn" id="exportPresetEmail" onclick="_setExportPreset('email')">메일용</button>
         <button class="export-preset-btn active" id="exportPresetPrint" onclick="_setExportPreset('print')">실사출력용</button>
         <button class="export-preset-btn" id="exportPresetIllu" onclick="_setExportPreset('illustrator')">일러스트용</button>

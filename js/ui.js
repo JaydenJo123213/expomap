@@ -18,9 +18,15 @@ function _setExportFormat(fmt) {
   document.getElementById('exportFmtPDF').classList.toggle('active', fmt === 'pdf');
   document.getElementById('exportFmtSVG').classList.toggle('active', fmt === 'svg');
   document.getElementById('exportPdfOptions').style.display = fmt === 'pdf' ? '' : 'none';
-  if (fmt === 'svg' && _exportState.preset !== 'illustrator') {
-    _setExportPreset('illustrator');
-    return;
+  if (fmt === 'svg') {
+    _exportState.preset = 'illustrator';
+  } else if (fmt === 'pdf') {
+    _exportState.preset = 'email';
+    // BG 이미지 방향 재감지
+    if (state.bg.img) {
+      _exportState.orientation = state.bg.w > state.bg.h ? 'landscape' : 'portrait';
+      _syncExportModalUI();
+    }
   }
   _renderExportPreview();
 }
@@ -238,6 +244,15 @@ function _initExportPreviewEvents() {
 function openExportModal(mode) {
   _exportState.mode = mode || 'floorplan';
   _exportState.panX = 0; _exportState.panY = 0;
+
+  // 포맷에 따른 프리셋 자동지정
+  _exportState.preset = _exportState.format === 'svg' ? 'illustrator' : 'email';
+
+  // BG 이미지 가로/세로 인식 → 페이지 방향 자동지정
+  if (state.bg.img) {
+    _exportState.orientation = state.bg.w > state.bg.h ? 'landscape' : 'portrait';
+  }
+
   _syncExportModalUI();
   openModal('modalExport');
   // 모달 열린 후 캔버스 크기가 확정되므로 rAF 후 렌더
