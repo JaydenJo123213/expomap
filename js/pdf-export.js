@@ -98,6 +98,7 @@ async function executeAssignGuideExport() {
 
     const pdfBytes = await pdfDoc.save();
     await _downloadPdfBytes(pdfBytes, _fnameAG, fileHandleAG);
+    _showSaveSuccess(_fnameAG);
     closeModal('modalAssignGuide');
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
@@ -460,10 +461,7 @@ function _buildSVGString(mode) {
       stroke = isFacility ? '#999999' : '#000000';
     }
     if (b.cells && b.cells.length > 1) {
-      p.push('<g>');
-      for (const c of b.cells) p.push(`<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="${fill}" stroke="none"/>`);
-      p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="${stroke}" stroke-width="0.5"/>`);
-      p.push('</g>');
+      p.push(_strokeLShapeSVG(b, fill, stroke, 0.5));
     } else {
       p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${fill}" stroke="${stroke}" stroke-width="0.5"/>`);
     }
@@ -656,6 +654,32 @@ function _hidePdfLoading() {
   if (el) el.style.display = 'none';
 }
 
+function _showSaveSuccess(filename) {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff; border-radius: 12px;
+    padding: 14px 24px; font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.28); z-index: 99999;
+    opacity: 0; transition: opacity 0.25s ease;
+    max-width: 90vw; word-break: break-all;
+  `;
+  const icon = document.createElement('span');
+  icon.textContent = '✅';
+  icon.style.fontSize = '20px';
+  const msg = document.createElement('span');
+  msg.textContent = `저장 완료!  ${filename}`;
+  toast.appendChild(icon);
+  toast.appendChild(msg);
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.opacity = '1'; });
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
 // ─── 부스 색상 헬퍼 (mode별) ───
 function _boothColors(b, mode) {
   const isFacility = b.status === 'facility', isSpot = b.status === 'spot';
@@ -741,6 +765,48 @@ function _strokeLShapePdfLib(page, b, toX, toY, pageH, color, lw) {
         page.drawLine({ start: { x: toX(edgeX), y: toPageY(sy1) }, end: { x: toX(edgeX), y: toPageY(sy2) }, color, thickness: lw });
     }
   }
+}
+
+// ─── SVG: L자 부스 외곽선 (내부 셀 경계 제외) ───
+function _strokeLShapeSVG(b, fill, stroke, sw) {
+  const cells = b.cells;
+  const EPS = 0.5;
+  const lines = [];
+  for (const c of cells) {
+    const r = c.x + c.w, bot = c.y + c.h;
+    for (const [edgeY, adjFn] of [
+      [c.y,  o => o.y + o.h],
+      [bot,  o => o.y],
+    ]) {
+      const covered = [];
+      for (const o of cells) {
+        if (o === c) continue;
+        if (Math.abs(edgeY - adjFn(o)) < EPS) {
+          const ox1 = Math.max(c.x, o.x), ox2 = Math.min(r, o.x + o.w);
+          if (ox2 > ox1 + EPS) covered.push([ox1, ox2]);
+        }
+      }
+      for (const [sx1, sx2] of _subtractIntervals(c.x, r, covered))
+        lines.push(`<line x1="${sx1}" y1="${edgeY}" x2="${sx2}" y2="${edgeY}" stroke="${stroke}" stroke-width="${sw}"/>`);
+    }
+    for (const [edgeX, adjFn] of [
+      [c.x,  o => o.x + o.w],
+      [r,    o => o.x],
+    ]) {
+      const covered = [];
+      for (const o of cells) {
+        if (o === c) continue;
+        if (Math.abs(edgeX - adjFn(o)) < EPS) {
+          const oy1 = Math.max(c.y, o.y), oy2 = Math.min(bot, o.y + o.h);
+          if (oy2 > oy1 + EPS) covered.push([oy1, oy2]);
+        }
+      }
+      for (const [sy1, sy2] of _subtractIntervals(c.y, bot, covered))
+        lines.push(`<line x1="${edgeX}" y1="${sy1}" x2="${edgeX}" y2="${sy2}" stroke="${stroke}" stroke-width="${sw}"/>`);
+    }
+  }
+  const fills = cells.map(c => `<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="${fill}" stroke="none"/>`).join('');
+  return `<g>${fills}${lines.join('')}</g>`;
 }
 
 // ─── pdf-lib: 부스 텍스트 + 번호 벡터 렌더 ───
@@ -971,7 +1037,10 @@ async function _buildPDFLibDocument(mode, options = {}) {
   for (const b of booths) {
     const isFacility = b.status === 'facility';
     let fillHex, strokeHex;
-    if (_boothColorOverride && !isFacility) {
+    const isSpotBooth = b.status === 'spot';
+    if (_boothColorOverride && !isFacility && !(mode === 'available' && isSpotBooth)) {
+      // k-print 등 boothColor 지정 전시회: 단일 색상 적용
+      // 단, available 모드의 spot 부스는 노란색 우선
       fillHex = _boothColorOverride; strokeHex = '#999999';
     } else {
       const r = _boothColors(b, mode);
@@ -1108,6 +1177,7 @@ async function exportFloorplanPDF(options = {}) {
     const pdfDoc = await _buildPDFLibDocument(mode, options);
     const pdfBytes = await pdfDoc.save();
     await _downloadPdfBytes(pdfBytes, _fname, fileHandle);
+    _showSaveSuccess(_fname);
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
     console.error(e);
@@ -1188,13 +1258,7 @@ async function exportSVG(lang = 'ko') {
       const isFacility = b.status === 'facility';
       const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
       if (b.cells && b.cells.length > 1) {
-        // L자 부스: 셀은 fill만, 바운딩박스에 테두리
-        p.push('<g>');
-        for (const c of b.cells) {
-          p.push(`<rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" fill="${fill}" stroke="none"/>`);
-        }
-        p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-        p.push('</g>');
+        p.push(_strokeLShapeSVG(b, fill, '#000000', 0.5));
       } else {
         p.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="${fill}" stroke="#000000" stroke-width="0.5"/>`);
       }
