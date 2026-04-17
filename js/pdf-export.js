@@ -1144,30 +1144,87 @@ async function _buildPDFLibDocument(mode, options = {}) {
     }
   } catch(e) { console.warn('구조물 레이어 실패:', e.message); }
 
-  // Layer 5: 배정논의 오버레이 (assignGuide 모드 전용, 투명 래스터)
+  // Layer 5: 배정논의 오버레이 (assignGuide 모드 전용, 벡터)
   if (mode === 'assignGuide') {
     const selectedOverlays = (state.discussOverlays || []).filter(
       ov => state.selectedDiscussIds && state.selectedDiscussIds.has(ov.id));
     if (selectedOverlays.length > 0) {
-      try {
-        const DPI = 200, mmToPx = DPI / 25.4;
-        const oc = document.createElement('canvas');
-        oc.width = Math.round(pgWmm * mmToPx); oc.height = Math.round(pgHmm * mmToPx);
-        const ctx = oc.getContext('2d');
-        if (ctx) {
-          const wScale = scalePt * mmToPx / MM_TO_PT;
-          ctx.clearRect(0, 0, oc.width, oc.height);
-          ctx.save();
-          ctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
-                        offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
-          ctx.scale(wScale, wScale);
-          _drawDiscussOverlaysOnCanvas(ctx, wScale, selectedOverlays);
-          ctx.restore();
-          const oPng = await _canvasToArrayBuffer(oc);
-          const oImg = await pdfDoc.embedPng(oPng);
-          page.drawImage(oImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
+      const { rgb } = PDFLib;
+      const yellowFill   = rgb(1, 0.780, 0);        // #FFC700
+      const yellowBorder = rgb(0.8, 0.6, 0);         // #CC9900
+      const yellowLine   = rgb(1, 0.843, 0);         // #FFD600
+      const redColor     = rgb(0.898, 0.224, 0.208); // #E53935
+      const blackColor   = rgb(0, 0, 0);
+
+      // ① 오버레이 박스 + 라벨
+      for (const ov of selectedOverlays) {
+        page.drawRectangle({
+          x: toX(ov.x), y: toPageY(ov.y + ov.h),
+          width: toS(ov.w), height: toS(ov.h),
+          color: yellowFill, borderColor: yellowBorder,
+          borderWidth: Math.max(0.5, toS(2.5)),
+        });
+        if (ov.label && fontBoldEmbed) {
+          const lines = ov.label.split('</br>').map(s => s.trim()).filter(Boolean);
+          const fz = Math.max(toS(8), 5);
+          const lineH = fz * 1.3;
+          const cx = toX(ov.x + ov.w / 2);
+          const startY = toPageY(ov.y + ov.h / 2) + (lines.length - 1) * lineH / 2;
+          lines.forEach((line, i) => {
+            const tw = fontBoldEmbed.widthOfTextAtSize(line, fz);
+            page.drawText(line, { x: cx - tw / 2, y: startY - i * lineH, size: fz, font: fontBoldEmbed, color: blackColor });
+          });
         }
-      } catch(e) { console.warn('오버레이 레이어 실패:', e.message); }
+      }
+
+      // ② 연결선 + 중심원 (2개 이상)
+      if (selectedOverlays.length >= 2) {
+        const cx = selectedOverlays.reduce((s, ov) => s + ov.x + ov.w / 2, 0) / selectedOverlays.length;
+        const cy = selectedOverlays.reduce((s, ov) => s + ov.y + ov.h / 2, 0) / selectedOverlays.length;
+        for (const ov of selectedOverlays) {
+          page.drawLine({
+            start: { x: toX(ov.x + ov.w / 2), y: toPageY(ov.y + ov.h / 2) },
+            end:   { x: toX(cx), y: toPageY(cy) },
+            thickness: Math.max(0.4, toS(1.5)), color: yellowLine,
+          });
+        }
+        page.drawEllipse({
+          x: toX(cx), y: toPageY(cy),
+          xScale: Math.max(1.5, toS(5)), yScale: Math.max(1.5, toS(5)),
+          color: yellowLine,
+        });
+      }
+
+      // ③ 빨간 화살표 + 부스 수 텍스트
+      const arrowLw = Math.max(0.8, toS(5.2));
+      for (const ov of selectedOverlays) {
+        const arrowX      = ov.x + ov.w / 2;
+        const arrowStartY = ov.y - GRID_PX * 1.2;
+        const arrowEndY   = ov.y - GRID_PX * 0.3;
+        const headSize    = GRID_PX * 0.75;
+        const headHalf    = toS(headSize * 0.6);
+        const tipX  = toX(arrowX);
+        const tipY  = toPageY(arrowEndY);
+        const baseY = toPageY(arrowEndY - headSize * 0.8);
+
+        // 줄기
+        page.drawLine({ start: { x: tipX, y: toPageY(arrowStartY) }, end: { x: tipX, y: tipY }, thickness: arrowLw, color: redColor });
+        // 화살촉 (V자 두 선)
+        page.drawLine({ start: { x: tipX, y: tipY }, end: { x: tipX - headHalf, y: baseY }, thickness: arrowLw, color: redColor });
+        page.drawLine({ start: { x: tipX, y: tipY }, end: { x: tipX + headHalf, y: baseY }, thickness: arrowLw, color: redColor });
+
+        // 부스 수 텍스트
+        const boothCount = Math.floor((ov.w / GRID_PX) * (ov.h / GRID_PX) * 2) / 2;
+        if (boothCount >= 1 && fontBoldEmbed) {
+          const boothText = `${boothCount % 1 === 0 ? String(boothCount) : boothCount.toFixed(1)} Booth`;
+          const fz = Math.max(toS(12), 7);
+          const tw = fontBoldEmbed.widthOfTextAtSize(boothText, fz);
+          page.drawText(boothText, {
+            x: tipX - tw / 2, y: toPageY(arrowStartY) + fz * 0.2,
+            size: fz, font: fontBoldEmbed, color: redColor,
+          });
+        }
+      }
     }
   }
 
