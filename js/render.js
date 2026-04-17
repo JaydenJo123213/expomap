@@ -1081,7 +1081,9 @@ function renderViewer(w, h) {
     // showViewerAvailable ON → available 부스 노란색 / 클릭된 available 부스도 노란색
     // facility → 연한회색 #EFEFEF
     const isSelected = isHovered && b.status === 'spot';
-    const isAvailableHighlight = state.showViewerAvailable && b.status === 'spot';
+    const _spotUnderOverlay = b.status === 'spot' && state.discussOverlays && state.discussOverlays.some(
+      ov => b.x < ov.x + ov.w && b.x + b.w > ov.x && b.y < ov.y + ov.h && b.y + b.h > ov.y);
+    const isAvailableHighlight = state.showViewerAvailable && b.status === 'spot' && !_spotUnderOverlay;
     let fill = b.status === 'facility' ? '#EFEFEF' : _vAvail.fill;
     let stroke = b.status === 'facility' ? '#111111' : _vAvail.stroke;
     if (isHighlighted) { fill = '#FFF9C4'; stroke = '#F57F17'; }

@@ -454,7 +454,7 @@ function _buildSVGString(mode) {
     let fill, stroke;
     if (mode === 'available') {
       if (isFacility)   { fill = '#EFEFEF'; stroke = '#999999'; }
-      else if (isSpot)  { fill = '#FFD600'; stroke = '#F9A825'; }
+      else if (isSpot && !_isUnderDiscussOverlay(b))  { fill = '#FFD600'; stroke = '#F9A825'; }
       else              { fill = VIEWER_STATUS_COLORS.available.fill; stroke = '#000000'; }
     } else {
       fill   = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
@@ -680,12 +680,21 @@ function _showSaveSuccess(filename) {
   }, 3000);
 }
 
+// ─── 배정안내(discuss) overlay 교차 여부 ───
+function _isUnderDiscussOverlay(b) {
+  if (!state.discussOverlays || !state.discussOverlays.length) return false;
+  return state.discussOverlays.some(ov =>
+    b.x < ov.x + ov.w && b.x + b.w > ov.x &&
+    b.y < ov.y + ov.h && b.y + b.h > ov.y
+  );
+}
+
 // ─── 부스 색상 헬퍼 (mode별) ───
 function _boothColors(b, mode) {
   const isFacility = b.status === 'facility', isSpot = b.status === 'spot';
   if (mode === 'available') {
     if (isFacility)  return { fill: '#EFEFEF', stroke: '#999999' };
-    if (isSpot)      return { fill: '#FFD600', stroke: '#F9A825' };
+    if (isSpot && !_isUnderDiscussOverlay(b)) return { fill: '#FFD600', stroke: '#F9A825' };
     return { fill: VIEWER_STATUS_COLORS.available.fill, stroke: '#000000' };
   }
   return {
@@ -1038,9 +1047,11 @@ async function _buildPDFLibDocument(mode, options = {}) {
     const isFacility = b.status === 'facility';
     let fillHex, strokeHex;
     const isSpotBooth = b.status === 'spot';
-    if (_boothColorOverride && !isFacility && !(mode === 'available' && isSpotBooth)) {
+    const isYellowSpot = mode === 'available' && isSpotBooth && !_isUnderDiscussOverlay(b);
+    if (_boothColorOverride && !isFacility && !isYellowSpot) {
       // k-print 등 boothColor 지정 전시회: 단일 색상 적용
-      // 단, available 모드의 spot 부스는 노란색 우선
+      // 단, available 모드에서 overlay 밖 spot 부스는 노란색 우선
+      // overlay 아래 spot 부스는 expo 기본색으로 표시
       fillHex = _boothColorOverride; strokeHex = '#999999';
     } else {
       const r = _boothColors(b, mode);
