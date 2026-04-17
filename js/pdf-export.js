@@ -658,11 +658,11 @@ function _showSaveSuccess(filename) {
   const toast = document.createElement('div');
   toast.style.cssText = `
     position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-    background: #1e293b; color: #fff; border-radius: 12px;
+    background: #fff; color: #111; border-radius: 12px;
     padding: 14px 24px; font-size: 15px; font-weight: 600;
     display: flex; align-items: center; gap: 10px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.28); z-index: 99999;
-    opacity: 0; transition: opacity 0.25s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;
+    z-index: 99999; opacity: 0; transition: opacity 0.25s ease;
     max-width: 90vw; word-break: break-all;
   `;
   const icon = document.createElement('span');
@@ -1216,19 +1216,22 @@ async function _saveSVG(svgString, filename) {
       const writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      return;
+      return true;
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError') return false; // 사용자 취소
     }
   }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+  return true;
 }
 
 async function exportSVG(lang = 'ko') {
   state._exporting = true;
+  _showPdfLoading('🖋️ 벡터 SVG 생성 중...');
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   try {
     const booths = state.booths;
 
@@ -1437,10 +1440,13 @@ async function exportSVG(lang = 'ko') {
     const dateStr = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
     const _pdfPre = _currentExpo ? _currentExpo.pdfPrefix : 'ExpoMap';
     const _langSuffix = lang === 'en' ? '_EN' : '';
-    await _saveSVG(p.join('\n'), `${_pdfPre}_Floor Plan_${dateStr}_Vector${_langSuffix}.svg`);
+    const _svgFname = `${_pdfPre}_Floor Plan_${dateStr}_Vector${_langSuffix}.svg`;
+    const saved = await _saveSVG(p.join('\n'), _svgFname);
+    if (saved) _showSaveSuccess(_svgFname);
   } catch (e) {
     alert('SVG 생성 실패: ' + e.message);
   } finally {
+    _hidePdfLoading();
     state._exporting = false;
   }
 }
