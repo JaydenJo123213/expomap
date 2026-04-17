@@ -387,10 +387,10 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
       // 부스 개수 텍스트 (화살표 위, 1부스 이상만 표시)
       const boothCountX = (ov.w / GRID_PX);
       const boothCountY = (ov.h / GRID_PX);
-      const boothCount = boothCountX * boothCountY;
+      const boothCount = Math.floor(boothCountX * boothCountY * 2) / 2; // 0.5 단위 버림
 
       if (boothCount >= 1) {
-        const boothText = boothCount % 1 === 0 ? String(Math.round(boothCount)) : boothCount.toFixed(2);
+        const boothText = boothCount % 1 === 0 ? String(boothCount) : boothCount.toFixed(1);
         const boothFontSize = Math.max(15/zoom, 12);
         ectx.font = `600 ${boothFontSize}px 'Spoqa Han Sans Neo', sans-serif`;
         ectx.fillStyle = '#E53935';
