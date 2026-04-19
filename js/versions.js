@@ -112,6 +112,59 @@ async function saveVersion() {
   }
 }
 
+// ─── 수동 저장 (상단 버튼) — 최근 버전 덮어쓰기 ───
+
+let _saveToastTimer = null;
+
+function showSaveToast(msg, type = 'saving') {
+  const toast = document.getElementById('saveToast');
+  if (!toast) return;
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '…';
+  toast.textContent = icon + ' ' + msg;
+  toast.className = 'save-toast ' + type + ' show';
+  if (_saveToastTimer) clearTimeout(_saveToastTimer);
+  if (type !== 'saving') {
+    _saveToastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+}
+
+async function manualSaveVersion() {
+  const btn = document.getElementById('btnManualSave');
+  if (!_supaClient) { showSaveToast('Supabase에 연결되지 않음', 'error'); return; }
+  btn.disabled = true;
+  btn.textContent = '저장 중…';
+  showSaveToast('저장 중…', 'saving');
+  try {
+    await saveToSupabase();
+    const snapshot = buildVersionSnapshot();
+    const label = '버전 ' + formatKoreanDateTime(new Date());
+    const { data: latest, error: fetchErr } = await _supaClient
+      .from('expomap_versions')
+      .select('id')
+      .eq('exhibition_id', _supaProjectId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (fetchErr) throw fetchErr;
+    if (latest) {
+      const { error } = await _supaClient
+        .from('expomap_versions')
+        .update({ state_json: snapshot, version_name: label, created_at: new Date().toISOString() })
+        .eq('id', latest.id);
+      if (error) throw error;
+    } else {
+      await _insertVersionRow(label);
+    }
+    showSaveToast('저장 완료', 'success');
+  } catch (e) {
+    console.error('저장 실패:', e);
+    showSaveToast('저장 실패: ' + (e.message || '서버 오류'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 저장';
+  }
+}
+
 // ─── 보관 정책 ───
 //
 // • 최근 24h   → 전부 유지 (4h 간격 자동저장 기준 최대 6개)

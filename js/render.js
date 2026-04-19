@@ -7,6 +7,12 @@ function calcFontSize(c, text, maxW) {
   return (maxW / refWidth) * refSize;
 }
 
+// 부스번호 폰트 크기: 수동 오버라이드 or 자동 계산
+function getBoothNoFontSize(c, b) {
+  if (b.boothNoFontSize != null) return b.boothNoFontSize;
+  return calcFontSize(c, b.boothId, 26);
+}
+
 // 텍스트를 maxChars 글자씩 줄바꿈
 function wrapText(text) {
   // </br> 로만 줄바꿈, 자동 줄바꿈 없음
@@ -152,7 +158,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
       const gap = (b.logoGap ?? 0) * (tr.h / 100);
 
       // 로고 영역: 부스번호 아래 ~ 상단 60%
-      const noReserve = hasBoothNo ? calcFontSize(c, b.boothId, 26) + 4 : 0;
+      const noReserve = hasBoothNo ? getBoothNoFontSize(c, b) + 4 : 0;
       const logoPad = tr.w * 0.08;
       const logoTopPad = Math.max(tr.h * 0.05, noReserve);
       const logoBottomPad = tr.h * 0.02;
@@ -202,7 +208,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
       // 부스번호: 좌상단
       if (hasBoothNo) {
-        const noFz = calcFontSize(c, b.boothId, 26);
+        const noFz = getBoothNoFontSize(c, b);
         c.fillStyle = boothNoColor ?? textColor;
         c.font = `600 ${noFz}px 'Spoqa Han Sans Neo', sans-serif`;
         c.textAlign = 'left'; c.textBaseline = 'top';
@@ -267,7 +273,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
 
     // 부스번호/사이즈 — 3m 부스 기준 고정 크기
-    const noFz  = hasBoothNo ? calcFontSize(c, b.boothId, 26) : 0;
+    const noFz  = hasBoothNo ? getBoothNoFontSize(c, b) : 0;
     const szFz  = showSize   ? Math.min(availH * 0.12, 10) : 0;
     const topReserve    = hasBoothNo ? noFz + 2 : 0;
     const bottomReserve = showSize   ? szFz + 2 : 0;
@@ -307,7 +313,7 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     }
   } else if (hasBoothNo) {
     // Booth No.만 → 좌상단 (기본부스번호와 공존)
-    const noFz = calcFontSize(c, b.boothId, 26);
+    const noFz = getBoothNoFontSize(c, b);
     c.fillStyle = boothNoColor ?? textColor;
     c.font = `600 ${noFz}px 'Spoqa Han Sans Neo', sans-serif`;
     c.textAlign = 'left'; c.textBaseline = 'top';
@@ -754,28 +760,42 @@ function drawNeighborDistances(ctx, state) {
 }
 
 
-// ─── 검색 마커 (핑 링 애니메이션) ───
+// ─── 검색 마커 (밝은 이중 링 핑 애니메이션) ───
 function drawSearchMarker(c, zoom) {
   if (!state.searchMarker) return;
   const { boothId, startTime } = state.searchMarker;
   const elapsed = Date.now() - startTime;
-  const duration = 1800;
+  const duration = 1200;
   if (elapsed >= duration) { state.searchMarker = null; return; }
 
   const booth = state.booths.find(b => b.id === boothId);
   if (!booth) return;
 
-  const t = elapsed / duration;
-  const alpha = 1 - t;
-  const expand = (t * 12) / zoom;
+  // 외곽 링: 빠르게 퍼지며 페이드
+  const t1 = elapsed / duration;
+  const alpha1 = Math.pow(1 - t1, 1.2);
+  const expand1 = (t1 * 28) / zoom;
+
+  // 내부 링: 150ms 지연, 더 천천히
+  const t2 = Math.max(0, (elapsed - 150) / (duration - 150));
+  if (t2 > 0) {
+    const alpha2 = Math.pow(1 - Math.min(t2, 1), 2) * 0.55;
+    const expand2 = (Math.min(t2, 1) * 16) / zoom;
+    c.save();
+    c.strokeStyle = `rgba(0,225,255,${alpha2.toFixed(2)})`;
+    c.lineWidth = 2 / zoom;
+    c.strokeRect(booth.x - expand2, booth.y - expand2,
+                 booth.w + expand2 * 2, booth.h + expand2 * 2);
+    c.restore();
+  }
+
   c.save();
-  c.strokeStyle = `rgba(79,140,255,${alpha.toFixed(2)})`;
-  c.lineWidth = 2.5 / zoom;
-  c.strokeRect(booth.x - expand, booth.y - expand,
-               booth.w + expand * 2, booth.h + expand * 2);
+  c.strokeStyle = `rgba(0,225,255,${alpha1.toFixed(2)})`;
+  c.lineWidth = 3.5 / zoom;
+  c.strokeRect(booth.x - expand1, booth.y - expand1,
+               booth.w + expand1 * 2, booth.h + expand1 * 2);
   c.restore();
 
-  // 중복 방지하며 다음 프레임 스케줄
   if (!state._searchMarkerRafId) {
     state._searchMarkerRafId = requestAnimationFrame(() => {
       state._searchMarkerRafId = null;

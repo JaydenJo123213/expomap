@@ -232,9 +232,13 @@ canvas.addEventListener('mousedown', (e) => {
 
       // Normal mode (not assignGuideMode)
       if (e.shiftKey) {
+        state.selectedIds.clear();
+        state.selectedBaseNoIds.clear();
         if (state.selectedDiscussIds.has(discussOv.id)) state.selectedDiscussIds.delete(discussOv.id);
         else state.selectedDiscussIds.add(discussOv.id);
       } else {
+        state.selectedIds.clear();
+        state.selectedBaseNoIds.clear();
         if (!state.selectedDiscussIds.has(discussOv.id)) {
           state.selectedDiscussIds.clear();
           state.selectedDiscussIds.add(discussOv.id);
@@ -298,9 +302,11 @@ canvas.addEventListener('mousedown', (e) => {
       }
 
       if (e.shiftKey) {
+        state.selectedDiscussIds.clear();
         if (state.selectedIds.has(booth.id)) state.selectedIds.delete(booth.id);
         else state.selectedIds.add(booth.id);
       } else {
+        state.selectedDiscussIds.clear();
         if (!state.selectedIds.has(booth.id)) {
           state.selectedIds.clear();
           const group = getBoothGroup(booth.id);

@@ -274,6 +274,7 @@ document.getElementById('btnExportConfirm').addEventListener('click', async () =
 
 // ─── Version History ───
 document.getElementById('btnSaveVersion').addEventListener('click', saveVersion);
+document.getElementById('btnManualSave').addEventListener('click', manualSaveVersion);
 
 // ─── Toolbar Buttons ───
 document.querySelectorAll('#modeGroup .tool-btn').forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
@@ -335,6 +336,28 @@ document.getElementById('propFontSizeEnAuto').addEventListener('click', () => {
   render();
   scheduleSave();
 });
+
+// 폰트 크기 슬라이더 (부스번호)
+document.getElementById('propBoothNoFontSize').addEventListener('input', (e) => {
+  const b = getSelectedBooth(); if (!b) return;
+  b.boothNoFontSize = parseFloat(e.target.value);
+  document.getElementById('propBoothNoFontSizeVal').textContent = b.boothNoFontSize + 'px';
+  document.getElementById('propBoothNoFontSizeAuto').style.display = '';
+  render();
+});
+document.getElementById('propBoothNoFontSize').addEventListener('change', () => { saveUndo(); scheduleSave(); });
+
+// 자동 버튼: 부스번호 폰트 크기 초기화
+document.getElementById('propBoothNoFontSizeAuto').addEventListener('click', () => {
+  const b = getSelectedBooth(); if (!b) return;
+  saveUndo();
+  delete b.boothNoFontSize;
+  document.getElementById('propBoothNoFontSizeVal').textContent = '자동';
+  document.getElementById('propBoothNoFontSizeAuto').style.display = 'none';
+  render();
+  scheduleSave();
+});
+
 document.getElementById('btnArrayCopy').addEventListener('click', () => {
   if (!state.selectedIds.size) { alert('Select booths to array-copy.'); return; }
   openModal('modalArrayCopy');
@@ -836,6 +859,11 @@ function updateProps() {
     document.getElementById('propFontSizeEn').value = hasFontEn ? b.fontSizeEn : 12;
     document.getElementById('propFontSizeEnVal').textContent = hasFontEn ? b.fontSizeEn + 'px' : '자동';
     document.getElementById('propFontSizeEnAuto').style.display = hasFontEn ? '' : 'none';
+    // 폰트 크기 (부스번호)
+    const hasBoothNoFont = b.boothNoFontSize != null;
+    document.getElementById('propBoothNoFontSize').value = hasBoothNoFont ? b.boothNoFontSize : 8;
+    document.getElementById('propBoothNoFontSizeVal').textContent = hasBoothNoFont ? b.boothNoFontSize + 'px' : '자동';
+    document.getElementById('propBoothNoFontSizeAuto').style.display = hasBoothNoFont ? '' : 'none';
     document.getElementById('propStatus').value = b.status;
     const colors = STATUS_COLORS[b.status] || STATUS_COLORS.available;
     document.getElementById('propFillColor').value = b.fillColor || rgbToHex(colors.fill) || '#3D4255';
@@ -2091,18 +2119,18 @@ let _searchActiveIdx = -1;
 const SEARCH_HISTORY_KEY = 'expomap_search_history';
 const SEARCH_HISTORY_MAX = 5;
 
-// 배정 상태 → dot 색상 (state.js STATUS_COLORS 키와 동일하게 유지)
-const STATUS_DOT_COLORS = {
-  available:  '#9E9E9E',
-  hold:       '#FF9800',
-  proposing:  '#FFC107',
-  assigned:   '#4CAF50',
-  discuss:    '#4F8CFF',
-  spot:       '#E91E63',
-  online:     '#00BCD4',
-  fake:       '#9E9E9E',
-  excluded:   '#616161',
-  facility:   '#795548',
+// 배정 상태 → 티커 (state.js STATUS_COLORS 기준 매핑)
+const STATUS_TICKER = {
+  hold:       { label: '홀딩',    bg: '#F06292', color: '#fff' },   // 핑크
+  online:     { label: '온라인',  bg: '#4F8CFF', color: '#fff' },   // 파랑
+  proposing:  { label: '계약',    bg: '#66BB6A', color: '#fff' },   // 초록
+  assigned:   { label: '완료',    bg: '#f9e5de', color: '#a0522d' }, // 연핑크
+  available:  { label: '가능',    bg: '#555A6E', color: '#ccc' },
+  discuss:    { label: '배정논의', bg: '#FDD835', color: '#7a5f00' },
+  spot:       { label: '배정위치', bg: '#FFA726', color: '#fff' },
+  fake:       { label: '가짜',    bg: '#EF5350', color: '#fff' },
+  excluded:   { label: '제외',    bg: '#616161', color: '#ccc' },
+  facility:   { label: '시설',    bg: '#A1887F', color: '#fff' },
 };
 
 function getBoothSearchResults(query) {
@@ -2118,6 +2146,11 @@ function getBoothSearchResults(query) {
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function stripHtml(str) {
+  if (!str) return '';
+  return str.replace(/<[^>]*>/g, '');
 }
 
 function highlightMatch(text, query) {
@@ -2180,14 +2213,14 @@ function renderBoothSearchDropdown(results, query) {
 }
 
 function buildSearchResultItem(b, i, query, isEn) {
-  const name = isEn ? (b.companyNameEn || b.companyName || '') : (b.companyName || '');
+  const rawName = stripHtml(isEn ? (b.companyNameEn || b.companyName || '') : (b.companyName || ''));
   const boothIdHtml = query ? highlightMatch(b.boothId || '—', query) : escapeHtml(b.boothId || '—');
-  const nameHtml = name
-    ? (query ? highlightMatch(name, query) : escapeHtml(name))
+  const nameHtml = rawName
+    ? (query ? highlightMatch(rawName, query) : escapeHtml(rawName))
     : `<span style="opacity:0.4">업체 미배정</span>`;
-  const dotColor = STATUS_DOT_COLORS[b.status] || STATUS_DOT_COLORS.available;
+  const ticker = STATUS_TICKER[b.status] || STATUS_TICKER.available;
   return `<div class="search-result-item" data-id="${b.id}" data-idx="${i}">
-    <span class="search-result-dot" style="background:${dotColor}"></span>
+    <span class="search-result-ticker" style="background:${ticker.bg};color:${ticker.color}">${ticker.label}</span>
     <span class="search-result-boothid">${boothIdHtml}</span>
     <span class="search-result-name">${nameHtml}</span>
   </div>`;
@@ -2220,6 +2253,30 @@ function closeBoothSearch() {
   _searchActiveIdx = -1;
 }
 
+function animateCameraTo(targetPanX, targetPanY, targetZoom, duration = 450, onDone) {
+  const startPanX = state.panX;
+  const startPanY = state.panY;
+  const startZoom = state.zoom;
+  const startTime = performance.now();
+  const zoomDisplay = document.getElementById('zoomDisplay');
+
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function step(now) {
+    const t = Math.min((now - startTime) / duration, 1);
+    const e = easeOutCubic(t);
+    state.panX = startPanX + (targetPanX - startPanX) * e;
+    state.panY = startPanY + (targetPanY - startPanY) * e;
+    state.zoom = startZoom + (targetZoom - startZoom) * e;
+    if (zoomDisplay) zoomDisplay.textContent = Math.round(state.zoom * 100) + '%';
+    render();
+    if (t < 1) requestAnimationFrame(step);
+    else if (onDone) onDone();
+  }
+
+  requestAnimationFrame(step);
+}
+
 function focusBoothById(id) {
   const booth = state.booths.find(b => b.id === id);
   if (!booth) return;
@@ -2230,22 +2287,21 @@ function focusBoothById(id) {
   const targetZoom = Math.max(state.zoom, 2.5);
   const cx = booth.x + booth.w / 2;
   const cy = booth.y + booth.h / 2;
-  state.zoom = targetZoom;
-  state.panX = rect.width  / 2 - cx * state.zoom;
-  state.panY = rect.height / 2 - cy * state.zoom;
-  document.getElementById('zoomDisplay').textContent = Math.round(state.zoom * 100) + '%';
-
-  state.searchMarker = { boothId: id, startTime: Date.now() };
+  const targetPanX = rect.width  / 2 - cx * targetZoom;
+  const targetPanY = rect.height / 2 - cy * targetZoom;
 
   if (!VIEWER_MODE) {
     state.selectedIds.clear();
     state.selectedIds.add(booth.id);
-    render();
     updateProps();
     if (typeof broadcastSelectionState === 'function') broadcastSelectionState();
-  } else {
-    render();
   }
+
+  // 카메라 이동 완료 후 마커 시작
+  animateCameraTo(targetPanX, targetPanY, targetZoom, 450, () => {
+    state.searchMarker = { boothId: id, startTime: Date.now() };
+    render();
+  });
 }
 
 function initBoothSearch() {
@@ -2280,7 +2336,11 @@ function initBoothSearch() {
       e.stopPropagation();
       const target = _searchActiveIdx >= 0 ? _searchResults[_searchActiveIdx]
                    : _searchResults.length === 1 ? _searchResults[0] : null;
-      if (target) { focusBoothById(target.id); closeBoothSearch(); input.blur(); }
+      if (target) {
+        focusBoothById(target.id);
+        input.blur();
+        setTimeout(() => closeBoothSearch(), 0); // IME 조합 완료 후 클리어
+      }
     }
   });
 

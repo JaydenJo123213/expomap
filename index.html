@@ -44,6 +44,18 @@
   .tool-btn.danger { color: #f87171; }
   .tool-btn.danger:hover { background: rgba(248,113,113,0.15); }
   .zoom-display { margin-left: auto; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+  /* ─── Quick Pill ─── */
+  .quick-pill { display: flex; align-items: center; gap: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 2px; flex-shrink: 0; }
+  .quick-pill .tool-btn { border-radius: 6px; }
+  .quick-pill-sep { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
+  .save-btn-manual { color: #4F8CFF; font-weight: 600; border: 1px solid rgba(79,140,255,0.3); }
+  .save-btn-manual:hover { background: rgba(79,140,255,0.1); color: #2563eb; border-color: rgba(79,140,255,0.6); }
+  .save-btn-manual:disabled { opacity: 0.5; cursor: not-allowed; }
+  .save-toast { position: fixed; top: 58px; left: 50%; transform: translateX(-50%) translateY(-6px); padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.2s ease, transform 0.2s ease; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+  .save-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .save-toast.saving { background: #1c2a3a; color: #7eb8ff; border: 1px solid #3b6faa; }
+  .save-toast.success { background: #162a1e; color: #5dd68c; border: 1px solid #2d7d46; }
+  .save-toast.error { background: #2a1616; color: #f87171; border: 1px solid #9a2323; }
   .topbar-card-compact { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--surface-hover); border: 1px solid var(--border); border-radius: 6px; flex-shrink: 0; font-size: 12px; white-space: nowrap; }
   .topbar-card-label { color: var(--text-dim); font-weight: 600; }
   .topbar-card-value { font-weight: 700; color: var(--accent); }
@@ -85,15 +97,15 @@
   .struct-hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(156,39,176,0.9); color: #fff; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; pointer-events: none; white-space: nowrap; }
 
   /* ─── Right Panel ─── */
-  .panel-right { width: 240px; background: var(--surface); border-left: 1px solid var(--border); display: none; flex-shrink: 0; display: flex; flex-direction: column; margin-right: 0; }
+  .panel-right { width: 280px; background: var(--surface); border-left: 1px solid var(--border); display: none; flex-shrink: 0; display: flex; flex-direction: column; margin-right: 0; }
   .panel-right.visible { display: flex; }
-  .panel-right-top { padding: 12px 14px; border-bottom: 1px solid var(--border); }
-  .panel-right-middle { flex: 1; overflow-y: auto; padding: 12px 14px 12px 12px; }
-  .panel-right-bottom { padding: 10px 16px 10px 16px; border-top: 1px solid var(--border); max-height: 350px; overflow-y: auto; margin-top: auto; margin-bottom: 35px; }
-  .prop-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 12px; }
+  .panel-right-top { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .panel-right-middle { flex: 1; overflow-y: auto; padding: 12px 16px 12px 14px; }
+  .panel-right-bottom { padding: 10px 18px 10px 18px; border-top: 1px solid var(--border); max-height: 350px; overflow-y: auto; margin-top: auto; margin-bottom: 35px; }
+  .prop-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 12px; }
   .prop-label { color: var(--text-dim); }
   .prop-value { font-weight: 500; }
-  .prop-input { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 7px; color: var(--text); font-size: 12px; font-family: inherit; width: 75px; text-align: right; }
+  .prop-input { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; color: var(--text); font-size: 12px; font-family: inherit; width: 85px; text-align: right; }
   .prop-input:focus { outline: none; border-color: var(--accent); }
   .status-select { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; color: var(--text); font-size: 12px; font-family: inherit; width: 100%; cursor: pointer; }
 
@@ -104,7 +116,7 @@
   .search-result-item:hover, .search-result-item.active { background: rgba(79,140,255,0.08); }
   .search-result-boothid { font-weight: 700; color: var(--accent); min-width: 52px; }
   .search-result-name { color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .search-result-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .search-result-ticker { display:inline-block; padding:1px 6px; border-radius:4px; font-size:9px; font-weight:700; flex-shrink:0; white-space:nowrap; letter-spacing:0.3px; }
   .search-highlight { font-weight: 700; color: var(--accent); }
   .search-recent-header { padding: 5px 12px; font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
   .search-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--text-dim); }
@@ -359,66 +371,57 @@
 
 <!-- ─── Top Bar ─── -->
 <div class="topbar">
-  <div class="topbar-logo">ExpoMap <span id="appHashDisplay" style="font-size:9px;font-family:monospace;opacity:0.55;font-weight:400;letter-spacing:0">43bdefd</span> <span id="topbarExpoName"></span></div>
+  <!-- 좌측: 로고 -->
+  <div class="topbar-logo">ExpoMap <span id="appHashDisplay" style="display:none">43bdefd</span> <span id="topbarExpoName"></span></div>
   <div class="topbar-divider"></div>
-  <div class="tool-group">
+
+  <!-- Quick Pill -->
+  <div class="quick-pill">
     <button class="tool-btn" id="btnLockCanvas" style="font-weight:600">Lock</button>
+    <button class="tool-btn" id="btnAdminLang" title="국문/영문 전환" style="font-weight:600" onclick="toggleLang()">EN</button>
+    <div class="quick-pill-sep"></div>
+    <button class="tool-btn" id="btnPrintFloorplan" title="도면 출력 (A3 세로)">🖨️ 도면출력</button>
+    <button class="tool-btn" id="btnPrintAvailable" title="배정가능위치 PDF (A3 세로)">📍 배정가능위치</button>
+    <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정안내</button>
+    <div class="quick-pill-sep"></div>
+    <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname+'?expo='+EXPO_SLUG, '_blank')">↗ 공개</button>
   </div>
 
-  <!-- 검색바 (툴바 중앙) -->
-  <div id="boothSearchContainer" style="flex:1;display:flex;justify-content:center;align-items:center;max-width:300px;margin:0 auto;position:relative;">
-    <div style="position:relative;width:100%;">
-      <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:0.45;font-size:13px;pointer-events:none;">🔍</span>
-      <input type="text" id="boothSearchInput"
-        placeholder="부스번호 또는 업체명  ·  Ctrl+F"
-        autocomplete="off"
-        style="width:100%;box-sizing:border-box;padding:5px 28px 5px 30px;
-               border:1px solid var(--border);border-radius:6px;
-               background:var(--surface-hover);color:var(--text);font-size:12px;
-               outline:none;transition:border-color 0.15s;">
-      <button id="boothSearchClear"
-        style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);
-               background:none;border:none;cursor:pointer;opacity:0.45;font-size:14px;padding:0;line-height:1;">✕</button>
-      <div id="boothSearchDropdown"
-        style="display:none;position:fixed;
-               background:var(--surface);border:1px solid var(--border);
-               border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.18);
-               max-height:260px;overflow-y:auto;z-index:9999;"></div>
-    </div>
-  </div>
+  <!-- Spacer -->
+  <div style="flex:1;min-width:12px"></div>
 
-  <!-- Booth Count Cards (숨김처리 — monitoring dashboard로 이전) -->
-  <div style="display:none;gap:12px;margin:0 12px;align-items:center;flex:1;justify-content:center">
-    <div class="topbar-card-compact">
-      <span class="topbar-card-label">전체:</span>
-      <span class="topbar-card-value" id="countTotal">0</span>
-    </div>
-    <div class="topbar-card-compact">
-      <span class="topbar-card-label">배정:</span>
-      <span class="topbar-card-value" id="countAssigning">0</span>
-    </div>
-    <div class="topbar-card-compact">
-      <span class="topbar-card-label">계약:</span>
-      <span class="topbar-card-value" id="countContract">0</span>
-    </div>
-    <div class="topbar-card-compact">
-      <span class="topbar-card-label">미배정:</span>
-      <span class="topbar-card-value" id="countUnassigned">0</span>
-    </div>
-    <div class="topbar-card-compact" id="btnFreeBoothCard" style="cursor:pointer" title="제공부스 관리">
-      <span class="topbar-card-label">제공:</span>
-      <span class="topbar-card-value" id="countFreeBooth">0</span>
-    </div>
+  <!-- 우측: 검색 + 저장 -->
+  <div id="boothSearchContainer" style="flex-shrink:0;width:240px;position:relative;">
+    <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:0.45;font-size:13px;pointer-events:none;">🔍</span>
+    <input type="text" id="boothSearchInput"
+      placeholder="부스번호 또는 업체명  ·  Ctrl+F"
+      autocomplete="off"
+      style="width:100%;box-sizing:border-box;padding:5px 28px 5px 30px;
+             border:1px solid var(--border);border-radius:6px;
+             background:var(--surface-hover);color:var(--text);font-size:12px;
+             outline:none;transition:border-color 0.15s;">
+    <button id="boothSearchClear"
+      style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);
+             background:none;border:none;cursor:pointer;opacity:0.45;font-size:14px;padding:0;line-height:1;">✕</button>
+    <div id="boothSearchDropdown"
+      style="display:none;position:fixed;
+             background:var(--surface);border:1px solid var(--border);
+             border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.18);
+             max-height:260px;overflow-y:auto;z-index:9999;"></div>
   </div>
+  <button class="tool-btn save-btn-manual" id="btnManualSave" title="저장 (최근 버전 덮어쓰기)">💾 저장</button>
 
-  <button class="tool-btn" id="btnPrintFloorplan" title="도면 출력 (A3 세로)">🖨️ 도면출력</button>
-  <button class="tool-btn" id="btnPrintAvailable" title="배정가능위치 PDF (A3 세로)">📍 배정가능위치</button>
-  <button class="tool-btn" id="btnAssignGuideTopbar" title="배정안내 PDF">📋 배정안내</button>
-  <div class="zoom-display" id="zoomDisplay">100%</div>
-  <div class="topbar-divider"></div>
-  <button class="tool-btn" id="btnAdminLang" title="국문/영문 전환" style="font-weight:600;color:#333" onclick="toggleLang()">EN</button>
-  <button class="tool-btn" id="btnViewerMode" title="공개도면으로 열기" style="color:#4F8CFF;font-weight:600" onclick="window.open(location.pathname+'?expo='+EXPO_SLUG, '_blank')">공개도면</button>
+  <!-- hidden: 기능 유지용 -->
+  <div id="zoomDisplay" style="display:none">100%</div>
+  <span id="countTotal" style="display:none">0</span>
+  <span id="countAssigning" style="display:none">0</span>
+  <span id="countContract" style="display:none">0</span>
+  <span id="countUnassigned" style="display:none">0</span>
+  <span id="btnFreeBoothCard" style="display:none"><span id="countFreeBooth">0</span></span>
 </div>
+
+<!-- ─── Save Toast ─── -->
+<div id="saveToast" class="save-toast"></div>
 
 <!-- ─── Main Layout ─── -->
 <div class="main">
@@ -710,6 +713,15 @@
       </div>
       <!-- Booth No. -->
       <div class="prop-row"><span class="prop-label">Booth No.</span><input class="prop-input" id="propBoothId" placeholder="A-01"></div>
+      <!-- 부스번호 폰트 크기 -->
+      <div class="prop-row">
+        <span class="prop-label">Size (번호)</span>
+        <div style="display:flex;align-items:center;gap:4px;flex:1">
+          <input type="range" id="propBoothNoFontSize" min="2" max="20" value="8" step="0.5" style="flex:1;height:4px">
+          <span id="propBoothNoFontSizeVal" style="font-size:11px;color:var(--text-dim);width:28px;text-align:right">자동</span>
+          <button id="propBoothNoFontSizeAuto" style="font-size:10px;padding:1px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg2);cursor:pointer;color:var(--text-dim)">자동</button>
+        </div>
+      </div>
       <!-- Company -->
       <div class="prop-row"><span class="prop-label">Company</span><input class="prop-input" id="propCompanyName" style="width:120px" placeholder="업체명 (국문)"></div>
       <div class="prop-row">
