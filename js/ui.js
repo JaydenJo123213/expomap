@@ -1389,9 +1389,6 @@ function updateStats() {
   const zoomEl = document.getElementById('zoomPercent');
   if (zoomEl) zoomEl.textContent = zoomPercent + '%';
 
-  // stat 요소가 없는 환경(뷰어 모드 등)에서는 조기 리턴
-  if (!document.getElementById('countAvailable')) return;
-
   const counts = { available: 0, discuss: 0, spot: 0, hold: 0, proposing: 0, assigned: 0, online: 0, fake: 0, excluded: 0, facility: 0 };
   let totalArea = 0;
   for (const b of state.booths) {
@@ -1400,35 +1397,32 @@ function updateStats() {
     counts[b.status] = (counts[b.status] || 0) + units;
     if (b.status !== 'excluded' && b.status !== 'facility') totalArea += area;
   }
-  document.getElementById('countAvailable').textContent = counts.available;
-  document.getElementById('countDiscuss').textContent = counts.discuss;
-  document.getElementById('countSpot').textContent = counts.spot;
-  document.getElementById('countHold').textContent = counts.hold;
-  document.getElementById('countProposing').textContent = counts.proposing;
-  document.getElementById('countAssigned').textContent = counts.assigned;
-  document.getElementById('countOnline').textContent = counts.online;
-  document.getElementById('countFake').textContent = counts.fake;
-  document.getElementById('countExcluded').textContent = counts.excluded;
-  document.getElementById('countFacility').textContent = counts.facility;
+  const _s = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  _s('countAvailable', counts.available);
+  _s('countDiscuss',   counts.discuss);
+  _s('countSpot',      counts.spot);
+  _s('countHold',      counts.hold);
+  _s('countProposing', counts.proposing);
+  _s('countAssigned',  counts.assigned);
+  _s('countOnline',    counts.online);
+  _s('countFake',      counts.fake);
+  _s('countExcluded',  counts.excluded);
+  _s('countFacility',  counts.facility);
 
   // 상단 툴바 카드 업데이트
-  // 1. 전체: available + spot + hold + online + proposing + assigned + fake
-  const countTotal = counts.available + counts.spot + counts.hold + counts.online + counts.proposing + counts.assigned + counts.fake;
-  // 2. 배정: hold + online + proposing + assigned
-  const countAssigning = counts.hold + counts.online + counts.proposing + counts.assigned;
-  // 3. 계약: proposing + assigned
-  const countContract = counts.proposing + counts.assigned;
-  // 4. 미배정: spot + fake
+  const countTotal      = counts.available + counts.spot + counts.hold + counts.online + counts.proposing + counts.assigned + counts.fake;
+  const countAssigning  = counts.hold + counts.online + counts.proposing + counts.assigned;
+  const countContract   = counts.proposing + counts.assigned;
   const countUnassigned = counts.spot + counts.fake;
 
-  document.getElementById('countTotal').textContent = countTotal;
-  document.getElementById('countAssigning').textContent = countAssigning;
-  document.getElementById('countContract').textContent = countContract;
-  document.getElementById('countUnassigned').textContent = countUnassigned;
+  _s('countTotal',      countTotal);
+  _s('countAssigning',  countAssigning);
+  _s('countContract',   countContract);
+  _s('countUnassigned', countUnassigned);
 
   // 제공부스 카운트
   const freeTotal = state.freeBooths.reduce((sum, item) => sum + (item.free || 0), 0);
-  document.getElementById('countFreeBooth').textContent = freeTotal;
+  _s('countFreeBooth', freeTotal);
 }
 function updateRepeatBadge() {
   document.getElementById('repeatBadge').style.display = state.lastCopyOp ? 'inline' : 'none';
