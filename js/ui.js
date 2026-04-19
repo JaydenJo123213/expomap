@@ -1389,6 +1389,9 @@ function updateStats() {
   const zoomEl = document.getElementById('zoomPercent');
   if (zoomEl) zoomEl.textContent = zoomPercent + '%';
 
+  // stat 요소가 없는 환경(뷰어 모드 등)에서는 조기 리턴
+  if (!document.getElementById('countAvailable')) return;
+
   const counts = { available: 0, discuss: 0, spot: 0, hold: 0, proposing: 0, assigned: 0, online: 0, fake: 0, excluded: 0, facility: 0 };
   let totalArea = 0;
   for (const b of state.booths) {
