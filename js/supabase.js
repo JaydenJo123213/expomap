@@ -120,7 +120,8 @@ function initPresenceChannel() {
       }
       render();
     })
-    .subscribe((status) => {
+    .subscribe((status, err) => {
+      console.log('[Presence] channel status:', status, err || '');
       const el = document.getElementById('supaStatus');
       if (status === 'SUBSCRIBED') {
         if (el) el.textContent = 'Connected';
