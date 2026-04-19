@@ -118,7 +118,16 @@ function initPresenceChannel() {
       }
       render();
     })
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        document.getElementById('supaStatus').textContent = 'Connected';
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        document.getElementById('supaStatus').textContent = 'Reconnecting...';
+        setTimeout(() => initPresenceChannel(), 5000);
+      } else if (status === 'CLOSED') {
+        document.getElementById('supaStatus').textContent = 'Disconnected';
+      }
+    });
 }
 
 // 커서 브로드캐스트 (CURSOR_THROTTLE_MS는 state.js에서 정의)
