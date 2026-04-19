@@ -154,6 +154,9 @@ let state = {
   _viewerClickStartY: 0,
   // ─── Remote cursors ───
   remoteCursors: {},
+  // ─── Remote selections (Figma-like per-user isolation) ───
+  remoteSelections: {},
+  // { [userId]: { ids: Set, baseNoIds: Set, discussIds: Set, color, name } }
   // ─── Base Number Layer ───
   baseNumbers: [],
   nextBaseNoId: 1,

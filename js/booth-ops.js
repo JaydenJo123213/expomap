@@ -179,6 +179,8 @@ function drawBaseNumbers(c, zoom) {
   });
 }
 
+let _isLoading = false;
+
 async function saveToSupabase() {
   if (!_supaClient) return;
   const data = {
@@ -217,8 +219,10 @@ async function saveToSupabase() {
   }
 }
 
-async function loadFromSupabase() {
+async function loadFromSupabase({ preserveSelection = false } = {}) {
   if (!_supaClient) return;
+  if (_isLoading) return;
+  _isLoading = true;
   try {
     // 먼저 지정 ID로 시도, 없으면 가장 최근 행으로 폴백
     let data, error;
@@ -285,7 +289,11 @@ async function loadFromSupabase() {
           }
         }
       }
-      state.selectedIds = new Set();
+      if (!preserveSelection) {
+        state.selectedIds = new Set();
+        state.selectedBaseNoIds = new Set();
+        state.selectedDiscussIds = new Set();
+      }
       render(); updateProps();
       updateSaveIndicator('saved');
     }
@@ -293,6 +301,8 @@ async function loadFromSupabase() {
     console.error('Load failed:', e);
     updateSaveIndicator('error');
     showConnectionAlert('데이터 로드 실패: ' + (e.message || '서버 연결 끊김') + '\n설정에서 Supabase 연결을 확인해주세요!');
+  } finally {
+    _isLoading = false;
   }
 }
 

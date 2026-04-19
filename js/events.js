@@ -225,6 +225,7 @@ canvas.addEventListener('mousedown', (e) => {
           // If no groupId, just select this one
           state.selectedDiscussIds.add(discussOv.id);
         }
+        broadcastSelectionState();
         render(); updateProps();
         return;
       }
@@ -255,6 +256,7 @@ canvas.addEventListener('mousedown', (e) => {
           state.discussResizeDragStartSY = sy;
           state.discussResizeOriginW = discussOv.w;
           state.discussResizeOriginH = discussOv.h;
+          broadcastSelectionState();
           render(); updateProps();
           return;
         }
@@ -267,6 +269,7 @@ canvas.addEventListener('mousedown', (e) => {
       state.discussDragOrigins = state.discussOverlays
         .filter(ov => state.selectedDiscussIds.has(ov.id))
         .map(ov => ({ id: ov.id, x: ov.x, y: ov.y }));
+      broadcastSelectionState();
       render(); updateProps();
       return;
     }
@@ -325,6 +328,7 @@ canvas.addEventListener('mousedown', (e) => {
           state.boothResizeOrigins = state.booths
             .filter(b => state.selectedIds.has(b.id))
             .map(b => ({ id: b.id, w: b.w, h: b.h }));
+          broadcastSelectionState();
           render(); updateProps();
           return;
         }
@@ -337,6 +341,7 @@ canvas.addEventListener('mousedown', (e) => {
       state.dragBoothsOrigin = state.booths
         .filter(b => state.selectedIds.has(b.id))
         .map(b => ({ id: b.id, x: b.x, y: b.y, cells: b.cells ? b.cells.map(c => ({...c})) : null }));
+      broadcastSelectionState();
       render(); updateProps();
       return;
     }
@@ -388,6 +393,7 @@ canvas.addEventListener('mousedown', (e) => {
           .filter(bn => state.selectedBaseNoIds.has(bn.id))
           .map(bn => ({ id: bn.id, x: bn.x, y: bn.y }));
       }
+      broadcastSelectionState();
       render(); updateProps();
       return;
     }
@@ -407,6 +413,7 @@ canvas.addEventListener('mousedown', (e) => {
     state.marqueeStartY = world.y;
     state.marqueeEndX = world.x;
     state.marqueeEndY = world.y;
+    if (!e.shiftKey) broadcastSelectionState(); // 빈 공간 클릭 → deselect broadcast
     render(); updateProps();
   }
 });
@@ -886,6 +893,7 @@ canvas.addEventListener('mouseup', (e) => {
       state.lastCopyOp = { dx, dy };
       updateRepeatBadge();
       if (state.measureLines.length > 0) showMeasureAlert();
+      broadcastSelectionState(); // alt-drag 복사 후 새 선택
       render(); updateProps();
     }
   }
@@ -926,6 +934,7 @@ canvas.addEventListener('mouseup', (e) => {
         });
       }
     }
+    broadcastSelectionState(); // marquee 선택 완료
     render(); updateProps();
   }
 
@@ -992,6 +1001,7 @@ canvas.addEventListener('dblclick', (e) => {
     hint.textContent = `Editing ${group.label} — click outside to exit`;
     hint.style.display = 'block';
     setTimeout(() => { if (hint) hint.style.display = 'none'; }, 2500);
+    broadcastSelectionState();
     render(); updateProps();
   } else {
     const newId = prompt('Edit booth No.:', booth.boothId || '');
@@ -1043,7 +1053,7 @@ document.addEventListener('keydown', (e) => {
       if (state.structMode) { state.structMode = null; state.wallStart = null; state.structDrawStart = null; state.structDrawCurrent = null; clearStructButtons(); hideStructHint(); render(); return; }
       if (state.editingGroupId) { state.editingGroupId = null; render(); return; }
       if (state.lastCopyOp) { state.lastCopyOp = null; updateRepeatBadge(); return; }
-      state.selectedIds.clear(); state.selectedBaseNoIds.clear(); render(); updateProps();
+      state.selectedIds.clear(); state.selectedBaseNoIds.clear(); broadcastSelectionState(); render(); updateProps();
     }
   }
 
@@ -1061,6 +1071,7 @@ document.addEventListener('keydown', (e) => {
       const ids = new Set(state.selectedDiscussIds);
       state.discussOverlays = state.discussOverlays.filter(ov => !ids.has(ov.id));
       state.selectedDiscussIds.clear();
+      broadcastSelectionState();
       scheduleSave(); render(); updateProps();
       return;
     }
@@ -1069,6 +1080,7 @@ document.addEventListener('keydown', (e) => {
       const ids = new Set(state.selectedBaseNoIds);
       state.baseNumbers = state.baseNumbers.filter(bn => !ids.has(bn.id));
       state.selectedBaseNoIds.clear();
+      broadcastSelectionState();
       scheduleSave(); render(); updateProps();
       return;
     }
@@ -1089,6 +1101,7 @@ document.addEventListener('keydown', (e) => {
       state.groups.forEach(g => { g.boothIds = g.boothIds.filter(id => !ids.has(id)); });
       state.groups = state.groups.filter(g => g.boothIds.length > 0);
       state.selectedIds.clear();
+      broadcastSelectionState();
       render(); updateProps();
     }
   }

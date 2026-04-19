@@ -933,6 +933,41 @@ function render() {
     }
   });
 
+  // ── 원격 유저 선택 오버레이 (Figma-like per-user isolation) ──
+  const remSelEntries = Object.entries(state.remoteSelections);
+  if (remSelEntries.length > 0) {
+    for (const b of state.booths) {
+      for (const [uid, sel] of remSelEntries) {
+        if (!sel.ids.has(b.id)) continue;
+        ctx.save();
+        ctx.strokeStyle = sel.color;
+        ctx.lineWidth = 2.5 / state.zoom;
+        ctx.setLineDash([5 / state.zoom, 3 / state.zoom]);
+        strokeBoothShape(ctx, b, state.zoom);
+        ctx.setLineDash([]);
+        // 유저 이름 태그 (부스 우상단)
+        if (state.zoom > 0.4) {
+          const label = sel.name;
+          ctx.font = `600 ${9 / state.zoom}px 'Spoqa Han Sans Neo', sans-serif`;
+          const tw = ctx.measureText(label).width;
+          const pad = 3 / state.zoom;
+          const tagX = b.x + b.w - tw - pad * 2;
+          const tagY = b.y - 14 / state.zoom;
+          ctx.fillStyle = sel.color;
+          ctx.beginPath();
+          ctx.roundRect(tagX, tagY, tw + pad * 2, 11 / state.zoom, 2 / state.zoom);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(label, tagX + pad, tagY + 1 / state.zoom);
+        }
+        ctx.restore();
+        break; // 한 부스에 여러 유저가 선택 시 첫 번째만 표시
+      }
+    }
+  }
+
   // Alt drag clones
   for (const b of state.altDragClones) {
     ctx.fillStyle = 'rgba(79,140,255,0.25)';

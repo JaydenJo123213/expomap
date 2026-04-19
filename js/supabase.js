@@ -13,6 +13,7 @@ let _myUserId = null;
 let _myName = null;
 let _myColor = null;
 let _cursorBroadcastTimer = null;
+let _selectionBroadcastTimer = null;
 
 function initSupabase() {
   const url = localStorage.getItem('expomap_supa_url') || DEFAULT_SUPA_URL;
@@ -86,15 +87,35 @@ function initPresenceChannel() {
     .on('broadcast', { event: 'cursor' }, ({ payload }) => {
       if (!payload || !payload.userId) return;
       const uid = payload.userId;
-      if (payload.type === 'leave') { delete state.remoteCursors[uid]; render(); return; }
+      if (payload.type === 'leave') {
+        delete state.remoteCursors[uid];
+        delete state.remoteSelections[uid];
+        render();
+        return;
+      }
       state.remoteCursors[uid] = { name: payload.name, color: payload.color, wx: payload.wx, wy: payload.wy, lastSeen: Date.now() };
       render();
     })
     .on('broadcast', { event: 'save' }, async ({ payload }) => {
       if (payload?.userId === _myUserId) return;
-      const prevSelected = new Set(state.selectedIds);
-      await loadFromSupabase();
-      state.selectedIds = prevSelected;
+      await loadFromSupabase({ preserveSelection: true });
+      // render()는 loadFromSupabase 내부에서 이미 호출됨
+    })
+    .on('broadcast', { event: 'selection' }, ({ payload }) => {
+      if (!payload?.userId || payload.userId === _myUserId) return;
+      const uid = payload.userId;
+      const hasAny = payload.ids?.length || payload.baseNoIds?.length || payload.discussIds?.length;
+      if (!hasAny) {
+        delete state.remoteSelections[uid];
+      } else {
+        state.remoteSelections[uid] = {
+          ids: new Set(payload.ids || []),
+          baseNoIds: new Set(payload.baseNoIds || []),
+          discussIds: new Set(payload.discussIds || []),
+          color: payload.color,
+          name: payload.name,
+        };
+      }
       render();
     })
     .subscribe();
@@ -114,6 +135,32 @@ function broadcastCursorPosition(wx, wy) {
 function broadcastCursorLeave() {
   if (!_presenceChannel || !_myUserId) return;
   _presenceChannel.send({ type: 'broadcast', event: 'cursor', payload: { type: 'leave', userId: _myUserId } });
+}
+
+// ─── 선택 상태 브로드캐스트 (debounce 300ms) ───
+function broadcastSelectionState() {
+  if (!_presenceChannel || !_myUserId) return;
+  clearTimeout(_selectionBroadcastTimer);
+  _selectionBroadcastTimer = setTimeout(() => {
+    _presenceChannel.send({
+      type: 'broadcast', event: 'selection',
+      payload: {
+        userId: _myUserId, name: _myName, color: _myColor,
+        ids: [...state.selectedIds],
+        baseNoIds: [...state.selectedBaseNoIds],
+        discussIds: [...state.selectedDiscussIds],
+      }
+    });
+  }, 300);
+}
+
+function broadcastSelectionClear() {
+  if (!_presenceChannel || !_myUserId) return;
+  clearTimeout(_selectionBroadcastTimer);
+  _presenceChannel.send({
+    type: 'broadcast', event: 'selection',
+    payload: { userId: _myUserId, ids: [], baseNoIds: [], discussIds: [] }
+  });
 }
 
 function pruneStaleRemoteCursors() {

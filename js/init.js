@@ -58,7 +58,7 @@ async function init() {
     initPresenceChannel();
   }
   setInterval(pruneStaleRemoteCursors, 1000);
-  window.addEventListener('beforeunload', broadcastCursorLeave);
+  window.addEventListener('beforeunload', () => { broadcastCursorLeave(); broadcastSelectionClear(); });
   updateLockButton();
   render();
 }
