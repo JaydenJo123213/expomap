@@ -119,13 +119,14 @@ function initPresenceChannel() {
       render();
     })
     .subscribe((status) => {
+      const el = document.getElementById('supaStatus');
       if (status === 'SUBSCRIBED') {
-        document.getElementById('supaStatus').textContent = 'Connected';
+        if (el) el.textContent = 'Connected';
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        document.getElementById('supaStatus').textContent = 'Reconnecting...';
+        if (el) el.textContent = 'Reconnecting...';
         setTimeout(() => initPresenceChannel(), 5000);
       } else if (status === 'CLOSED') {
-        document.getElementById('supaStatus').textContent = 'Disconnected';
+        if (el) el.textContent = 'Disconnected';
       }
     });
 }
