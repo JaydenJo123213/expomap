@@ -2082,5 +2082,223 @@ document.getElementById('btnLockCanvas').addEventListener('click', () => {
   updateLockButton();
 });
 
+// ════════════════════════════════════
+//  Booth Search
+// ════════════════════════════════════
+
+let _searchResults = [];
+let _searchActiveIdx = -1;
+const SEARCH_HISTORY_KEY = 'expomap_search_history';
+const SEARCH_HISTORY_MAX = 5;
+
+// 배정 상태 → dot 색상 (state.js STATUS_COLORS 키와 동일하게 유지)
+const STATUS_DOT_COLORS = {
+  available:  '#9E9E9E',
+  hold:       '#FF9800',
+  proposing:  '#FFC107',
+  assigned:   '#4CAF50',
+  discuss:    '#4F8CFF',
+  spot:       '#E91E63',
+  online:     '#00BCD4',
+  fake:       '#9E9E9E',
+  excluded:   '#616161',
+  facility:   '#795548',
+};
+
+function getBoothSearchResults(query) {
+  if (!query || !query.trim()) return [];
+  const q = query.trim().toLowerCase();
+  return state.booths.filter(b =>
+    (b.boothId     && b.boothId.toLowerCase().includes(q)) ||
+    (b.companyName && b.companyName.toLowerCase().includes(q)) ||
+    (b.companyNameEn && b.companyNameEn.toLowerCase().includes(q))
+  ).slice(0, 10);
+}
+
+function highlightMatch(text, query) {
+  if (!text || !query) return text || '';
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return text;
+  return text.slice(0, idx)
+    + `<span class="search-highlight">${text.slice(idx, idx + query.length)}</span>`
+    + text.slice(idx + query.length);
+}
+
+function getSearchHistory() {
+  try { return JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveSearchHistory(boothId) {
+  const history = getSearchHistory().filter(id => id !== boothId);
+  history.unshift(boothId);
+  localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, SEARCH_HISTORY_MAX)));
+}
+
+function positionBoothSearchDropdown() {
+  const input = document.getElementById('boothSearchInput');
+  const dropdown = document.getElementById('boothSearchDropdown');
+  if (!input || !dropdown) return;
+  const rect = input.getBoundingClientRect();
+  dropdown.style.top   = (rect.bottom + 4) + 'px';
+  dropdown.style.left  = rect.left + 'px';
+  dropdown.style.width = rect.width + 'px';
+}
+
+function renderBoothSearchDropdown(results, query) {
+  const dropdown = document.getElementById('boothSearchDropdown');
+  const isEn = state.lang === 'en';
+
+  if (!query && !results.length) {
+    const history = getSearchHistory();
+    const recentBooths = history.map(id => state.booths.find(b => b.id === id)).filter(Boolean);
+    if (!recentBooths.length) { dropdown.style.display = 'none'; return; }
+    dropdown.innerHTML = `<div class="search-recent-header">최근 검색</div>`
+      + recentBooths.map((b, i) => buildSearchResultItem(b, i, '', isEn)).join('');
+    attachSearchDropdownHandlers(dropdown, recentBooths);
+    positionBoothSearchDropdown();
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  if (!results.length) {
+    dropdown.innerHTML = `<div class="search-empty">일치하는 부스가 없습니다</div>`;
+    positionBoothSearchDropdown();
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  dropdown.innerHTML = results.map((b, i) => buildSearchResultItem(b, i, query, isEn)).join('');
+  attachSearchDropdownHandlers(dropdown, results);
+  positionBoothSearchDropdown();
+  dropdown.style.display = 'block';
+}
+
+function buildSearchResultItem(b, i, query, isEn) {
+  const name = isEn ? (b.companyNameEn || b.companyName || '') : (b.companyName || '');
+  const boothIdHtml = query ? highlightMatch(b.boothId || '—', query) : (b.boothId || '—');
+  const nameHtml = name
+    ? (query ? highlightMatch(name, query) : name)
+    : `<span style="opacity:0.4">업체 미배정</span>`;
+  const dotColor = STATUS_DOT_COLORS[b.status] || STATUS_DOT_COLORS.available;
+  return `<div class="search-result-item" data-id="${b.id}" data-idx="${i}">
+    <span class="search-result-dot" style="background:${dotColor}"></span>
+    <span class="search-result-boothid">${boothIdHtml}</span>
+    <span class="search-result-name">${nameHtml}</span>
+  </div>`;
+}
+
+function attachSearchDropdownHandlers(dropdown, results) {
+  dropdown.querySelectorAll('.search-result-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const b = results[+el.dataset.idx];
+      if (b) { focusBoothById(b.id); closeBoothSearch(); }
+    });
+  });
+}
+
+function highlightBoothSearchItem(idx) {
+  document.querySelectorAll('.search-result-item').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+}
+
+function closeBoothSearch() {
+  const input = document.getElementById('boothSearchInput');
+  const dropdown = document.getElementById('boothSearchDropdown');
+  const clearBtn = document.getElementById('boothSearchClear');
+  if (input) input.value = '';
+  if (dropdown) dropdown.style.display = 'none';
+  if (clearBtn) clearBtn.style.display = 'none';
+  _searchResults = [];
+  _searchActiveIdx = -1;
+}
+
+function focusBoothById(id) {
+  const booth = state.booths.find(b => b.id === id);
+  if (!booth) return;
+
+  saveSearchHistory(id);
+
+  const rect = container.getBoundingClientRect();
+  const targetZoom = Math.max(state.zoom, 2.5);
+  const cx = booth.x + booth.w / 2;
+  const cy = booth.y + booth.h / 2;
+  state.zoom = targetZoom;
+  state.panX = rect.width  / 2 - cx * state.zoom;
+  state.panY = rect.height / 2 - cy * state.zoom;
+  document.getElementById('zoomDisplay').textContent = Math.round(state.zoom * 100) + '%';
+
+  state.searchMarker = { boothId: id, startTime: Date.now() };
+
+  if (!VIEWER_MODE) {
+    state.selectedIds.clear();
+    state.selectedIds.add(booth.id);
+    render();
+    updateProps();
+    if (typeof broadcastSelectionState === 'function') broadcastSelectionState();
+  } else {
+    render();
+  }
+}
+
+function initBoothSearch() {
+  const input = document.getElementById('boothSearchInput');
+  const dropdown = document.getElementById('boothSearchDropdown');
+  const clearBtn = document.getElementById('boothSearchClear');
+  if (!input || !dropdown) return;
+
+  input.addEventListener('input', () => {
+    _searchActiveIdx = -1;
+    if (clearBtn) clearBtn.style.display = input.value ? 'block' : 'none';
+    _searchResults = getBoothSearchResults(input.value);
+    renderBoothSearchDropdown(_searchResults, input.value);
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => { closeBoothSearch(); input.focus(); });
+  }
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeBoothSearch(); input.blur(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _searchActiveIdx = Math.min(_searchActiveIdx + 1, _searchResults.length - 1);
+      highlightBoothSearchItem(_searchActiveIdx);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _searchActiveIdx = Math.max(_searchActiveIdx - 1, -1);
+      highlightBoothSearchItem(_searchActiveIdx);
+    } else if (e.key === 'Enter') {
+      const target = _searchActiveIdx >= 0 ? _searchResults[_searchActiveIdx]
+                   : _searchResults.length === 1 ? _searchResults[0] : null;
+      if (target) { focusBoothById(target.id); closeBoothSearch(); input.blur(); }
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => { if (dropdown) dropdown.style.display = 'none'; }, 150);
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value) {
+      _searchResults = getBoothSearchResults(input.value);
+      renderBoothSearchDropdown(_searchResults, input.value);
+    } else {
+      renderBoothSearchDropdown([], '');
+    }
+  });
+
+  // Ctrl+F 인터셉트
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  });
+}
+
 // ─── Init ───
 // ─── 전시회 선택 화면 ───

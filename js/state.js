@@ -206,6 +206,9 @@ let state = {
     'bg': false,          // 도면배경
     'measure': false,     // 실측
   },
+  // ─── 검색 마커 ───
+  searchMarker: null,      // { boothId, startTime } | null
+  _searchMarkerRafId: null,
 };
 
 // ─── 레이어 정의 ───

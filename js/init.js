@@ -60,6 +60,7 @@ async function init() {
   setInterval(pruneStaleRemoteCursors, 1000);
   window.addEventListener('beforeunload', () => { broadcastCursorLeave(); broadcastSelectionClear(); });
   updateLockButton();
+  initBoothSearch();
   render();
 }
 init();

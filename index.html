@@ -97,6 +97,18 @@
   .prop-input:focus { outline: none; border-color: var(--accent); }
   .status-select { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 8px; color: var(--text); font-size: 12px; font-family: inherit; width: 100%; cursor: pointer; }
 
+  /* ─── Booth Search ─── */
+  #boothSearchInput:focus { border-color: var(--accent); }
+  .search-result-item { padding: 7px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item:hover, .search-result-item.active { background: rgba(79,140,255,0.08); }
+  .search-result-boothid { font-weight: 700; color: var(--accent); min-width: 52px; }
+  .search-result-name { color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .search-result-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .search-highlight { font-weight: 700; color: var(--accent); }
+  .search-recent-header { padding: 5px 12px; font-size: 10px; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  .search-empty { padding: 12px; text-align: center; font-size: 12px; color: var(--text-dim); }
+
   /* ─── Bottom Bar ─── */
   .bottombar { position: fixed; bottom: 0; left: 0; right: 0; height: 26px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: var(--text-dim); gap: 14px; z-index: 100; }
   .bottombar span { font-variant-numeric: tabular-nums; }
@@ -351,6 +363,28 @@
   <div class="topbar-divider"></div>
   <div class="tool-group">
     <button class="tool-btn" id="btnLockCanvas" style="font-weight:600">Lock</button>
+  </div>
+
+  <!-- 검색바 (툴바 중앙) -->
+  <div id="boothSearchContainer" style="flex:1;display:flex;justify-content:center;align-items:center;max-width:300px;margin:0 auto;position:relative;">
+    <div style="position:relative;width:100%;">
+      <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);opacity:0.45;font-size:13px;pointer-events:none;">🔍</span>
+      <input type="text" id="boothSearchInput"
+        placeholder="부스번호 또는 업체명  ·  Ctrl+F"
+        autocomplete="off"
+        style="width:100%;box-sizing:border-box;padding:5px 28px 5px 30px;
+               border:1px solid var(--border);border-radius:6px;
+               background:var(--surface-hover);color:var(--text);font-size:12px;
+               outline:none;transition:border-color 0.15s;">
+      <button id="boothSearchClear"
+        style="display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);
+               background:none;border:none;cursor:pointer;opacity:0.45;font-size:14px;padding:0;line-height:1;">✕</button>
+      <div id="boothSearchDropdown"
+        style="display:none;position:fixed;
+               background:var(--surface);border:1px solid var(--border);
+               border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.18);
+               max-height:260px;overflow-y:auto;z-index:9999;"></div>
+    </div>
   </div>
 
   <!-- Booth Count Cards (숨김처리 — monitoring dashboard로 이전) -->

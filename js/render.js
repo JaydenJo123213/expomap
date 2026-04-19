@@ -754,6 +754,36 @@ function drawNeighborDistances(ctx, state) {
 }
 
 
+// ─── 검색 마커 (핑 링 애니메이션) ───
+function drawSearchMarker(c, zoom) {
+  if (!state.searchMarker) return;
+  const { boothId, startTime } = state.searchMarker;
+  const elapsed = Date.now() - startTime;
+  const duration = 1800;
+  if (elapsed >= duration) { state.searchMarker = null; return; }
+
+  const booth = state.booths.find(b => b.id === boothId);
+  if (!booth) return;
+
+  const t = elapsed / duration;
+  const alpha = 1 - t;
+  const expand = (t * 12) / zoom;
+  c.save();
+  c.strokeStyle = `rgba(79,140,255,${alpha.toFixed(2)})`;
+  c.lineWidth = 2.5 / zoom;
+  c.strokeRect(booth.x - expand, booth.y - expand,
+               booth.w + expand * 2, booth.h + expand * 2);
+  c.restore();
+
+  // 중복 방지하며 다음 프레임 스케줄
+  if (!state._searchMarkerRafId) {
+    state._searchMarkerRafId = requestAnimationFrame(() => {
+      state._searchMarkerRafId = null;
+      render();
+    });
+  }
+}
+
 //  RENDER
 // ═══════════════════════════════════════
 function render() {
@@ -1057,6 +1087,9 @@ function render() {
   // ─── 실측 레이어 ───
   drawMeasureLayer(ctx, state.zoom);
 
+  // ─── 검색 마커 ───
+  drawSearchMarker(ctx, state.zoom);
+
   ctx.restore();
 
   // Show/hide assignGuideMode hint
@@ -1159,6 +1192,9 @@ function renderViewer(w, h) {
 
   // Structures (부스 위에 항상 렌더링)
   drawStructures(ctx, state.zoom, false);
+
+  // ─── 검색 마커 ───
+  drawSearchMarker(ctx, state.zoom);
 
   ctx.restore();
   drawRemoteCursors();
