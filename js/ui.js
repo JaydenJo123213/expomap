@@ -2115,13 +2115,18 @@ function getBoothSearchResults(query) {
   ).slice(0, 10);
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function highlightMatch(text, query) {
-  if (!text || !query) return text || '';
+  if (!text || !query) return escapeHtml(text);
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx < 0) return text;
-  return text.slice(0, idx)
-    + `<span class="search-highlight">${text.slice(idx, idx + query.length)}</span>`
-    + text.slice(idx + query.length);
+  if (idx < 0) return escapeHtml(text);
+  return escapeHtml(text.slice(0, idx))
+    + `<span class="search-highlight">${escapeHtml(text.slice(idx, idx + query.length))}</span>`
+    + escapeHtml(text.slice(idx + query.length));
 }
 
 function getSearchHistory() {
@@ -2176,9 +2181,9 @@ function renderBoothSearchDropdown(results, query) {
 
 function buildSearchResultItem(b, i, query, isEn) {
   const name = isEn ? (b.companyNameEn || b.companyName || '') : (b.companyName || '');
-  const boothIdHtml = query ? highlightMatch(b.boothId || '—', query) : (b.boothId || '—');
+  const boothIdHtml = query ? highlightMatch(b.boothId || '—', query) : escapeHtml(b.boothId || '—');
   const nameHtml = name
-    ? (query ? highlightMatch(name, query) : name)
+    ? (query ? highlightMatch(name, query) : escapeHtml(name))
     : `<span style="opacity:0.4">업체 미배정</span>`;
   const dotColor = STATUS_DOT_COLORS[b.status] || STATUS_DOT_COLORS.available;
   return `<div class="search-result-item" data-id="${b.id}" data-idx="${i}">
@@ -2271,6 +2276,8 @@ function initBoothSearch() {
       _searchActiveIdx = Math.max(_searchActiveIdx - 1, -1);
       highlightBoothSearchItem(_searchActiveIdx);
     } else if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
       const target = _searchActiveIdx >= 0 ? _searchResults[_searchActiveIdx]
                    : _searchResults.length === 1 ? _searchResults[0] : null;
       if (target) { focusBoothById(target.id); closeBoothSearch(); input.blur(); }
