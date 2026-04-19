@@ -308,6 +308,7 @@ async function loadFromSupabase({ preserveSelection = false } = {}) {
 
 function updateSaveIndicator(status) {
   const el = document.getElementById('saveIndicator');
+  if (!el) return;
   el.className = 'save-indicator ' + status;
   const target = _supaClient ? 'Supabase' : 'Local';
   const exName = _currentExpo ? ' [' + _currentExpo.nameShort + ']' : '';

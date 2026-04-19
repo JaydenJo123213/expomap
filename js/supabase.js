@@ -25,7 +25,8 @@ function initSupabase() {
     try {
       _supaClient = window.supabase.createClient(url, key);
       updateSaveIndicator('saved');
-      document.getElementById('supaStatus').textContent = 'Connected';
+      const _ss1 = document.getElementById('supaStatus');
+      if (_ss1) _ss1.textContent = 'Connected';
       return true;
     } catch (e) {
       console.error('Supabase init failed:', e);
@@ -33,7 +34,8 @@ function initSupabase() {
     }
   }
   updateSaveIndicator('offline');
-  document.getElementById('supaStatus').textContent = 'Not connected';
+  const _ss2 = document.getElementById('supaStatus');
+  if (_ss2) _ss2.textContent = 'Not connected';
   showConnectionAlert('Supabase에 연결되지 않았습니다.\n데이터가 저장되지 않습니다!');
   return false;
 }
