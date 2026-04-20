@@ -66,7 +66,7 @@ const CURSOR_THROTTLE_MS = 2000;
 // ─── State ───
 let state = {
   mode: 'select',
-  snap: 'grid',
+  snap: 'half',
   zoom: 1,
   panX: 0, panY: 0,
   isPanning: false,
