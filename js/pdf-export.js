@@ -1026,10 +1026,8 @@ async function _buildPDFLibDocument(mode, options = {}) {
     if (showText) {
       // 벡터 텍스트 (Spoqa Han Sans Neo TTF 임베딩)
       const mc = document.createElement('canvas').getContext('2d');
-      for (const b of booths) _drawBoothTextPdfLib(page, b, fontRegEmbed, fontBoldEmbed, scalePt, toX, toY, pgHpt, mc);
-      _drawBaseNumbersPdfLib(page, booths, fontRegEmbed, scalePt, toX, toY, pgHpt);
 
-      // 로고 임베딩 (pdfDoc 참조가 여기 필요)
+      // 로고 먼저 (텍스트가 로고 위에 그려지도록 — 간격 좁혀 겹칠 때 텍스트가 위에 와야 함)
       for (const b of booths) {
         const area = (b.w / 10) * (b.h / 10);
         if (area < 36 || !b.companyLogoUrl || !b.companyName) continue;
@@ -1057,6 +1055,10 @@ async function _buildPDFLibDocument(mode, options = {}) {
           });
         } catch(e) { console.warn('로고 임베딩 실패:', b.id, e.message); }
       }
+
+      // 텍스트는 로고 위에 (로고와 겹칠 때 텍스트가 보여야 함)
+      for (const b of booths) _drawBoothTextPdfLib(page, b, fontRegEmbed, fontBoldEmbed, scalePt, toX, toY, pgHpt, mc);
+      _drawBaseNumbersPdfLib(page, booths, fontRegEmbed, scalePt, toX, toY, pgHpt);
     } // if (showText) 벡터 경로 끝
   } else {
     // 래스터 텍스트 폴백
