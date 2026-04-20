@@ -897,10 +897,15 @@ function _drawDiscussOverlaysOnCanvas(ctx, zoom, overlays) {
         const boothText = boothCount % 1 === 0 ? String(boothCount) : boothCount.toFixed(1);
         const boothFontSize = Math.max(15 / zoom, 12);
         ctx.font = `600 ${boothFontSize}px 'Spoqa Han Sans Neo', sans-serif`;
-        ctx.fillStyle = '#E53935';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(`${boothText} Booth`, arrowX, arrowStartY - 2 / zoom);
+        const fullText = `${boothText} Booth`;
+        const textW = ctx.measureText(fullText).width;
+        const bgPad = boothFontSize * 0.25;
+        ctx.fillStyle = 'rgba(255, 200, 0, 0.75)';
+        ctx.fillRect(arrowX - textW / 2 - bgPad, arrowStartY - 2 / zoom - boothFontSize - bgPad, textW + bgPad * 2, boothFontSize + bgPad * 2);
+        ctx.fillStyle = '#E53935';
+        ctx.fillText(fullText, arrowX, arrowStartY - 2 / zoom);
       }
     });
   }
@@ -1019,21 +1024,6 @@ async function _buildPDFLibDocument(mode, options = {}) {
     }
   }
 
-  // Layer 2.5: assignGuide 모드 — spot 부스 노란 반투명 오버레이 (부스번호 가독성)
-  if (mode === 'assignGuide') {
-    const { rgb: rgb2 } = PDFLib;
-    for (const b of booths) {
-      if (b.status !== 'spot') continue;
-      if (b.cells && b.cells.length > 1) {
-        for (const cell of b.cells) {
-          page.drawRectangle({ x: toX(cell.x), y: toPageY(cell.y + cell.h), width: toS(cell.w), height: toS(cell.h), color: rgb2(1, 0.86, 0), opacity: 0.45 });
-        }
-      } else {
-        page.drawRectangle({ x: toX(b.x), y: toPageY(b.y + b.h), width: toS(b.w), height: toS(b.h), color: rgb2(1, 0.86, 0), opacity: 0.45 });
-      }
-    }
-  }
-
   // Layer 3: 텍스트 + 로고 — 벡터(폰트 임베딩 성공) / 래스터 폴백
   // assignGuide 모드에서 showNames=false 이면 텍스트 레이어 전체 스킵 (빈 부스만 출력)
   const showText = mode !== 'assignGuide' || options.showNames !== false;
@@ -1089,15 +1079,6 @@ async function _buildPDFLibDocument(mode, options = {}) {
         tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
                        offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
         tctx.scale(wScale, wScale);
-        // assignGuide 래스터 폴백: spot 부스 노란 오버레이
-        if (mode === 'assignGuide') {
-          tctx.fillStyle = 'rgba(255, 220, 0, 0.45)';
-          for (const b of booths) {
-            if (b.status !== 'spot') continue;
-            if (b.cells && b.cells.length > 1) { b.cells.forEach(cell => tctx.fillRect(cell.x, cell.y, cell.w, cell.h)); }
-            else { tctx.fillRect(b.x, b.y, b.w, b.h); }
-          }
-        }
         const textColor = _boothColorOverride ? '#111111' : null;
         for (const b of booths) {
           const tc2 = textColor || (_boothColors(b, mode).text || '#111111');
@@ -1209,6 +1190,15 @@ async function _buildPDFLibDocument(mode, options = {}) {
           const boothText = `${boothCount % 1 === 0 ? String(boothCount) : boothCount.toFixed(1)} Booth`;
           const fz = Math.max(toS(12), 7);
           const tw = fontBoldEmbed.widthOfTextAtSize(boothText, fz);
+          const bgPad = fz * 0.25;
+          page.drawRectangle({
+            x: tipX - tw / 2 - bgPad,
+            y: toPageY(arrowStartY) + fz * 0.2 - bgPad,
+            width: tw + bgPad * 2,
+            height: fz + bgPad * 2,
+            color: rgb(1, 0.78, 0),
+            opacity: 0.75,
+          });
           page.drawText(boothText, {
             x: tipX - tw / 2, y: toPageY(arrowStartY) + fz * 0.2,
             size: fz, font: fontBoldEmbed, color: redColor,
