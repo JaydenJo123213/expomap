@@ -723,12 +723,11 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
     page.drawText(b.boothId, { x: tx, y: ty, size: ptSz, font: fontBold, color: rgb(0,0,0), opacity: 0.65 });
   };
 
-  const drawName = (lines, fz, startY) => {
+  const drawName = (lines, fz, startY, cx = tr.x + tr.w / 2) => {
     if (!lines.length) return;
     const ptSz = toPt(fz);
     if (ptSz < 0.5) return;
     const lineH = fz * 1.25;
-    const cx = tr.x + tr.w / 2;
     lines.forEach((line, i) => {
       const tw = fontReg.widthOfTextAtSize(line, ptSz);
       const tx = toX(cx) - tw / 2;
@@ -765,7 +764,8 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
           fz = Math.min(fz, (textRect.h / lines.length) / 1.25);
           const lineH = fz * 1.25, blockH = lines.length * lineH;
           const startY = textRect.y + (textRect.h - blockH) / 2 + fz * 0.5;
-          drawName(lines, fz, startY - fz * 0.5);
+          const textCX = textRect.x + textRect.w / 2;
+          drawName(lines, fz, startY - fz * 0.5, textCX);
         }
         if (hasBoothNo) drawNo(noFz);
       }
