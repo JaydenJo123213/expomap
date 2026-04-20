@@ -155,56 +155,70 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
     const logoImg = getLogoImage(b, state.logoCache);
     if (logoImg) {
       const scale = (b.logoScale ?? 100) / 100;
-      const gap = (b.logoGap ?? 0) * (tr.h / 100);
-
-      // 로고 영역: 부스번호 아래 ~ 상단 60%
       const noReserve = hasBoothNo ? getBoothNoFontSize(c, b) + 4 : 0;
-      const logoPad = tr.w * 0.08;
-      const logoTopPad = Math.max(tr.h * 0.05, noReserve);
-      const logoBottomPad = tr.h * 0.02;
-      const logoAreaH = tr.h * 0.60;
-      const logoW = tr.w - logoPad * 2;
-      const logoH = logoAreaH - logoTopPad - logoBottomPad;
+      const pos = b.logoPosition ?? 'top';
+      const offsetX = (b.logoOffsetX ?? 0) * tr.w / 100;
+      const offsetY = (b.logoOffsetY ?? 0) * tr.h / 100;
+
+      // 로고 크기: 부스 짧은 변 × scale (aspect-ratio 유지)
+      const baseSide = Math.min(tr.w, tr.h - noReserve);
+      const imgAspect = logoImg.width / logoImg.height;
+      let drawW, drawH;
+      if (imgAspect >= 1) { drawW = baseSide * scale; drawH = drawW / imgAspect; }
+      else                 { drawH = baseSide * scale; drawW = drawH * imgAspect; }
+
+      // 로고 중심: pos별 기본 오프셋 + 사용자 오프셋
+      const defOX = pos === 'left' ? -tr.w * 0.18 : pos === 'right' ? tr.w * 0.18 : 0;
+      const defOY = pos === 'top'  ? -tr.h * 0.15 : pos === 'bottom' ? tr.h * 0.15 : 0;
+      const logoCX = tr.x + tr.w / 2 + defOX + offsetX;
+      const logoCY = tr.y + noReserve + (tr.h - noReserve) / 2 + defOY + offsetY;
 
       c.save();
       c.globalAlpha = 0.9;
-      const imgAspect = logoImg.width / logoImg.height;
-      const areaAspect = logoW / logoH;
-      let drawW, drawH;
-      if (imgAspect > areaAspect) {
-        drawW = logoW;
-        drawH = logoW / imgAspect;
-      } else {
-        drawH = logoH;
-        drawW = logoH * imgAspect;
-      }
-      drawW *= scale;
-      drawH *= scale;
-      const logoX = tr.x + (tr.w - drawW) / 2;
-      const logoCenterY = tr.y + logoTopPad + logoH / 2;
-      const logoY = logoCenterY - drawH / 2;
-      c.drawImage(logoImg, logoX, logoY, drawW, drawH);
+      c.drawImage(logoImg, logoCX - drawW / 2, logoCY - drawH / 2, drawW, drawH);
       c.globalAlpha = 1;
       c.restore();
 
-      // 텍스트 영역: 로고 아래 (gap 적용)
-      const textAreaY = tr.y + tr.h * 0.58 + gap;
-      const textAreaH = tr.h * 0.36 - gap;
+      // 텍스트: 로고 엣지 기준으로 배치 (gap = 로고와 텍스트 사이 거리, % 단위)
+      const gapH = (b.logoGap ?? 5) * tr.h / 100;
+      const gapW = (b.logoGap ?? 5) * tr.w / 100;
+      let textRect;
+      if (pos === 'top') {
+        // 로고 하단 + gap → 텍스트
+        const textY = logoCY + drawH / 2 + gapH;
+        textRect = { x: tr.x, y: textY, w: tr.w, h: tr.y + tr.h - textY - tr.h * 0.02 };
+      } else if (pos === 'bottom') {
+        // 텍스트 → gap + 로고 상단
+        const textBottom = logoCY - drawH / 2 - gapH;
+        const textTop = tr.y + noReserve + tr.h * 0.02;
+        textRect = { x: tr.x, y: textTop, w: tr.w, h: Math.max(0, textBottom - textTop) };
+      } else if (pos === 'left') {
+        // 로고 우측 + gap → 텍스트
+        const textX = logoCX + drawW / 2 + gapW;
+        textRect = { x: textX, y: tr.y + noReserve, w: tr.x + tr.w - textX - tr.w * 0.02, h: tr.h - noReserve };
+      } else { // right
+        // 텍스트 → gap + 로고 좌측
+        const textRight = logoCX - drawW / 2 - gapW;
+        const textLeft = tr.x + tr.w * 0.02;
+        textRect = { x: textLeft, y: tr.y + noReserve, w: Math.max(0, textRight - textLeft), h: tr.h - noReserve };
+      }
+
       const lines = wrapText(displayName);
-      const longestLine = lines.reduce((a, b) => a.length >= b.length ? a : b, '');
+      const longestLine = lines.reduce((a, ln) => a.length >= ln.length ? a : ln, '');
+      if (textRect.w >= 20) {
+        let fz = (fontSizeOverride != null)
+          ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+          : (() => { let v = calcFontSize(c, longestLine || 'A', textRect.w * 0.9); if (textRect.h > 0) v = Math.min(v, (textRect.h / lines.length) / 1.25); return Math.max(1.5, Math.min(v, 12)); })();
 
-      let fz = (fontSizeOverride != null)
-        ? Math.max(1.5, Math.min(fontSizeOverride, 60))
-        : (() => { let v = calcFontSize(c, longestLine || 'A', availW * 0.85); if (textAreaH > 0) v = Math.min(v, (textAreaH / lines.length) / 1.25); return Math.max(1.5, Math.min(v, 12)); })();
+        const lineH = fz * 1.25;
+        const blockH = lines.length * lineH;
+        const startY = textRect.y + (textRect.h - blockH) / 2 + fz * 0.5;
 
-      const lineH = fz * 1.25;
-      const blockH = lines.length * lineH;
-      const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
-
-      c.fillStyle = textColor;
-      c.font = `400 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      lines.forEach((line, i) => c.fillText(line, tr.x + tr.w / 2, startY + i * lineH));
+        c.fillStyle = textColor;
+        c.font = `400 ${fz}px 'Spoqa Han Sans Neo', sans-serif`;
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        lines.forEach((line, i) => c.fillText(line, textRect.x + textRect.w / 2, startY + i * lineH));
+      }
 
       // 부스번호: 좌상단
       if (hasBoothNo) {
@@ -930,14 +944,42 @@ function render() {
     ctx.lineWidth = isSelected ? 2 / state.zoom : 1 / state.zoom;
     strokeBoothShape(ctx, b, state.zoom);
 
-    // Resize handle for selected booths (bottom-right corner)
+    // Resize handles for selected booths (8 directions)
     if (isSelected && state.selectedIds.size === 1) {
-      const handleSize = 8 / state.zoom;
-      ctx.fillStyle = '#4F8CFF';
-      ctx.fillRect(b.x + b.w - handleSize, b.y + b.h - handleSize, handleSize, handleSize);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1 / state.zoom;
-      ctx.strokeRect(b.x + b.w - handleSize, b.y + b.h - handleSize, handleSize, handleSize);
+      const hs = 5 / state.zoom;
+      const handles = [
+        { x: b.x,           y: b.y           },  // nw
+        { x: b.x + b.w / 2, y: b.y           },  // n
+        { x: b.x + b.w,     y: b.y           },  // ne
+        { x: b.x + b.w,     y: b.y + b.h / 2 },  // e
+        { x: b.x + b.w,     y: b.y + b.h     },  // se
+        { x: b.x + b.w / 2, y: b.y + b.h     },  // s
+        { x: b.x,           y: b.y + b.h     },  // sw
+        { x: b.x,           y: b.y + b.h / 2 },  // w
+      ];
+      handles.forEach(h => {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(h.x - hs, h.y - hs, hs * 2, hs * 2);
+        ctx.strokeStyle = '#4F8CFF';
+        ctx.lineWidth = 1.5 / state.zoom;
+        ctx.strokeRect(h.x - hs, h.y - hs, hs * 2, hs * 2);
+      });
+      // Size indicator while resizing
+      if (state.boothResizeHandle) {
+        const label = `${pxToM(b.w)}×${pxToM(b.h)}m`;
+        const fontSize = Math.max(10, 12 / state.zoom);
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        const tx = b.x + b.w / 2;
+        const ty = b.y - 6 / state.zoom;
+        const tw = ctx.measureText(label).width;
+        const pad = 3 / state.zoom;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(tx - tw / 2 - pad, ty - fontSize - pad, tw + pad * 2, fontSize + pad * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, tx, ty);
+      }
     }
 
     // 부스 타입 오버레이 (조립=노랑, 자체시공=주황)

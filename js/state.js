@@ -190,7 +190,7 @@ let state = {
   boothDragging: false,
   boothDragStartSX: 0, boothDragStartSY: 0,
   boothDragOrigins: [],  // [{id, x, y, w, h}]
-  boothResizeHandle: null,  // 'se' or null
+  boothResizeHandle: null,  // 'nw'|'n'|'ne'|'e'|'se'|'s'|'sw'|'w' or null
   boothResizeDragStartSX: 0, boothResizeDragStartSY: 0,
   boothResizeOrigins: [],  // [{id, w, h}] for resized booths
   // 배정안내 모드

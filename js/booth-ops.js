@@ -412,7 +412,7 @@ function redo() {
 
 // ─── Booth CRUD ───
 function createBooth(x, y, w, h) {
-  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
+  const booth = { id: state.nextId++, x, y, w, h, boothId: '', status: 'available', companyUid: '', companyName: '', companyNameEn: '', companyLogoUrl: '', logoScale: 100, logoGap: 0, logoPosition: 'top', logoOffsetX: 0, logoOffsetY: 0, groupId: null, locked: false, memo: '', elecSide: '', otherSide: '', boothType: '', boothTypeCoverage: 100, boothTypeDir: 'full' };
   saveUndo();
   state.booths.push(booth);
   return booth;

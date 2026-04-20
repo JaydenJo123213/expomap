@@ -278,6 +278,38 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
+    // Resize handle check BEFORE getBoothAt — handles extend outside booth boundary
+    if (state.mode === 'select' && state.selectedIds.size === 1 && !state.layerLocked['booth']) {
+      const selBooth = state.booths.find(b => state.selectedIds.has(b.id));
+      if (selBooth) {
+        const hitR = 7 / state.zoom;
+        const boothHandles = [
+          { id: 'nw', x: selBooth.x,                  y: selBooth.y               },
+          { id: 'n',  x: selBooth.x + selBooth.w / 2, y: selBooth.y               },
+          { id: 'ne', x: selBooth.x + selBooth.w,     y: selBooth.y               },
+          { id: 'e',  x: selBooth.x + selBooth.w,     y: selBooth.y + selBooth.h / 2 },
+          { id: 'se', x: selBooth.x + selBooth.w,     y: selBooth.y + selBooth.h  },
+          { id: 's',  x: selBooth.x + selBooth.w / 2, y: selBooth.y + selBooth.h  },
+          { id: 'sw', x: selBooth.x,                  y: selBooth.y + selBooth.h  },
+          { id: 'w',  x: selBooth.x,                  y: selBooth.y + selBooth.h / 2 },
+        ];
+        const hitHandle = boothHandles.find(h =>
+          Math.abs(world.x - h.x) <= hitR && Math.abs(world.y - h.y) <= hitR
+        );
+        if (hitHandle) {
+          state.boothResizeHandle = hitHandle.id;
+          state.boothResizeDragStartSX = sx;
+          state.boothResizeDragStartSY = sy;
+          state.boothResizeOrigins = state.booths
+            .filter(b => state.selectedIds.has(b.id))
+            .map(b => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h }));
+          broadcastSelectionState();
+          render(); updateProps();
+          return;
+        }
+      }
+    }
+
     // Booth click/drag (priority over BaseNo)
     const booth = getBoothAt(world.x, world.y);
     if (booth && !state.layerLocked['booth']) {
@@ -315,28 +347,6 @@ canvas.addEventListener('mousedown', (e) => {
           } else {
             state.selectedIds.add(booth.id);
           }
-        }
-      }
-
-      // Check resize handle (bottom-right corner) — only if single selection
-      if (state.selectedIds.size === 1) {
-        const resizeHandleSize = 8 / state.zoom;
-        const isOnResizeHandle = (
-          world.x >= booth.x + booth.w - resizeHandleSize &&
-          world.x <= booth.x + booth.w &&
-          world.y >= booth.y + booth.h - resizeHandleSize &&
-          world.y <= booth.y + booth.h
-        );
-        if (isOnResizeHandle) {
-          state.boothResizeHandle = 'se';
-          state.boothResizeDragStartSX = sx;
-          state.boothResizeDragStartSY = sy;
-          state.boothResizeOrigins = state.booths
-            .filter(b => state.selectedIds.has(b.id))
-            .map(b => ({ id: b.id, w: b.w, h: b.h }));
-          broadcastSelectionState();
-          render(); updateProps();
-          return;
         }
       }
 
@@ -563,18 +573,32 @@ canvas.addEventListener('mousemove', (e) => {
     }
   }
 
-  // Booth resize
-  if (state.boothResizeHandle === 'se') {
+  // Booth resize (8 directions, always snap to HALF_GRID_PX = 0.5m)
+  if (state.boothResizeHandle) {
     const ddx = (sx - state.boothResizeDragStartSX) / state.zoom;
     const ddy = (sy - state.boothResizeDragStartSY) / state.zoom;
+    const dir = state.boothResizeHandle;
     state.booths.forEach(b => {
       if (!state.selectedIds.has(b.id)) return;
       const orig = state.boothResizeOrigins.find(o => o.id === b.id);
-      if (orig) {
-        b.w = Math.max(GRID_PX, snapValue(orig.w + ddx));
-        b.h = Math.max(GRID_PX, snapValue(orig.h + ddy));
-        if (b.cells) b.cells = null;  // 리사이즈하면 비정형 형태 해제
+      if (!orig) return;
+      // Horizontal component
+      if (dir === 'e' || dir === 'ne' || dir === 'se') {
+        b.w = Math.max(GRID_PX, Math.round((orig.w + ddx) / HALF_GRID_PX) * HALF_GRID_PX);
+      } else if (dir === 'w' || dir === 'nw' || dir === 'sw') {
+        const newW = Math.max(GRID_PX, Math.round((orig.w - ddx) / HALF_GRID_PX) * HALF_GRID_PX);
+        b.x = orig.x + orig.w - newW;
+        b.w = newW;
       }
+      // Vertical component
+      if (dir === 's' || dir === 'sw' || dir === 'se') {
+        b.h = Math.max(GRID_PX, Math.round((orig.h + ddy) / HALF_GRID_PX) * HALF_GRID_PX);
+      } else if (dir === 'n' || dir === 'nw' || dir === 'ne') {
+        const newH = Math.max(GRID_PX, Math.round((orig.h - ddy) / HALF_GRID_PX) * HALF_GRID_PX);
+        b.y = orig.y + orig.h - newH;
+        b.h = newH;
+      }
+      if (b.cells) b.cells = null;  // 리사이즈하면 비정형 형태 해제
     });
     render(); return;
   }
@@ -685,6 +709,27 @@ canvas.addEventListener('mousemove', (e) => {
       canvas.style.cursor = h ? (cursors[h.id] || 'crosshair') : '';
     } else {
       canvas.style.cursor = '';
+    }
+  }
+
+  // 부스 리사이즈 핸들 커서
+  if (state.mode === 'select' && state.selectedIds.size === 1 && !state.boothResizeHandle) {
+    const selBooth = state.booths.find(b => state.selectedIds.has(b.id));
+    if (selBooth) {
+      const hitR = 7 / state.zoom;
+      const bh = [
+        { id: 'nw', x: selBooth.x,                  y: selBooth.y                  },
+        { id: 'n',  x: selBooth.x + selBooth.w / 2, y: selBooth.y                  },
+        { id: 'ne', x: selBooth.x + selBooth.w,     y: selBooth.y                  },
+        { id: 'e',  x: selBooth.x + selBooth.w,     y: selBooth.y + selBooth.h / 2 },
+        { id: 'se', x: selBooth.x + selBooth.w,     y: selBooth.y + selBooth.h     },
+        { id: 's',  x: selBooth.x + selBooth.w / 2, y: selBooth.y + selBooth.h     },
+        { id: 'sw', x: selBooth.x,                  y: selBooth.y + selBooth.h     },
+        { id: 'w',  x: selBooth.x,                  y: selBooth.y + selBooth.h / 2 },
+      ];
+      const cursors = { nw:'nwse-resize', se:'nwse-resize', ne:'nesw-resize', sw:'nesw-resize', n:'ns-resize', s:'ns-resize', e:'ew-resize', w:'ew-resize' };
+      const hit = bh.find(h => Math.abs(world.x - h.x) <= hitR && Math.abs(world.y - h.y) <= hitR);
+      canvas.style.cursor = hit ? cursors[hit.id] : '';
     }
   }
 

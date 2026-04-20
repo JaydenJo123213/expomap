@@ -394,6 +394,7 @@ document.getElementById('btnExport').addEventListener('click', () => {
 document.getElementById('btnExportSVG').addEventListener('click', () => { exportSVG('ko'); });
 document.getElementById('btnExportSVG_EN').addEventListener('click', () => { exportSVG('en'); });
 document.getElementById('btnAssignGuide').addEventListener('click', () => {
+  setMode('select');
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();
   render();
@@ -463,6 +464,7 @@ function updateFreeBoothCount() {
 }
 
 document.getElementById('btnAssignGuideTopbar').addEventListener('click', () => {
+  setMode('select');
   state.assignGuideMode = true;
   state.selectedDiscussIds.clear();
   render();
@@ -930,8 +932,18 @@ function updateProps() {
         logoControls.style.display = 'block';
         document.getElementById('propLogoScale').value = b.logoScale ?? 100;
         document.getElementById('propLogoScaleVal').textContent = (b.logoScale ?? 100) + '%';
-        document.getElementById('propLogoGap').value = b.logoGap ?? 0;
-        document.getElementById('propLogoGapVal').textContent = b.logoGap ?? 0;
+        document.getElementById('propLogoOffsetX').value = b.logoOffsetX ?? 0;
+        document.getElementById('propLogoOffsetXVal').textContent = b.logoOffsetX ?? 0;
+        document.getElementById('propLogoOffsetY').value = b.logoOffsetY ?? 0;
+        document.getElementById('propLogoOffsetYVal').textContent = b.logoOffsetY ?? 0;
+        document.getElementById('propLogoGap').value = b.logoGap ?? 5;
+        document.getElementById('propLogoGapVal').textContent = b.logoGap ?? 5;
+        const curPos = b.logoPosition ?? 'top';
+        document.querySelectorAll('#propLogoPositionBtns button').forEach(btn => {
+          const active = btn.dataset.pos === curPos;
+          btn.style.background = active ? 'var(--accent)' : 'var(--bg)';
+          btn.style.color = active ? '#fff' : 'var(--text)';
+        });
       } else {
         logoControls.style.display = 'none';
       }
@@ -1047,6 +1059,22 @@ document.getElementById('propLogoScale').addEventListener('input', (e) => {
 });
 document.getElementById('propLogoScale').addEventListener('change', () => { saveUndo(); scheduleSave(); });
 
+document.getElementById('propLogoOffsetX').addEventListener('input', (e) => {
+  const b = getSelectedBooth(); if (!b) return;
+  b.logoOffsetX = parseInt(e.target.value);
+  document.getElementById('propLogoOffsetXVal').textContent = b.logoOffsetX;
+  render();
+});
+document.getElementById('propLogoOffsetX').addEventListener('change', () => { saveUndo(); scheduleSave(); });
+
+document.getElementById('propLogoOffsetY').addEventListener('input', (e) => {
+  const b = getSelectedBooth(); if (!b) return;
+  b.logoOffsetY = parseInt(e.target.value);
+  document.getElementById('propLogoOffsetYVal').textContent = b.logoOffsetY;
+  render();
+});
+document.getElementById('propLogoOffsetY').addEventListener('change', () => { saveUndo(); scheduleSave(); });
+
 document.getElementById('propLogoGap').addEventListener('input', (e) => {
   const b = getSelectedBooth(); if (!b) return;
   b.logoGap = parseInt(e.target.value);
@@ -1054,6 +1082,19 @@ document.getElementById('propLogoGap').addEventListener('input', (e) => {
   render();
 });
 document.getElementById('propLogoGap').addEventListener('change', () => { saveUndo(); scheduleSave(); });
+
+document.getElementById('propLogoPositionBtns').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-pos]'); if (!btn) return;
+  const b = getSelectedBooth(); if (!b) return;
+  saveUndo();
+  b.logoPosition = btn.dataset.pos;
+  document.querySelectorAll('#propLogoPositionBtns button').forEach(b2 => {
+    const active = b2.dataset.pos === b.logoPosition;
+    b2.style.background = active ? 'var(--accent)' : 'var(--bg)';
+    b2.style.color = active ? '#fff' : 'var(--text)';
+  });
+  scheduleSave(); render();
+});
 
 // ─── BaseNo Props ───
 ['propBaseNo', 'propBaseNoX', 'propBaseNoY', 'propBaseNoW', 'propBaseNoH'].forEach(id => {
