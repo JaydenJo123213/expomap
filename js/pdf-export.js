@@ -432,31 +432,18 @@ function _buildSVGString(mode) {
         const logoDataUrl = _imgToDataUrl(logoImg);
         if (logoDataUrl) {
           logoDrawn = true;
-          const scale = (b.logoScale ?? 100) / 100;
-          const gap = (b.logoGap ?? 0) * (tr.h / 100);
           const noReserve = hasBoothNo ? calcFontSize(mc, b.boothId, 26) + 4 : 0;
-          const logoPad = tr.w * 0.08, logoTopPad = Math.max(tr.h*0.05, noReserve);
-          const logoAreaH = tr.h * 0.60;
-          const logoW = tr.w - logoPad*2, logoH = logoAreaH - logoTopPad - tr.h*0.02;
-          const imgAspect = (logoImg.naturalWidth||1) / (logoImg.naturalHeight||1);
-          const areaAspect = logoW / logoH;
-          let drawW, drawH;
-          if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW/imgAspect; }
-          else { drawH = logoH; drawW = logoH*imgAspect; }
-          drawW *= scale; drawH *= scale;
-          const logoX = tr.x + (tr.w-drawW)/2;
-          const logoY = tr.y + logoTopPad + logoH/2 - drawH/2;
+          const { logoX, logoY, drawW, drawH, textRect } = _calcLogoLayout(b, tr, noReserve, logoImg.naturalWidth, logoImg.naturalHeight);
           pLogos.push(`<image href="${logoDataUrl}" xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
 
-          const textAreaY = tr.y + tr.h*0.58 + gap;
-          const textAreaH = tr.h*0.36 - gap;
           const lines = wrapText(displayName);
           const longestLine = lines.reduce((a,l) => a.length >= l.length ? a : l, '');
-          let fz = fontSizeOverride != null ? Math.max(1.5, Math.min(fontSizeOverride, 60))
-            : (() => { let v = calcFontSize(mc, longestLine||'A', availW*0.85); if (textAreaH > 0) v = Math.min(v, (textAreaH/lines.length)/1.25); return Math.max(1.5, Math.min(v, 12)); })();
-          const lineH = fz*1.25, blockH = lines.length*lineH;
-          const startY = textAreaY + (textAreaH-blockH)/2 + fz*0.5;
-          { const cx = tr.x+tr.w/2, baseY = startY+fz*0.35;
+          if (textRect.w >= 20 && textRect.h > 0) {
+            let fz = fontSizeOverride != null ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+              : (() => { let v = calcFontSize(mc, longestLine||'A', textRect.w*0.9); if (textRect.h > 0) v = Math.min(v, (textRect.h/lines.length)/1.25); return Math.max(1.5, Math.min(v, 12)); })();
+            const lineH = fz*1.25, blockH = lines.length*lineH;
+            const startY = textRect.y + (textRect.h-blockH)/2 + fz*0.5;
+            const cx = tr.x+tr.w/2, baseY = startY+fz*0.35;
             const body = lines.length === 1 ? _escXml(lines[0]) : lines.map((l,i) => `<tspan x="${cx}" dy="${i===0?0:lineH}">${_escXml(l)}</tspan>`).join('');
             pNames.push(`<text x="${cx}" y="${baseY}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
           }
@@ -765,31 +752,21 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
       const logoDataUrl = _imgToDataUrl(logoImg);
       if (logoDataUrl) {
         logoDrawn = true;
-        const scale = (b.logoScale ?? 100) / 100;
         const noFz = hasBoothNo && mc ? calcFontSize(mc, b.boothId, 26) : 0;
         const noReserve = noFz ? noFz + 4 : 0;
-        const logoPad = tr.w * 0.08, logoTopPad = Math.max(tr.h * 0.05, noReserve);
-        const logoAreaH = tr.h * 0.60;
-        const logoW = tr.w - logoPad * 2, logoH = logoAreaH - logoTopPad - tr.h * 0.02;
-        const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
-        const areaAspect = logoW / logoH;
-        let drawW, drawH;
-        if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW / imgAspect; }
-        else { drawH = logoH; drawW = logoH * imgAspect; }
-        drawW *= scale; drawH *= scale;
         // 로고 embed는 _buildPDFLibDocument 내부 pdfDoc 참조가 필요해서 여기선 스킵
-        const gap = (b.logoGap ?? 0) * (tr.h / 100);
-        const textAreaY = tr.y + tr.h * 0.58 + gap;
-        const textAreaH = tr.h * 0.36 - gap;
+        const { textRect } = _calcLogoLayout(b, tr, noReserve, logoImg.naturalWidth, logoImg.naturalHeight);
         const lines = typeof wrapText === 'function' ? wrapText(displayName) : [displayName];
         const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
-        let fz = fontSizeOverride != null
-          ? Math.max(1.5, Math.min(fontSizeOverride, 60))
-          : Math.max(1.5, Math.min(mc ? calcFontSize(mc, longestLine || 'A', availW * 0.85) : 8, 12));
-        if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
-        const lineH = fz * 1.25, blockH = lines.length * lineH;
-        const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
-        drawName(lines, fz, startY - fz * 0.5);
+        if (textRect.w >= 20 && textRect.h > 0) {
+          let fz = fontSizeOverride != null
+            ? Math.max(1.5, Math.min(fontSizeOverride, 60))
+            : Math.max(1.5, Math.min(mc ? calcFontSize(mc, longestLine || 'A', textRect.w * 0.9) : 8, 12));
+          fz = Math.min(fz, (textRect.h / lines.length) / 1.25);
+          const lineH = fz * 1.25, blockH = lines.length * lineH;
+          const startY = textRect.y + (textRect.h - blockH) / 2 + fz * 0.5;
+          drawName(lines, fz, startY - fz * 0.5);
+        }
         if (hasBoothNo) drawNo(noFz);
       }
     }
@@ -1062,22 +1039,9 @@ async function _buildPDFLibDocument(mode, options = {}) {
           const logoDataUrl = _imgToDataUrl(logoImg);
           if (!logoDataUrl) continue;
           const tr = (typeof getTextRect === 'function') ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
-          const scale = (b.logoScale ?? 100) / 100;
           const noFz = b.boothId ? calcFontSize(mc, b.boothId, 26) : 0;
           const noReserve = noFz ? noFz + 4 : 0;
-          const logoPad = tr.w * 0.08;
-          const logoTopPad = Math.max(tr.h * 0.05, noReserve);
-          const logoAreaH = tr.h * 0.60;
-          const logoW = tr.w - logoPad * 2;
-          const logoH = logoAreaH - logoTopPad - tr.h * 0.02;
-          const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
-          const areaAspect = logoW / logoH;
-          let drawW, drawH;
-          if (imgAspect > areaAspect) { drawW = logoW; drawH = logoW / imgAspect; }
-          else { drawH = logoH; drawW = logoH * imgAspect; }
-          drawW *= scale; drawH *= scale;
-          const logoX = tr.x + (tr.w - drawW) / 2;
-          const logoY = tr.y + logoTopPad + logoH / 2 - drawH / 2;
+          const { logoX, logoY, drawW, drawH } = _calcLogoLayout(b, tr, noReserve, logoImg.naturalWidth, logoImg.naturalHeight);
           const b64 = logoDataUrl.split(',')[1];
           const binStr = atob(b64);
           const imgBytes = new Uint8Array(binStr.length);
@@ -1267,6 +1231,47 @@ function _escXml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// render.js 와 동일한 로고 레이아웃 계산 (모든 PDF 렌더러에서 공용)
+function _calcLogoLayout(b, tr, noReserve, imgW, imgH) {
+  const scale    = (b.logoScale    ?? 100) / 100;
+  const pos      =  b.logoPosition ?? 'top';
+  const offsetX  = (b.logoOffsetX  ?? 0) * tr.w / 100;
+  const offsetY  = (b.logoOffsetY  ?? 0) * tr.h / 100;
+
+  const baseSide = Math.min(tr.w, tr.h - noReserve);
+  const imgAspect = (imgW || 1) / (imgH || 1);
+  let drawW, drawH;
+  if (imgAspect >= 1) { drawW = baseSide * scale; drawH = drawW / imgAspect; }
+  else                { drawH = baseSide * scale; drawW = drawH * imgAspect; }
+
+  const defOX = pos === 'left' ? -tr.w * 0.18 : pos === 'right' ? tr.w * 0.18 : 0;
+  const defOY = pos === 'top'  ? -tr.h * 0.15 : pos === 'bottom' ? tr.h * 0.15 : 0;
+  const logoCX = tr.x + tr.w / 2 + defOX + offsetX;
+  const logoCY = tr.y + noReserve + (tr.h - noReserve) / 2 + defOY + offsetY;
+  const logoX  = logoCX - drawW / 2;
+  const logoY  = logoCY - drawH / 2;
+
+  const gapH = (b.logoGap ?? 5) * tr.h / 100;
+  const gapW = (b.logoGap ?? 5) * tr.w / 100;
+  let textRect;
+  if (pos === 'top') {
+    const textY = logoCY + drawH / 2 + gapH;
+    textRect = { x: tr.x, y: textY, w: tr.w, h: Math.max(0, tr.y + tr.h - textY - tr.h * 0.02) };
+  } else if (pos === 'bottom') {
+    const textBottom = logoCY - drawH / 2 - gapH;
+    const textTop = tr.y + noReserve + tr.h * 0.02;
+    textRect = { x: tr.x, y: textTop, w: tr.w, h: Math.max(0, textBottom - textTop) };
+  } else if (pos === 'left') {
+    const textX = logoCX + drawW / 2 + gapW;
+    textRect = { x: textX, y: tr.y + noReserve, w: Math.max(0, tr.x + tr.w - textX - tr.w * 0.02), h: tr.h - noReserve };
+  } else {
+    const textRight = logoCX - drawW / 2 - gapW;
+    const textLeft  = tr.x + tr.w * 0.02;
+    textRect = { x: textLeft, y: tr.y + noReserve, w: Math.max(0, textRight - textLeft), h: tr.h - noReserve };
+  }
+  return { logoX, logoY, logoCX, logoCY, drawW, drawH, textRect };
+}
+
 function _imgToDataUrl(img) {
   try {
     const c = document.createElement('canvas');
@@ -1419,41 +1424,19 @@ async function exportSVG(lang = 'ko') {
           const logoDataUrl = _imgToDataUrl(logoImg);
           if (logoDataUrl) {
             logoDrawn = true;
-            const scale = (b.logoScale ?? 100) / 100;
-            const gap = (b.logoGap ?? 0) * (tr.h / 100);
             const noReserve = hasBoothNo ? calcFontSize(mc, b.boothId, 26) + 4 : 0;
-            const logoPad = tr.w * 0.08;
-            const logoTopPad = Math.max(tr.h * 0.05, noReserve);
-            const logoBottomPad = tr.h * 0.02;
-            const logoAreaH = tr.h * 0.60;
-            const logoW = tr.w - logoPad * 2;
-            const logoH = logoAreaH - logoTopPad - logoBottomPad;
-            const imgAspect = (logoImg.naturalWidth || 1) / (logoImg.naturalHeight || 1);
-            const areaAspect = logoW / logoH;
-            let drawW, drawH;
-            if (imgAspect > areaAspect) {
-              drawW = logoW; drawH = logoW / imgAspect;
-            } else {
-              drawH = logoH; drawW = logoH * imgAspect;
-            }
-            drawW *= scale; drawH *= scale;
-            const logoX = tr.x + (tr.w - drawW) / 2;
-            const logoCenterY = tr.y + logoTopPad + logoH / 2;
-            const logoY = logoCenterY - drawH / 2;
+            const { logoX, logoY, drawW, drawH, textRect } = _calcLogoLayout(b, tr, noReserve, logoImg.naturalWidth, logoImg.naturalHeight);
             pLogos.push(`<image xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
 
-            // 텍스트 영역: 로고 아래 (render.js:143-159)
-            const textAreaY = tr.y + tr.h * 0.58 + gap;
-            const textAreaH = tr.h * 0.36 - gap;
             const lines = wrapText(displayName);
             const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
-            let fz = calcFontSize(mc, longestLine || 'A', availW * 0.85);
-            if (textAreaH > 0) fz = Math.min(fz, (textAreaH / lines.length) / 1.25);
-            fz = Math.max(1.5, Math.min(fz, 12));
-            const lineH = fz * 1.25;
-            const blockH = lines.length * lineH;
-            const startY = textAreaY + (textAreaH - blockH) / 2 + fz * 0.5;
-            { const cx = tr.x + tr.w / 2, baseY = startY + fz * 0.35;
+            if (textRect.w >= 20 && textRect.h > 0) {
+              let fz = calcFontSize(mc, longestLine || 'A', textRect.w * 0.9);
+              if (textRect.h > 0) fz = Math.min(fz, (textRect.h / lines.length) / 1.25);
+              fz = Math.max(1.5, Math.min(fz, 12));
+              const lineH = fz * 1.25, blockH = lines.length * lineH;
+              const startY = textRect.y + (textRect.h - blockH) / 2 + fz * 0.5;
+              const cx = tr.x + tr.w / 2, baseY = startY + fz * 0.35;
               const body = lines.length === 1
                 ? _escXml(lines[0])
                 : lines.map((l, i) => `<tspan x="${cx}" dy="${i === 0 ? 0 : lineH}">${_escXml(l)}</tspan>`).join('');
