@@ -1019,6 +1019,21 @@ async function _buildPDFLibDocument(mode, options = {}) {
     }
   }
 
+  // Layer 2.5: assignGuide 모드 — spot 부스 노란 반투명 오버레이 (부스번호 가독성)
+  if (mode === 'assignGuide') {
+    const { rgb: rgb2 } = PDFLib;
+    for (const b of booths) {
+      if (b.status !== 'spot') continue;
+      if (b.cells && b.cells.length > 1) {
+        for (const cell of b.cells) {
+          page.drawRectangle({ x: toX(cell.x), y: toPageY(cell.y + cell.h), width: toS(cell.w), height: toS(cell.h), color: rgb2(1, 0.86, 0), opacity: 0.45 });
+        }
+      } else {
+        page.drawRectangle({ x: toX(b.x), y: toPageY(b.y + b.h), width: toS(b.w), height: toS(b.h), color: rgb2(1, 0.86, 0), opacity: 0.45 });
+      }
+    }
+  }
+
   // Layer 3: 텍스트 + 로고 — 벡터(폰트 임베딩 성공) / 래스터 폴백
   // assignGuide 모드에서 showNames=false 이면 텍스트 레이어 전체 스킵 (빈 부스만 출력)
   const showText = mode !== 'assignGuide' || options.showNames !== false;
@@ -1074,6 +1089,15 @@ async function _buildPDFLibDocument(mode, options = {}) {
         tctx.translate(offX * mmToPx / MM_TO_PT - bounds.x1 * wScale,
                        offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
         tctx.scale(wScale, wScale);
+        // assignGuide 래스터 폴백: spot 부스 노란 오버레이
+        if (mode === 'assignGuide') {
+          tctx.fillStyle = 'rgba(255, 220, 0, 0.45)';
+          for (const b of booths) {
+            if (b.status !== 'spot') continue;
+            if (b.cells && b.cells.length > 1) { b.cells.forEach(cell => tctx.fillRect(cell.x, cell.y, cell.w, cell.h)); }
+            else { tctx.fillRect(b.x, b.y, b.w, b.h); }
+          }
+        }
         const textColor = _boothColorOverride ? '#111111' : null;
         for (const b of booths) {
           const tc2 = textColor || (_boothColors(b, mode).text || '#111111');
