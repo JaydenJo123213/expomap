@@ -439,12 +439,22 @@
     .quick-pill { gap: 4px; background: none; padding: 0; }
     #boothSearchContainer { width: 0; flex: 1 !important; min-width: 80px; }
 
-    /* 검색 드롭다운: 모바일에서 전체 너비 */
-    #boothSearchDropdown {
-      left: 8px !important;
-      right: 8px !important;
-      width: auto !important;
+    /* 검색 인풋: font-size 16px → iOS 자동 줌인 방지 */
+    #boothSearchInput {
+      font-size: 16px !important;
+      touch-action: manipulation;
     }
+
+    /* 검색 드롭다운: 우측 고정, 폭 제한 */
+    #boothSearchDropdown {
+      left: auto !important;
+      right: 8px !important;
+      width: 260px !important;
+      max-width: calc(100vw - 16px) !important;
+    }
+    /* 업체명 ellipsis 보장 */
+    #boothSearchDropdown .search-result-name { min-width: 0; }
+    #boothSearchDropdown .search-result-boothid { min-width: 44px; }
 
     /* 우측 패널 → 바텀 시트 (높이 축소) */
     .panel-right {
