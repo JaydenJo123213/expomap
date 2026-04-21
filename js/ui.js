@@ -3,7 +3,13 @@ function isMobile() { return window.innerWidth <= 768; }
 
 function showRightPanel() {
   document.getElementById('panelRight').classList.add('visible');
-  if (isMobile()) openMobileSheet();
+  // 모바일: 부스블럭이 선택됐을 때만 바텀시트 열기
+  // (구조물·BaseNo·범례·빈 영역 탭 시에는 열지 않음)
+  if (isMobile()) {
+    if (state && state.selectedIds && state.selectedIds.size > 0) {
+      openMobileSheet();
+    }
+  }
 }
 
 function hideRightPanel() {
