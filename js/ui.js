@@ -1333,12 +1333,10 @@ document.getElementById('propCompany').addEventListener('change', (e) => {
   if (b) {
     saveUndo();
     b.companyUid = e.target.value;
-    // 선택된 회사의 logo_url을 가져와서 세팅
+    // 선택된 회사의 logo_url을 가져와서 세팅 (있을 때만 덮어씀, 없으면 기존 로고 유지)
     const company = state.companies.find(c => c.company_uid === e.target.value);
     if (company && company.logo_url) {
       b.companyLogoUrl = company.logo_url;
-    } else {
-      b.companyLogoUrl = '';
     }
     render();
   }
