@@ -432,7 +432,7 @@ function _buildSVGString(mode) {
         const logoDataUrl = _imgToDataUrl(logoImg);
         if (logoDataUrl) {
           logoDrawn = true;
-          const noReserve = hasBoothNo ? calcFontSize(mc, b.boothId, 26) + 4 : 0;
+          const noReserve = hasBoothNo ? getBoothNoFontSize(mc, b) + 4 : 0;
           const { logoX, logoY, drawW, drawH, textRect } = _calcLogoLayout(b, tr, noReserve, logoImg.naturalWidth, logoImg.naturalHeight);
           pLogos.push(`<image href="${logoDataUrl}" xlink:href="${logoDataUrl}" x="${logoX}" y="${logoY}" width="${drawW}" height="${drawH}" opacity="0.9" preserveAspectRatio="xMidYMid meet"/>`);
 
@@ -447,7 +447,7 @@ function _buildSVGString(mode) {
             const body = lines.length === 1 ? _escXml(lines[0]) : lines.map((l,i) => `<tspan x="${cx}" dy="${i===0?0:lineH}">${_escXml(l)}</tspan>`).join('');
             pNames.push(`<text x="${cx}" y="${baseY}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="400" fill="#111111" text-anchor="middle">${body}</text>`);
           }
-          if (hasBoothNo) addBoothNo(calcFontSize(mc, b.boothId, 26));
+          if (hasBoothNo) addBoothNo(getBoothNoFontSize(mc, b));
         }
       }
     }
@@ -456,7 +456,7 @@ function _buildSVGString(mode) {
       if (hasCompany) {
         const lines = wrapText(displayName);
         const longestLine = lines.reduce((a,l) => a.length >= l.length ? a : l, '');
-        const noFz = hasBoothNo ? calcFontSize(mc, b.boothId, 26) : 0;
+        const noFz = hasBoothNo ? getBoothNoFontSize(mc, b) : 0;
         const topReserve = hasBoothNo ? noFz+2 : 0;
         const textAreaH = availH - topReserve;
         let fz = fontSizeOverride != null ? Math.max(1.5, Math.min(fontSizeOverride, 60))
@@ -469,7 +469,7 @@ function _buildSVGString(mode) {
         }
         if (hasBoothNo) addBoothNo(noFz);
       } else if (hasBoothNo) {
-        addBoothNo(calcFontSize(mc, b.boothId, 26));
+        addBoothNo(getBoothNoFontSize(mc, b));
       }
     }
   }
@@ -751,7 +751,7 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
       const logoDataUrl = _imgToDataUrl(logoImg);
       if (logoDataUrl) {
         logoDrawn = true;
-        const noFz = hasBoothNo && mc ? calcFontSize(mc, b.boothId, 26) : 0;
+        const noFz = hasBoothNo && mc ? getBoothNoFontSize(mc, b) : 0;
         const noReserve = noFz ? noFz + 4 : 0;
         // 로고 embed는 _buildPDFLibDocument 내부 pdfDoc 참조가 필요해서 여기선 스킵
         const { textRect } = _calcLogoLayout(b, tr, noReserve, logoImg.naturalWidth, logoImg.naturalHeight);
@@ -776,7 +776,7 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
     if (hasCompany) {
       const lines = typeof wrapText === 'function' ? wrapText(displayName) : [displayName];
       const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
-      const noFz = hasBoothNo && mc ? calcFontSize(mc, b.boothId, 26) : 0;
+      const noFz = hasBoothNo && mc ? getBoothNoFontSize(mc, b) : 0;
       const topReserve = noFz ? noFz + 2 : 0;
       const textAreaH = availH - topReserve;
       let fz = fontSizeOverride != null
@@ -788,7 +788,7 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
       drawName(lines, fz, startY);
       if (hasBoothNo) drawNo(noFz);
     } else if (hasBoothNo) {
-      drawNo(mc ? calcFontSize(mc, b.boothId, 26) : 8);
+      drawNo(mc ? getBoothNoFontSize(mc, b) : 8);
     }
   }
 }
