@@ -56,7 +56,7 @@ function buildVersionSnapshot() {
     booths: state.booths.map(b => ({ ...b })),
     groups: state.groups.map(g => ({ ...g, boothIds: [...g.boothIds] })),
     structures: state.structures.map(s => ({ ...s })),
-    logos: state.logos.map(l => ({ id: l.id, x: l.x, y: l.y, w: l.w, h: l.h, name: l.name, dataUrl: null })),
+    logos: state.logos.map(l => ({ id: l.id, x: l.x, y: l.y, w: l.w, h: l.h, name: l.name, storageUrl: l.storageUrl || null, dataUrl: null })),
     companies: state.companies.map(c => ({ ...c })),
     nextId: state.nextId,
     nextGroupId: state.nextGroupId,
@@ -231,7 +231,7 @@ async function loadVersionList() {
   try {
     const { data, error } = await _supaClient
       .from('expomap_versions')
-      .select('id, version_name, created_at, state_json')
+      .select('id, version_name, created_at')
       .eq('exhibition_id', _supaProjectId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -328,8 +328,30 @@ function diffSnapshots(snapA, snapB) {
 
 // ─── Diff 뷰 ───
 
-function showVersionDiff(version) {
-  const snapA = version.state_json;
+async function showVersionDiff(version) {
+  // 모달을 먼저 열고 로딩 표시 (state_json은 클릭 시 별도 조회)
+  document.getElementById('versionDiffTitle').textContent = `변경내역 — ${version.version_name}`;
+  document.getElementById('versionDiffBody').innerHTML =
+    '<div style="padding:20px;text-align:center;color:var(--text-dim,#8b9098)">불러오는 중…</div>';
+  document.getElementById('btnRestoreVersion').onclick = null;
+  openModal('modalVersionDiff');
+
+  let snapA;
+  try {
+    const { data, error } = await _supaClient
+      .from('expomap_versions')
+      .select('state_json')
+      .eq('id', version.id)
+      .single();
+    if (error) throw error;
+    snapA = data.state_json;
+  } catch (e) {
+    console.error('버전 데이터 조회 실패:', e);
+    document.getElementById('versionDiffBody').innerHTML =
+      '<div style="padding:20px;text-align:center;color:#F44336">불러오기 실패: ' + (e.message || '서버 오류') + '</div>';
+    return;
+  }
+
   const snapB = buildVersionSnapshot();
   const diff = diffSnapshots(snapA, snapB);
 
@@ -341,7 +363,6 @@ function showVersionDiff(version) {
   };
 
   renderDiffView(diff, version.version_name);
-  openModal('modalVersionDiff');
 }
 
 function fieldLabel(f) {
@@ -451,7 +472,18 @@ function restoreVersion(snapshot) {
   const oldLogosMap = Object.fromEntries(state.logos.map(l => [l.id, l]));
   state.logos = (snapshot.logos || []).map(l => {
     const old = oldLogosMap[l.id];
-    return old ? { ...l, dataUrl: old.dataUrl, _img: old._img } : l;
+    if (old) {
+      return { ...l, storageUrl: old.storageUrl, dataUrl: old.dataUrl, _img: old._img };
+    }
+    // 현재 상태에 없는 로고 (복원 시 재등장) → 이미지 재로드
+    const img = new Image();
+    const src = l.storageUrl || l.dataUrl;
+    if (src) {
+      if (src.startsWith('http')) img.crossOrigin = 'anonymous';
+      img.onload = () => render();
+      img.src = src;
+    }
+    return { ...l, _img: img };
   });
 
   state.selectedIds.clear();

@@ -187,7 +187,12 @@ async function saveToSupabase() {
     booths: state.booths,
     groups: state.groups,
     structures: state.structures,
-    logos: state.logos.map(l => ({id:l.id,x:l.x,y:l.y,w:l.w,h:l.h,dataUrl:l.dataUrl,name:l.name})),
+    logos: state.logos.map(l => ({
+      id: l.id, x: l.x, y: l.y, w: l.w, h: l.h, name: l.name,
+      storageUrl: l.storageUrl || null,
+      // storageUrl 없으면 dataUrl 보존 (마이그레이션 전 안전망)
+      dataUrl: l.storageUrl ? null : (l.dataUrl || null),
+    })),
     companies: state.companies,
     nextId: state.nextId,
     nextGroupId: state.nextGroupId,
@@ -204,13 +209,15 @@ async function saveToSupabase() {
     nextMeasureLineId: state.nextMeasureLineId,
   };
   try {
+    const savedAt = new Date().toISOString();
     const { error } = await _supaClient
       .from('expomap_state')
-      .upsert({ id: _supaProjectId, state_json: data, updated_at: new Date().toISOString() });
+      .upsert({ id: _supaProjectId, state_json: data, updated_at: savedAt });
     if (error) throw error;
+    _localUpdatedAt = savedAt;
     updateSaveIndicator('saved');
     if (_presenceChannel && _myUserId) {
-      _presenceChannel.send({ type: 'broadcast', event: 'save', payload: { userId: _myUserId } });
+      _presenceChannel.send({ type: 'broadcast', event: 'save', payload: { userId: _myUserId, updatedAt: savedAt } });
     }
   } catch (e) {
     console.error('Save failed:', e);
@@ -228,14 +235,14 @@ async function loadFromSupabase({ preserveSelection = false } = {}) {
     let data, error;
     ({ data, error } = await _supaClient
       .from('expomap_state')
-      .select('state_json')
+      .select('state_json, updated_at')
       .eq('id', _supaProjectId)
       .maybeSingle());
     if (!data && !error) {
       // id로 못 찾으면 updated_at 기준 최신 행
       ({ data, error } = await _supaClient
         .from('expomap_state')
-        .select('state_json')
+        .select('state_json, updated_at')
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle());
@@ -294,8 +301,12 @@ async function loadFromSupabase({ preserveSelection = false } = {}) {
         state.selectedBaseNoIds = new Set();
         state.selectedDiscussIds = new Set();
       }
+      if (data.updated_at) _localUpdatedAt = data.updated_at;
       render(); updateProps();
       updateSaveIndicator('saved');
+      // 기존 base64 로고 → Storage 마이그레이션 (백그라운드, 비차단)
+      Promise.all([_migrateDecorativeLogos(), _migrateCompanyLogos()])
+        .catch(err => console.warn('[Logo Migration] 예외:', err));
     }
   } catch (e) {
     console.error('Load failed:', e);
@@ -787,6 +798,85 @@ async function _uploadBgDataUrlToStorage(dataUrl) {
   return publicUrl + '?t=' + Date.now();
 }
 
+// ─── Logo Storage helpers ───
+async function _uploadLogoDataUrlToStorage(dataUrl, storagePath) {
+  const blob = _dataUrlToBlob(dataUrl);
+  const { error } = await _supaClient.storage
+    .from('expomap-backgrounds')
+    .upload(storagePath, blob, { upsert: true, contentType: blob.type });
+  if (error) throw error;
+  const { data: { publicUrl } } = _supaClient.storage
+    .from('expomap-backgrounds')
+    .getPublicUrl(storagePath);
+  return publicUrl + '?t=' + Date.now();
+}
+
+async function _uploadCompanyLogoToStorage(dataUrl, companyUid) {
+  const path = `${_supaProjectId}/logos/company_${companyUid}`;
+  return _uploadLogoDataUrlToStorage(dataUrl, path);
+}
+
+// 페이지 로드 후 기존 base64 장식 로고 → Storage 마이그레이션 (백그라운드)
+async function _migrateDecorativeLogos() {
+  if (!_supaClient) return;
+  const logosToMigrate = state.logos.filter(l => l.dataUrl && !l.storageUrl);
+  if (logosToMigrate.length === 0) return;
+  let migrated = 0;
+  for (const logo of logosToMigrate) {
+    try {
+      const path = `${_supaProjectId}/logos/logo_${logo.id}`;
+      const url = await _uploadLogoDataUrlToStorage(logo.dataUrl, path);
+      logo.storageUrl = url;
+      logo.dataUrl = null;
+      migrated++;
+    } catch (err) {
+      console.warn('[Logo Migration] 실패:', logo.id, err);
+    }
+  }
+  if (migrated > 0) {
+    scheduleSave();
+    console.log(`[Logo Migration] 장식 로고 ${migrated}개 마이그레이션 완료`);
+  }
+}
+
+// 페이지 로드 후 기존 base64 회사 로고 → Storage 마이그레이션 (백그라운드)
+async function _migrateCompanyLogos() {
+  if (!_supaClient) return;
+  // 회사별로 중복 없이 수집
+  const companyLogoMap = new Map(); // companyUid → dataUrl
+  for (const b of state.booths) {
+    if (b.companyLogoUrl && b.companyLogoUrl.startsWith('data:') && b.companyUid) {
+      if (!companyLogoMap.has(b.companyUid)) {
+        companyLogoMap.set(b.companyUid, b.companyLogoUrl);
+      }
+    }
+  }
+  if (companyLogoMap.size === 0) return;
+  let migrated = 0;
+  for (const [companyUid, dataUrl] of companyLogoMap) {
+    try {
+      const url = await _uploadCompanyLogoToStorage(dataUrl, companyUid);
+      // 해당 회사의 모든 부스 업데이트
+      state.booths.forEach(b => {
+        if (b.companyUid === companyUid) {
+          b.companyLogoUrl = url;
+          state.logoCache.delete(b.id);
+        }
+      });
+      // companies 배열 업데이트
+      const company = state.companies.find(c => c.company_uid === companyUid);
+      if (company) company.logo_url = url;
+      migrated++;
+    } catch (err) {
+      console.warn('[Company Logo Migration] 실패:', companyUid, err);
+    }
+  }
+  if (migrated > 0) {
+    scheduleSave();
+    console.log(`[Company Logo Migration] ${migrated}개 회사 마이그레이션 완료`);
+  }
+}
+
 // ─── Background Image ───
 document.getElementById('bgUpload').addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -1140,36 +1230,52 @@ function toggleLock() {
 }
 
 // ─── Logos & Images ───
-document.getElementById('logoUpload').addEventListener('change', (e) => {
+document.getElementById('logoUpload').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+  e.target.value = '';
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = async (ev) => {
     const dataUrl = ev.target.result;
     const img = new Image();
-    img.onload = () => {
-      // 기본 크기: 100px 너비 기준, 비율 유지
+    img.onload = async () => {
       const scale = 100 / img.naturalWidth;
+      const logoId = state.nextLogoId++;
       const logo = {
-        id: state.nextLogoId++,
+        id: logoId,
         x: (state.mouseX || 100),
         y: (state.mouseY || 100),
         w: img.naturalWidth * scale,
         h: img.naturalHeight * scale,
-        dataUrl: dataUrl,
+        storageUrl: null,
+        dataUrl: dataUrl,  // 임시, Storage 업로드 완료 후 제거
         name: file.name,
         _img: img,
       };
       saveUndo();
       state.logos.push(logo);
-      state.selectedLogoId = logo.id;
+      state.selectedLogoId = logoId;
       updateLogoList();
       render();
+      // Storage 업로드 (백그라운드)
+      if (_supaClient) {
+        try {
+          const path = `${_supaProjectId}/logos/logo_${logoId}`;
+          const url = await _uploadLogoDataUrlToStorage(dataUrl, path);
+          logo.storageUrl = url;
+          logo.dataUrl = null;
+          scheduleSave();
+        } catch (err) {
+          console.warn('[Logo] Storage 업로드 실패, dataUrl 유지:', err);
+          scheduleSave();
+        }
+      } else {
+        scheduleSave();
+      }
     };
     img.src = dataUrl;
   };
   reader.readAsDataURL(file);
-  e.target.value = '';
 });
 
 function restoreBgImage(src) {
@@ -1184,10 +1290,14 @@ function restoreBgImage(src) {
 }
 
 function restoreLogos(logoData) {
-  // dataUrl → Image 객체 복원
   state.logos = logoData.map(l => {
     const img = new Image();
-    img.src = l.dataUrl;
+    const src = l.storageUrl || l.dataUrl;
+    if (src) {
+      if (src.startsWith('http')) img.crossOrigin = 'anonymous';
+      img.onload = () => render();
+      img.src = src;
+    }
     return { ...l, _img: img };
   });
   updateLogoList();
@@ -1221,10 +1331,18 @@ function updateLogoList() {
 
 function deleteLogo(id) {
   saveUndo();
+  const logo = state.logos.find(l => l.id === id);
   state.logos = state.logos.filter(l => l.id !== id);
   if (state.selectedLogoId === id) state.selectedLogoId = null;
   updateLogoList();
   render();
+  // Storage 파일 삭제 (best-effort)
+  if (_supaClient && logo?.storageUrl) {
+    _supaClient.storage
+      .from('expomap-backgrounds')
+      .remove([`${_supaProjectId}/logos/logo_${id}`])
+      .catch(err => console.warn('[Logo] Storage 삭제 실패:', err));
+  }
 }
 
 // ─── Company Logo Caching & Upload ───
@@ -1237,7 +1355,8 @@ function getLogoImage(booth, logoCache) {
   }
 
   const img = new Image();
-  img.src = booth.companyLogoUrl;  // base64 dataUrl 또는 URL
+  if (booth.companyLogoUrl.startsWith('http')) img.crossOrigin = 'anonymous';
+  img.src = booth.companyLogoUrl;
   img.onload = () => {
     logoCache.set(cacheKey, img);
     render();
@@ -1248,25 +1367,24 @@ function getLogoImage(booth, logoCache) {
   return null;  // 로딩 중엔 null, onload 시 재렌더
 }
 
-function uploadCompanyLogo(file) {
-  return new Promise((resolve) => {
-    if (!file.type.startsWith('image/')) {
-      alert('이미지 파일만 업로드 가능합니다 (PNG/JPEG).');
-      resolve(null);
-      return;
-    }
+async function uploadCompanyLogo(file, companyUid) {
+  if (!file.type.startsWith('image/')) {
+    alert('이미지 파일만 업로드 가능합니다 (PNG/JPEG).');
+    return null;
+  }
 
-    const progress = document.getElementById('propLogoUploadProgress');
-    progress.style.display = 'block';
-    progress.textContent = '리사이즈 중...';
+  const progress = document.getElementById('propLogoUploadProgress');
+  progress.style.display = 'block';
+  progress.textContent = '리사이즈 중...';
 
-    const MAX_SIZE = 1040;  // 최대 1040px (가로/세로)
+  const MAX_SIZE = 1040;
 
+  // 파일 읽기 + 리사이즈
+  const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        // 리사이즈 (300px 이하면 그대로)
         let w = img.width, h = img.height;
         if (w > MAX_SIZE || h > MAX_SIZE) {
           if (w > h) { h = Math.round(h * MAX_SIZE / w); w = MAX_SIZE; }
@@ -1274,27 +1392,38 @@ function uploadCompanyLogo(file) {
         }
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/png', 0.9);
-        progress.textContent = '완료';
-        setTimeout(() => { progress.style.display = 'none'; }, 1500);
-        resolve(dataUrl);
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/png', 0.9));
       };
-      img.onerror = () => {
-        alert('이미지 로드 실패');
-        progress.style.display = 'none';
-        resolve(null);
-      };
+      img.onerror = () => reject(new Error('이미지 로드 실패'));
       img.src = e.target.result;
     };
-    reader.onerror = () => {
-      alert('파일 읽기 실패');
-      progress.style.display = 'none';
-      resolve(null);
-    };
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
     reader.readAsDataURL(file);
+  }).catch(err => {
+    alert(err.message);
+    progress.style.display = 'none';
+    return null;
   });
+
+  if (!dataUrl) return null;
+
+  // Storage 업로드 시도
+  if (_supaClient && companyUid) {
+    try {
+      progress.textContent = '업로드 중...';
+      const url = await _uploadCompanyLogoToStorage(dataUrl, companyUid);
+      progress.textContent = '완료';
+      setTimeout(() => { progress.style.display = 'none'; }, 1500);
+      return url;
+    } catch (err) {
+      console.warn('[Company Logo] Storage 업로드 실패, dataUrl 사용:', err);
+    }
+  }
+
+  progress.textContent = '완료';
+  setTimeout(() => { progress.style.display = 'none'; }, 1500);
+  return dataUrl;
 }
 
 function drawLogos(c, zoom) {

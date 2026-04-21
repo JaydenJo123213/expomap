@@ -6,6 +6,7 @@ const DEFAULT_SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 let _supaClient = null;
 let _supaProjectId = 'pxlredqyzfffirxbmeuw';
 let _saveTimer = null;
+let _localUpdatedAt = null; // 마지막으로 DB와 동기화된 updated_at (broadcast 중복 재조회 방지)
 
 // ─── Presence identity (session-scoped) ───
 let _presenceChannel = null;
@@ -100,8 +101,9 @@ function initPresenceChannel() {
     })
     .on('broadcast', { event: 'save' }, async ({ payload }) => {
       if (payload?.userId === _myUserId) return;
+      // updatedAt이 현재 동기화된 버전보다 새로울 때만 재조회 (중복 재조회 방지)
+      if (payload?.updatedAt && _localUpdatedAt && payload.updatedAt <= _localUpdatedAt) return;
       await loadFromSupabase({ preserveSelection: true });
-      // render()는 loadFromSupabase 내부에서 이미 호출됨
     })
     .on('broadcast', { event: 'selection' }, ({ payload }) => {
       if (!payload?.userId || payload.userId === _myUserId) return;

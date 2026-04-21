@@ -1101,15 +1101,15 @@ document.getElementById('propLogoUploadInput').addEventListener('change', async 
   const file = e.target.files[0];
   if (!file) return;
 
-  const dataUrl = await uploadCompanyLogo(file);
-  if (dataUrl) {
+  const logoUrl = await uploadCompanyLogo(file, b.companyUid);
+  if (logoUrl) {
     saveUndo();
-    b.companyLogoUrl = dataUrl;
+    b.companyLogoUrl = logoUrl;
     state.logoCache.delete(b.id);
     // company 객체에도 저장
     const company = state.companies.find(c => c.company_uid === b.companyUid);
     if (company) {
-      company.logo_url = dataUrl;
+      company.logo_url = logoUrl;
     }
     scheduleSave();
     render();
