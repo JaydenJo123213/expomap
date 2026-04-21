@@ -1226,6 +1226,11 @@ let touchStartX = 0, touchStartY = 0;
 let touchStartDistance = 0;
 let isTouchDragging = false;
 
+// 어드민 모드 터치 상태
+let adminTouchStartX = 0, adminTouchStartY = 0;
+let adminTouchStartDistance = 0;
+let adminTouchDragging = false;
+
 function getDistance(touch1, touch2) {
   const dx = touch1.clientX - touch2.clientX;
   const dy = touch1.clientY - touch2.clientY;
@@ -1239,7 +1244,19 @@ function getTouchMidpoint(touches) {
 }
 
 canvas.addEventListener('touchstart', (e) => {
-  if (!VIEWER_MODE) return;
+  if (!VIEWER_MODE) {
+    // 어드민 모드: 패널/드로어 위 터치는 무시
+    if (e.target.closest('#panelRight, #sidebarPanel, #mobileBackdrop')) return;
+    e.preventDefault();
+    adminTouchDragging = false;
+    if (e.touches.length === 1) {
+      adminTouchStartX = e.touches[0].clientX;
+      adminTouchStartY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      adminTouchStartDistance = getDistance(e.touches[0], e.touches[1]);
+    }
+    return;
+  }
   e.preventDefault();
 
   if (e.touches.length === 1) {
@@ -1254,7 +1271,37 @@ canvas.addEventListener('touchstart', (e) => {
 });
 
 canvas.addEventListener('touchmove', (e) => {
-  if (!VIEWER_MODE) return;
+  if (!VIEWER_MODE) {
+    if (e.target.closest('#panelRight, #sidebarPanel')) return;
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      const dx = e.touches[0].clientX - adminTouchStartX;
+      const dy = e.touches[0].clientY - adminTouchStartY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) adminTouchDragging = true;
+      if (adminTouchDragging) {
+        state.panX += dx; state.panY += dy;
+        adminTouchStartX = e.touches[0].clientX;
+        adminTouchStartY = e.touches[0].clientY;
+        render();
+      }
+    } else if (e.touches.length === 2) {
+      const currentDistance = getDistance(e.touches[0], e.touches[1]);
+      const distanceDelta = currentDistance - adminTouchStartDistance;
+      const zoomFactor = 1 + distanceDelta * 0.005;
+      const newZoom = Math.max(0.1, Math.min(state.zoom * zoomFactor, 10));
+      const midpoint = getTouchMidpoint(e.touches);
+      const rect = canvas.getBoundingClientRect();
+      const canvasMidX = midpoint.x - rect.left;
+      const canvasMidY = midpoint.y - rect.top;
+      const zoomChange = newZoom / state.zoom;
+      state.panX = canvasMidX - (canvasMidX - state.panX) * zoomChange;
+      state.panY = canvasMidY - (canvasMidY - state.panY) * zoomChange;
+      state.zoom = newZoom;
+      adminTouchStartDistance = currentDistance;
+      render();
+    }
+    return;
+  }
   e.preventDefault();
 
   if (e.touches.length === 1) {
@@ -1302,7 +1349,24 @@ canvas.addEventListener('touchmove', (e) => {
 });
 
 canvas.addEventListener('touchend', (e) => {
-  if (!VIEWER_MODE) return;
+  if (!VIEWER_MODE) {
+    if (e.target.closest('#panelRight, #sidebarPanel')) return;
+    // 탭 감지 → 부스 선택 (기존 mousedown 파이프라인 재사용)
+    if (!adminTouchDragging && e.changedTouches.length === 1) {
+      const t = e.changedTouches[0];
+      canvas.dispatchEvent(new MouseEvent('mousedown', {
+        clientX: t.clientX, clientY: t.clientY,
+        bubbles: true, cancelable: true, button: 0, buttons: 1
+      }));
+      canvas.dispatchEvent(new MouseEvent('mouseup', {
+        clientX: t.clientX, clientY: t.clientY,
+        bubbles: true, cancelable: true, button: 0
+      }));
+    }
+    adminTouchDragging = false;
+    if (e.touches.length < 2) adminTouchStartDistance = 0;
+    return;
+  }
   isTouchDragging = false;
   if (e.touches.length < 2) touchStartDistance = 0;
 });

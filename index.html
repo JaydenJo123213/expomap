@@ -333,9 +333,138 @@
     .viewer-popup-row { font-size: 10px; gap: 4px; }
     .viewer-popup-badge { font-size: 9px; padding: 2px 6px; }
   }
+
+  /* ─── 모바일 전용 요소: 데스크탑에서 숨김 ─── */
+  .mobile-backdrop { display: none; }
+  .mobile-menu-btn { display: none; }
+  .mobile-sheet-handle { display: none; }
+  .mobile-sheet-close { display: none; }
+
+  /* ══════════════════════════════════════════
+     배정모드 모바일 최적화 (≤768px)
+  ══════════════════════════════════════════ */
+  @media (max-width: 768px) {
+
+    /* 백드롭 */
+    .mobile-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 400;
+    }
+    .mobile-backdrop.active { display: block; }
+
+    /* 좌측 패널 전체 숨김 (드로어가 대신) */
+    .panel-left { display: none !important; }
+
+    /* 캔버스: 전체 너비 */
+    .canvas-container { width: 100vw !important; }
+
+    /* 좌측 패널 내용 → 슬라이드-인 드로어 */
+    .sidebar-panel {
+      position: fixed !important;
+      top: 0; left: 0; bottom: 0;
+      width: 260px !important;
+      z-index: 500;
+      transform: translateX(-100%);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-y: auto;
+      display: block !important;
+      box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+      background: var(--surface);
+    }
+    .sidebar-panel.drawer-open { transform: translateX(0); }
+
+    /* 햄버거 버튼 */
+    .mobile-menu-btn {
+      display: flex;
+      align-items: center; justify-content: center;
+      position: fixed;
+      top: 56px; left: 8px;
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      z-index: 300;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      cursor: pointer;
+    }
+
+    /* 우측 패널 → 바텀 시트 */
+    .panel-right {
+      position: fixed !important;
+      bottom: 0; left: 0; right: 0;
+      width: 100% !important;
+      max-height: 70vh;
+      display: flex !important;
+      transform: translateY(110%);
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 450;
+      border-left: none !important;
+      border-top: 1px solid var(--border);
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+      overflow: hidden;
+      flex-direction: column;
+    }
+    /* 기존 .visible 규칙 유지 (transform으로 가시성 제어) */
+    .panel-right.visible { display: flex !important; }
+    .panel-right.mobile-open { transform: translateY(0); }
+
+    /* 드래그 핸들 */
+    .mobile-sheet-handle {
+      display: flex;
+      justify-content: center;
+      padding: 10px 0 6px;
+      flex-shrink: 0;
+      background: var(--surface);
+      cursor: grab;
+    }
+    .mobile-sheet-handle-bar {
+      width: 36px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    /* 닫기 버튼 */
+    .mobile-sheet-close {
+      display: block;
+      background: none; border: none;
+      color: var(--text-dim);
+      font-size: 13px; cursor: pointer;
+      font-family: inherit;
+      padding: 4px 8px; margin-left: auto;
+    }
+    .mobile-sheet-close:hover { color: var(--text); }
+
+    /* 패널 탑 영역: 닫기버튼 표시 */
+    #panelRightTop {
+      display: flex !important;
+      align-items: center; justify-content: flex-end;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* 스크롤 가능 중간 영역 */
+    .panel-right-middle {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      flex: 1;
+    }
+    .panel-right-bottom {
+      margin-bottom: 0;
+      padding-bottom: env(safe-area-inset-bottom, 8px);
+    }
+  }
 </style>
 </head>
 <body>
+
+<!-- ─── 모바일 오버레이 ─── -->
+<div id="mobileBackdrop" class="mobile-backdrop"></div>
+<button id="mobileMenuBtn" class="mobile-menu-btn" onclick="openMobileDrawer()">☰</button>
 
 <!-- ─── Exhibition Selector (no ?expo= param) ─── -->
 <div id="expoSelector" style="display:none;position:fixed;inset:0;z-index:9999;background:#1a1a2e;color:#fff;font-family:'Spoqa Han Sans Neo',system-ui,sans-serif;overflow-y:auto">
@@ -655,8 +784,14 @@
 
   <!-- Right Panel -->
   <div class="panel-right" id="panelRight">
-    <!-- Top: Viewer + Zoom -->
-    <div class="panel-right-top" style="display:none"></div>
+    <!-- 모바일 드래그 핸들 -->
+    <div class="mobile-sheet-handle" id="mobileSheetHandle">
+      <div class="mobile-sheet-handle-bar"></div>
+    </div>
+    <!-- Top: Viewer + Zoom (/ 모바일 닫기버튼) -->
+    <div class="panel-right-top" id="panelRightTop" style="display:none">
+      <button class="mobile-sheet-close" onclick="closeMobileSheet()">✕ 닫기</button>
+    </div>
 
     <!-- Middle: Properties -->
     <div class="panel-right-middle">

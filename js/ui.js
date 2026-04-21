@@ -1,3 +1,77 @@
+// ─── 모바일 헬퍼 ───
+function isMobile() { return window.innerWidth <= 768; }
+
+function showRightPanel() {
+  document.getElementById('panelRight').classList.add('visible');
+  if (isMobile()) openMobileSheet();
+}
+
+function hideRightPanel() {
+  document.getElementById('panelRight').classList.remove('visible');
+  if (isMobile()) {
+    document.getElementById('panelRight').classList.remove('mobile-open');
+    const bd = document.getElementById('mobileBackdrop');
+    if (bd) { bd.classList.remove('active'); delete bd.dataset.target; }
+  }
+}
+
+function openMobileDrawer() {
+  const sp = document.getElementById('sidebarPanel');
+  if (sp) sp.classList.add('drawer-open');
+  const bd = document.getElementById('mobileBackdrop');
+  if (bd) { bd.classList.add('active'); bd.dataset.target = 'drawer'; }
+}
+
+function closeMobileDrawer() {
+  const sp = document.getElementById('sidebarPanel');
+  if (sp) sp.classList.remove('drawer-open');
+  const bd = document.getElementById('mobileBackdrop');
+  if (bd) { bd.classList.remove('active'); delete bd.dataset.target; }
+}
+
+function openMobileSheet() {
+  const panel = document.getElementById('panelRight');
+  if (panel) panel.classList.add('mobile-open');
+  const bd = document.getElementById('mobileBackdrop');
+  if (bd) { bd.classList.add('active'); bd.dataset.target = 'sheet'; }
+}
+
+function closeMobileSheet() {
+  const panel = document.getElementById('panelRight');
+  if (panel) { panel.classList.remove('mobile-open'); hideRightPanel(); }
+  const bd = document.getElementById('mobileBackdrop');
+  if (bd) { bd.classList.remove('active'); delete bd.dataset.target; }
+}
+
+// 백드롭 클릭 → 대상 닫기
+document.addEventListener('DOMContentLoaded', () => {
+  const bd = document.getElementById('mobileBackdrop');
+  if (bd) {
+    bd.addEventListener('click', () => {
+      if (bd.dataset.target === 'drawer') closeMobileDrawer();
+      else if (bd.dataset.target === 'sheet') closeMobileSheet();
+    });
+  }
+
+  // 드래그-투-디스미스 (핸들 스와이프 아래)
+  const handle = document.getElementById('mobileSheetHandle');
+  if (handle) {
+    let startY = 0, dragging = false;
+    handle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; dragging = true; }, { passive: true });
+    handle.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 0) { const p = document.getElementById('panelRight'); if (p) p.style.transform = `translateY(${dy}px)`; }
+    }, { passive: true });
+    handle.addEventListener('touchend', e => {
+      if (!dragging) return; dragging = false;
+      const dy = e.changedTouches[0].clientY - startY;
+      const p = document.getElementById('panelRight'); if (p) p.style.transform = '';
+      if (dy > 80) closeMobileSheet();
+    }, { passive: true });
+  }
+});
+
 // ─── Export 모달 상태 ───
 let _exportState = {
   format: 'pdf',           // 'pdf' | 'svg'
@@ -613,7 +687,6 @@ function selectLayerProperties(layerId) {
   state.selectedStructId = null;
   state.selectedLogoId = null;
 
-  const panel = document.getElementById('panelRight');
   const bgSection = document.getElementById('bgPanelSection') || { style: {} };
   const boothSection = document.getElementById('boothPropsSection');
   const baseNoSection = document.getElementById('baseNoPropsSection');
@@ -654,21 +727,21 @@ function selectLayerProperties(layerId) {
       break;
     case 'bg':
       // 배경 정보 표시
-      panel.classList.add('visible');
+      showRightPanel();
       if (bgSection && bgSection.style) bgSection.style.display = '';
       break;
     case 'elec':
-      panel.classList.add('visible');
+      showRightPanel();
       elecLegend.style.display = '';
       updateElecLegend();
       break;
     case 'other':
-      panel.classList.add('visible');
+      showRightPanel();
       otherLegend.style.display = '';
       updateOtherLegend();
       break;
     case 'boothType':
-      panel.classList.add('visible');
+      showRightPanel();
       boothTypeLegend.style.display = '';
       break;
   }
@@ -690,13 +763,12 @@ function toggleLayerVisibility(layerId) {
   // 부대시설 레이어 토글 시 범례도 함께 표시
   const isNowVisible = layer.customGetter ? layer.customGetter() : state[layer.stateKey];
   if (isNowVisible) {
-    const panel = document.getElementById('panelRight');
     if (layerId === 'elec') {
-      panel.classList.add('visible');
+      showRightPanel();
       document.getElementById('elecLegendSection').style.display = '';
       updateElecLegend();
     } else if (layerId === 'other') {
-      panel.classList.add('visible');
+      showRightPanel();
       document.getElementById('otherLegendSection').style.display = '';
       updateOtherLegend();
     }
@@ -728,7 +800,6 @@ function toggleLayerLock(layerId) {
 // ─── Properties Panel ───
 function updateProps() {
   if (VIEWER_MODE) return;
-  const panel = document.getElementById('panelRight');
   const boothSection = document.getElementById('boothPropsSection');
   const structSection = document.getElementById('panelStructProps');
   const baseNoSection = document.getElementById('baseNoPropsSection');
@@ -739,7 +810,7 @@ function updateProps() {
   // ─── 실측선 선택 ───
   if (state.selectedMeasureLineId !== null) {
     const line = state.measureLines.find(l => l.id === state.selectedMeasureLineId);
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
     structSection.style.display = 'none';
@@ -756,7 +827,7 @@ function updateProps() {
   if (measureLineSection) measureLineSection.style.display = 'none';
 
   if (state.selectedDiscussIds.size === 1) {
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
     structSection.style.display = 'none';
@@ -772,7 +843,7 @@ function updateProps() {
     document.getElementById('propDiscussH').value = pxToM(ov.h).toFixed(1);
     document.getElementById('propDiscussGroupId').textContent = ov.groupId !== null ? ov.groupId : '—';
   } else if (state.selectedDiscussIds.size > 1) {
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
     baseNoSection.style.display = 'none';
@@ -795,7 +866,7 @@ function updateProps() {
     document.getElementById('btnDiscussConnect').textContent = state.selectedDiscussIds.size + '개 선택항목 연결 (그룹)';
     document.getElementById('btnDiscussConnect').style.display = 'block';
   } else if (state.selectedBaseNoIds.size === 1) {
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
     structSection.style.display = 'none';
@@ -809,28 +880,28 @@ function updateProps() {
     document.getElementById('propBaseNoW').value = pxToM(bn.w).toFixed(1);
     document.getElementById('propBaseNoH').value = pxToM(bn.h).toFixed(1);
   } else if (state.selectedBaseNoIds.size > 1) {
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'block';
     boothSection.style.display = 'none';
     baseNoSection.style.display = 'none';
     structSection.style.display = 'none';
     document.getElementById('multiSelectCount').textContent = state.selectedBaseNoIds.size + '개 BaseNo 선택';
   } else if (state.selectedStructId) {
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'none';
     boothSection.style.display = 'none';
     baseNoSection.style.display = 'none';
     structSection.style.display = 'block';
     populateStructProps();
   } else if (state.selectedIds.size > 1) {
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'block';
     boothSection.style.display = 'none';
     baseNoSection.style.display = 'none';
     structSection.style.display = 'none';
     document.getElementById('multiSelectCount').textContent = state.selectedIds.size + '개 선택';
   } else if (state.selectedIds.size === 1) {
-    panel.classList.add('visible');
+    showRightPanel();
     multiSection.style.display = 'none';
     boothSection.style.display = 'block';
     document.getElementById('boothPropsEmpty').style.display = 'none';
@@ -975,9 +1046,9 @@ function updateProps() {
     document.getElementById('btnDiscussConnect').textContent = '선택항목 연결 (그룹)';
     // 전기/부스타입 범례가 켜져 있으면 패널 유지, 아니면 숨김
     if (state.showElec || state.showBoothType) {
-      panel.classList.add('visible');
+      showRightPanel();
     } else {
-      panel.classList.remove('visible');
+      hideRightPanel();
     }
   }
 }
@@ -1635,9 +1706,9 @@ function toggleBoothTypeDisplay() {
   if (section) section.style.display = state.showBoothType ? '' : 'none';
   if (panel) {
     if (state.showBoothType) {
-      panel.classList.add('visible');
+      showRightPanel();
     } else if (!state.showElec && !state.selectedIds.size && !state.selectedStructId) {
-      panel.classList.remove('visible');
+      hideRightPanel();
     }
   }
   render();
@@ -1725,7 +1796,7 @@ function updateOtherLegend() {
   if (!section || !panel) return;
   section.style.display = state.showOther ? '' : 'none';
   if (state.showOther) {
-    panel.classList.add('visible');
+    showRightPanel();
     const list = document.getElementById('otherLegendList');
     const labels = { other_tela:'국내전화', other_telb:'국제전화', other_net:'인터넷', other_giga:'기가인터넷', other_wifi:'공유기', other_water:'수도', other_air:'압축공기' };
     list.innerHTML = OTHER_TYPES.map(t =>
@@ -1735,7 +1806,7 @@ function updateOtherLegend() {
       </div>`
     ).join('');
   } else if (!state.selectedIds.size && !state.selectedStructId && !state.showElec) {
-    panel.classList.remove('visible');
+    hideRightPanel();
   }
 }
 
@@ -1756,7 +1827,7 @@ function updateElecLegend() {
   if (!section || !panel) return;
   section.style.display = state.showElec ? '' : 'none';
   if (state.showElec) {
-    panel.classList.add('visible');
+    showRightPanel();
     const list = document.getElementById('elecLegendList');
     list.innerHTML = ELEC_TYPES.map(t =>
       `<div style="display:flex;align-items:center;gap:6px">
@@ -1767,7 +1838,7 @@ function updateElecLegend() {
   } else {
     // 선택된 것이 없으면 패널 닫기
     if (!state.selectedIds.size && !state.selectedStructId) {
-      panel.classList.remove('visible');
+      hideRightPanel();
     }
   }
 }
