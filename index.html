@@ -353,8 +353,8 @@
     }
     .mobile-backdrop.active { display: block; }
 
-    /* 좌측 패널 전체 숨김 (드로어가 대신) */
-    .panel-left { display: none !important; }
+    /* 아이콘 사이드바 + 좌측 패널 숨김 */
+    .sidebar-icons { display: none !important; }
 
     /* 캔버스: 전체 너비 */
     .canvas-container { width: 100vw !important; }
@@ -362,8 +362,8 @@
     /* 좌측 패널 내용 → 슬라이드-인 드로어 */
     .sidebar-panel {
       position: fixed !important;
-      top: 0; left: 0; bottom: 0;
-      width: 260px !important;
+      top: 48px; left: 0; bottom: 26px;
+      width: 280px !important;
       z-index: 500;
       transform: translateX(-100%);
       transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -371,32 +371,53 @@
       display: block !important;
       box-shadow: 4px 0 20px rgba(0,0,0,0.4);
       background: var(--surface);
+      padding: 12px;
+      box-sizing: border-box;
     }
     .sidebar-panel.drawer-open { transform: translateX(0); }
 
-    /* 햄버거 버튼 */
+    /* 햄버거 버튼: 툴바 안에 나란히 */
     .mobile-menu-btn {
       display: flex;
       align-items: center; justify-content: center;
-      position: fixed;
-      top: 56px; left: 8px;
-      width: 40px; height: 40px;
-      border-radius: 10px;
-      background: var(--surface);
+      width: 32px; height: 28px;
+      border-radius: 6px;
+      background: var(--surface-hover);
       border: 1px solid var(--border);
       color: var(--text);
-      font-size: 18px;
+      font-size: 16px;
       z-index: 300;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
       cursor: pointer;
+      position: static;
+      flex-shrink: 0;
+      order: -1;
     }
 
-    /* 우측 패널 → 바텀 시트 */
+    /* 툴바 모바일 정리: Lock, EN, 검색만 남기기 */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 8px;
+    }
+    .topbar-logo,
+    .topbar-divider,
+    #btnPrintFloorplan,
+    #btnPrintAvailable,
+    #btnAssignGuideTopbar,
+    #btnViewerMode,
+    #btnManualSave,
+    .quick-pill-sep { display: none !important; }
+
+    .quick-pill { gap: 4px; background: none; padding: 0; }
+    #boothSearchContainer { width: 0; flex: 1 !important; min-width: 80px; }
+
+    /* 우측 패널 → 바텀 시트 (높이 축소) */
     .panel-right {
       position: fixed !important;
       bottom: 0; left: 0; right: 0;
       width: 100% !important;
-      max-height: 70vh;
+      max-height: 45vh;
       display: flex !important;
       transform: translateY(110%);
       transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
@@ -462,9 +483,8 @@
 </head>
 <body>
 
-<!-- ─── 모바일 오버레이 ─── -->
+<!-- ─── 모바일 백드롭 ─── -->
 <div id="mobileBackdrop" class="mobile-backdrop"></div>
-<button id="mobileMenuBtn" class="mobile-menu-btn" onclick="openMobileDrawer()">☰</button>
 
 <!-- ─── Exhibition Selector (no ?expo= param) ─── -->
 <div id="expoSelector" style="display:none;position:fixed;inset:0;z-index:9999;background:#1a1a2e;color:#fff;font-family:'Spoqa Han Sans Neo',system-ui,sans-serif;overflow-y:auto">
@@ -500,6 +520,9 @@
 
 <!-- ─── Top Bar ─── -->
 <div class="topbar">
+  <!-- 모바일 햄버거 버튼 (툴바 내) -->
+  <button id="mobileMenuBtn" class="mobile-menu-btn" onclick="openMobileDrawer()">☰</button>
+
   <!-- 좌측: 로고 -->
   <div class="topbar-logo">ExpoMap <span id="appHashDisplay" style="display:none">43bdefd</span> <span id="topbarExpoName"></span></div>
   <div class="topbar-divider"></div>

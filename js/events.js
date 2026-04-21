@@ -1230,6 +1230,7 @@ let isTouchDragging = false;
 let adminTouchStartX = 0, adminTouchStartY = 0;
 let adminTouchStartDistance = 0;
 let adminTouchDragging = false;
+let adminWasPinching = false;
 
 function getDistance(touch1, touch2) {
   const dx = touch1.clientX - touch2.clientX;
@@ -1253,6 +1254,7 @@ canvas.addEventListener('touchstart', (e) => {
       adminTouchStartX = e.touches[0].clientX;
       adminTouchStartY = e.touches[0].clientY;
     } else if (e.touches.length === 2) {
+      adminWasPinching = true;
       adminTouchStartDistance = getDistance(e.touches[0], e.touches[1]);
     }
     return;
@@ -1351,8 +1353,8 @@ canvas.addEventListener('touchmove', (e) => {
 canvas.addEventListener('touchend', (e) => {
   if (!VIEWER_MODE) {
     if (e.target.closest('#panelRight, #sidebarPanel')) return;
-    // 탭 감지 → 부스 선택 (기존 mousedown 파이프라인 재사용)
-    if (!adminTouchDragging && e.changedTouches.length === 1) {
+    // 탭 감지 → 부스 선택 (드래그·핀치가 없었을 때만)
+    if (!adminTouchDragging && !adminWasPinching && e.changedTouches.length === 1) {
       const t = e.changedTouches[0];
       canvas.dispatchEvent(new MouseEvent('mousedown', {
         clientX: t.clientX, clientY: t.clientY,
@@ -1364,6 +1366,7 @@ canvas.addEventListener('touchend', (e) => {
       }));
     }
     adminTouchDragging = false;
+    if (e.touches.length === 0) adminWasPinching = false;
     if (e.touches.length < 2) adminTouchStartDistance = 0;
     return;
   }
