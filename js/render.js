@@ -141,6 +141,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   const isEnMode = state.lang === 'en';
   const displayName = isEnMode ? (b.companyNameEn || '') : b.companyName;
   const hasCompany = !!displayName;
+  // 업체 배정 여부 (언어 무관 — 로고 표시 조건으로 사용)
+  const hasAnyCompany = !!(b.companyName || b.companyNameEn);
   // 언어별 폰트 크기 오버라이드
   const fontSizeOverride = isEnMode ? (b.fontSizeEn ?? null) : (b.fontSize ?? null);
   const hasBoothNo = !!b.boothId;
@@ -149,8 +151,8 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
 
   c.fillStyle = textColor;
 
-  // 로고 렌더링 (4부스 이상 & 로고 URL 있을 때)
-  const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
+  // 로고 렌더링 (4부스 이상 & 로고 URL 있을 때 — EN 모드에서 영문명 없어도 로고는 표시)
+  const shouldDrawLogo = area >= 36 && hasAnyCompany && b.companyLogoUrl;
   if (shouldDrawLogo && !isConstruction) {
     const logoImg = getLogoImage(b, state.logoCache);
     if (logoImg) {
