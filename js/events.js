@@ -1364,6 +1364,13 @@ canvas.addEventListener('touchend', (e) => {
         clientX: t.clientX, clientY: t.clientY,
         bubbles: true, cancelable: true, button: 0
       }));
+      // 선택된 요소가 없으면 바텀시트 열지 않음
+      const hasSelection = state.selectedIds.size > 0 ||
+        state.selectedStructId !== null ||
+        state.selectedBaseNoIds.size > 0 ||
+        state.selectedDiscussIds.size > 0 ||
+        state.selectedMeasureLineId !== null;
+      if (!hasSelection && typeof closeMobileSheet === 'function') closeMobileSheet();
     }
     adminTouchDragging = false;
     if (e.touches.length === 0) adminWasPinching = false;

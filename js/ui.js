@@ -45,6 +45,12 @@ function closeMobileSheet() {
 
 // 백드롭 클릭 → 대상 닫기
 document.addEventListener('DOMContentLoaded', () => {
+  // 모바일 검색 플레이스홀더 교체
+  if (isMobile()) {
+    const searchInput = document.getElementById('boothSearchInput');
+    if (searchInput) searchInput.placeholder = '검색';
+  }
+
   const bd = document.getElementById('mobileBackdrop');
   if (bd) {
     bd.addEventListener('click', () => {
