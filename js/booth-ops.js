@@ -136,6 +136,25 @@ function drawDiscussOverlays(c, zoom) {
       c.globalAlpha = 1;
     }
   });
+
+  // 오버레이에 가려진 부스의 사이즈 텍스트를 오버레이 위에 재드로우
+  const _pad = 2;
+  state.discussOverlays.forEach(ov => {
+    state.booths.forEach(b => {
+      if (b.x >= ov.x + ov.w || b.x + b.w <= ov.x || b.y >= ov.y + ov.h || b.y + b.h <= ov.y) return;
+      const wm = pxToM(b.w), hm = pxToM(b.h);
+      if (wm < 6 || hm < 6 || !!(b.cells && b.cells.length > 1)) return;
+      const tr = typeof getTextRect === 'function' ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
+      const szFz = Math.max(1.5, Math.min((tr.h - _pad * 2) * 0.12, 10));
+      c.font = `400 ${szFz}px 'Spoqa Han Sans Neo', sans-serif`;
+      c.fillStyle = '#000000';
+      c.textAlign = 'right';
+      c.textBaseline = 'bottom';
+      c.globalAlpha = 0.45;
+      c.fillText(`${wm}×${hm}m`, tr.x + tr.w - _pad, tr.y + tr.h - _pad);
+      c.globalAlpha = 1;
+    });
+  });
 }
 
 function drawBaseNumbers(c, zoom) {
