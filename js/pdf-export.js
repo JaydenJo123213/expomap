@@ -741,6 +741,26 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
   };
 
   const hasCompany = !!displayName, hasBoothNo = !!b.boothId;
+  const wm = typeof pxToM === 'function' ? pxToM(b.w) : b.w / 10;
+  const hm = typeof pxToM === 'function' ? pxToM(b.h) : b.h / 10;
+  const isIrregularBooth = !!(b.cells && b.cells.length > 1);
+  const showSize = wm >= 6 && hm >= 6 && !isIrregularBooth;
+  const szFz = showSize ? Math.max(1.5, Math.min(availH * 0.12, 10)) : 0;
+
+  // 우하단 사이즈 텍스트 (canvas textBaseline='bottom' 대응)
+  // world y 기준: bottom = tr.y + tr.h - pad, baseline = bottom - fz*0.20
+  const drawSize = (overrideSzFz) => {
+    const fz = overrideSzFz ?? szFz;
+    if (!showSize || fz < 0.5) return;
+    const sizeText = `${wm}×${hm}m`;
+    const ptSz = toPt(fz);
+    if (ptSz < 0.5) return;
+    const tw = fontReg.widthOfTextAtSize(sizeText, ptSz);
+    const tx = toX(tr.x + tr.w - pad) - tw;
+    const ty = toPageY(tr.y + tr.h - pad - fz * 0.20);
+    page.drawText(sizeText, { x: tx, y: ty, size: ptSz, font: fontReg, color: rgb(0,0,0), opacity: 0.45 });
+  };
+
   const area = (b.w / 10) * (b.h / 10);
   const shouldDrawLogo = area >= 36 && hasCompany && b.companyLogoUrl;
   let logoDrawn = false;
@@ -768,6 +788,7 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
           drawName(lines, fz, startY - fz * 0.5, textCX);
         }
         if (hasBoothNo) drawNo(noFz);
+        drawSize();
       }
     }
   }
@@ -778,7 +799,8 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
       const longestLine = lines.reduce((a, l) => a.length >= l.length ? a : l, '');
       const noFz = hasBoothNo && mc ? getBoothNoFontSize(mc, b) : 0;
       const topReserve = noFz ? noFz + 2 : 0;
-      const textAreaH = availH - topReserve;
+      const bottomReserve = showSize ? szFz + 2 : 0;
+      const textAreaH = availH - topReserve - bottomReserve;
       let fz = fontSizeOverride != null
         ? Math.max(1.5, Math.min(fontSizeOverride, 60))
         : Math.max(1.5, Math.min(mc ? calcFontSize(mc, longestLine || 'A', availW * 0.9) : 10, 16));
@@ -787,8 +809,11 @@ function _drawBoothTextPdfLib(page, b, fontReg, fontBold, scalePt, toX, toY, pag
       const startY = tr.y + topReserve + pad + (textAreaH - blockH) / 2;
       drawName(lines, fz, startY);
       if (hasBoothNo) drawNo(noFz);
+      drawSize();
     } else if (hasBoothNo) {
-      drawNo(mc ? getBoothNoFontSize(mc, b) : 8);
+      const noFz2 = mc ? getBoothNoFontSize(mc, b) : 8;
+      drawNo(noFz2);
+      drawSize(Math.min(Math.max(1.5, noFz2 * 0.4), 8));
     }
   }
 }
