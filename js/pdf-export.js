@@ -873,6 +873,16 @@ function _drawDiscussOverlaysOnCanvas(ctx, zoom, overlays) {
       const startY = ov.y + ov.h / 2 - (lines.length - 1) * lineH / 2;
       lines.forEach((line, i) => ctx.fillText(line, ov.x + ov.w / 2, startY + i * lineH));
     }
+    // 우하단 사이즈 텍스트
+    const wmOv = typeof pxToM === 'function' ? pxToM(ov.w) : ov.w / 10;
+    const hmOv = typeof pxToM === 'function' ? pxToM(ov.h) : ov.h / 10;
+    const szFzOv = Math.max(7 / zoom, 5);
+    const padOv = 3 / zoom;
+    ctx.font = `400 ${szFzOv}px 'Spoqa Han Sans Neo', sans-serif`;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`${wmOv}×${hmOv}m`, ov.x + ov.w - padOv, ov.y + ov.h - padOv);
   });
 
   // 2개 이상: 노란 점선 연결 + 중심원
@@ -1169,6 +1179,20 @@ async function _buildPDFLibDocument(mode, options = {}) {
           lines.forEach((line, i) => {
             const tw = fontBoldEmbed.widthOfTextAtSize(line, fz);
             page.drawText(line, { x: cx - tw / 2, y: startY - i * lineH, size: fz, font: fontBoldEmbed, color: blackColor });
+          });
+        }
+        // 우하단 사이즈 텍스트
+        if (fontRegEmbed) {
+          const wmOv = typeof pxToM === 'function' ? pxToM(ov.w) : ov.w / 10;
+          const hmOv = typeof pxToM === 'function' ? pxToM(ov.h) : ov.h / 10;
+          const sizeText = `${wmOv}×${hmOv}m`;
+          const szPt = Math.max(toS(6), 3.5);
+          const padPt = Math.max(toS(3), 1.5);
+          const tw = fontRegEmbed.widthOfTextAtSize(sizeText, szPt);
+          page.drawText(sizeText, {
+            x: toX(ov.x + ov.w) - tw - padPt,
+            y: toPageY(ov.y + ov.h) + padPt + szPt * 0.20,
+            size: szPt, font: fontRegEmbed, color: blackColor, opacity: 0.6,
           });
         }
       }
