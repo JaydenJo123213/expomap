@@ -296,27 +296,6 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
   // 배정논의 오버레이
   _drawDiscussOverlaysOnCanvas(ectx, zoom, selectedOverlays);
 
-  // 오버레이에 가려진 부스 사이즈 텍스트 재드로우 (오버레이 위에 표시)
-  const _szPad = 2;
-  for (const b of booths) {
-    const wm = typeof pxToM === 'function' ? pxToM(b.w) : b.w / 10;
-    const hm = typeof pxToM === 'function' ? pxToM(b.h) : b.h / 10;
-    if (wm < 6 || hm < 6 || !!(b.cells && b.cells.length > 1)) continue;
-    const under = selectedOverlays.some(ov =>
-      b.x < ov.x + ov.w && b.x + b.w > ov.x && b.y < ov.y + ov.h && b.y + b.h > ov.y
-    );
-    if (!under) continue;
-    const tr = typeof getTextRect === 'function' ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
-    const szFz = Math.max(1.5, Math.min((tr.h - _szPad * 2) * 0.12, 10));
-    ectx.font = `400 ${szFz}px 'Spoqa Han Sans Neo', sans-serif`;
-    ectx.fillStyle = '#000000';
-    ectx.textAlign = 'right';
-    ectx.textBaseline = 'bottom';
-    ectx.globalAlpha = 0.45;
-    ectx.fillText(`${wm}×${hm}m`, tr.x + tr.w - _szPad, tr.y + tr.h - _szPad);
-    ectx.globalAlpha = 1;
-  }
-
   ectx.restore();
 }
 
@@ -1276,30 +1255,6 @@ async function _buildPDFLibDocument(mode, options = {}) {
         }
       }
 
-      // 오버레이에 가려진 부스 사이즈 텍스트를 최상단에 벡터로 재드로우
-      if (fontRegEmbed) {
-        const _bsPad = 2;
-        for (const b of booths) {
-          const wm = typeof pxToM === 'function' ? pxToM(b.w) : b.w / 10;
-          const hm = typeof pxToM === 'function' ? pxToM(b.h) : b.h / 10;
-          if (wm < 6 || hm < 6 || !!(b.cells && b.cells.length > 1)) continue;
-          const under = selectedOverlays.some(ov =>
-            b.x < ov.x + ov.w && b.x + b.w > ov.x && b.y < ov.y + ov.h && b.y + b.h > ov.y
-          );
-          if (!under) continue;
-          const tr = typeof getTextRect === 'function' ? getTextRect(b) : { x: b.x, y: b.y, w: b.w, h: b.h };
-          const szFz = Math.max(1.5, Math.min((tr.h - _bsPad * 2) * 0.12, 10));
-          const sizeText = `${wm}×${hm}m`;
-          const ptSz = toS(szFz);
-          if (ptSz < 0.5) continue;
-          const tw = fontRegEmbed.widthOfTextAtSize(sizeText, ptSz);
-          page.drawText(sizeText, {
-            x: toX(tr.x + tr.w - _bsPad) - tw,
-            y: toPageY(tr.y + tr.h - _bsPad - szFz * 0.20),
-            size: ptSz, font: fontRegEmbed, color: rgb(0,0,0), opacity: 0.45,
-          });
-        }
-      }
     }
   }
 
