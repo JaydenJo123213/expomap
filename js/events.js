@@ -2,8 +2,23 @@
 // ═══════════════════════════════════════
 let spaceDown = false;
 
+// ─── iOS Safari 터치 차단 (실기기 전용) ───────────────────────────────────────
+// iOS는 document 레벨에서 스크롤/줌 의도를 미리 판단(passive gesture recognizer).
+// canvas 요소의 preventDefault만으로는 이미 선점된 iOS 제스처를 취소 불가.
+// 해결: document 레벨에서도 { passive: false } + preventDefault 등록.
+
+// 1) iOS 전용 gesture 이벤트 차단 (gesturestart/gesturechange: pinch-zoom을 iOS 레벨에서 차단)
+window.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+window.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+
+// 2) document 레벨 touchmove 차단 — 캔버스 컨테이너 영역만 선택적으로 차단
+//    패널/드로어 내부 스크롤은 허용(container.contains로 구분)
+document.addEventListener('touchmove', (e) => {
+  if (container.contains(e.target)) e.preventDefault();
+}, { passive: false });
+// ─────────────────────────────────────────────────────────────────────────────
+
 // touchmove 전용 rAF throttle — 한 프레임 안에 여러 touchmove 이벤트가 와도 render() 1회만 실행
-// (touch-action:none + passive:false로 브라우저 gesture handling이 완전히 차단되므로 rAF 정상 작동)
 let _touchRafPending = false;
 function scheduleRenderForTouch() {
   if (_touchRafPending) return;

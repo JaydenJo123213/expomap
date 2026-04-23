@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ExpoMap — Prototype</title>
 <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -29,7 +29,7 @@
     --assigned: #2E8B57; --assigned-stroke: #3DAF6E;
   }
 
-  body { font-family: 'Spoqa Han Sans Neo', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+  body { font-family: 'Spoqa Han Sans Neo', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; position: fixed; width: 100%; overscroll-behavior: none; }
 
   /* ─── Top Bar ─── */
   .topbar { height: 48px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 8px; z-index: 600; flex-wrap: nowrap; overflow-x: auto; position: relative; }
