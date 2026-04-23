@@ -190,6 +190,7 @@ function _doRenderExportPreview() {
 
   // BG 이미지 로딩 중이면 대기 메시지 표시 + 내보내기 버튼 비활성화
   const confirmBtn = document.getElementById('btnExportConfirm');
+  const exportHint = document.getElementById('exportBtnHint');
   if (_bgStillLoading()) {
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.font = "bold 15px 'Spoqa Han Sans Neo', sans-serif";
@@ -202,11 +203,13 @@ function _doRenderExportPreview() {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.4'; }
+    if (exportHint) exportHint.style.display = '';
     // 500ms 후 재시도
     setTimeout(_doRenderExportPreview, 500);
     return;
   }
   if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.style.opacity = ''; }
+  if (exportHint) exportHint.style.display = 'none';
 
   // 페이지 크기 (mm)
   let pgW = 420, pgH = 297; // A3 landscape default
