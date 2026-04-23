@@ -72,7 +72,11 @@ async function init() {
       await loadFromSupabase();
       _setLoadingProgress(55, '부스 데이터 완료, 도면 불러오는 중...');
       const bgP = getBgLoadPromise();
-      if (bgP) await bgP;
+      if (bgP) {
+        // 최대 10초 대기 — 초과 시 오버레이 해제, BG는 백그라운드 계속 로드
+        const bgTimeout = new Promise(resolve => setTimeout(resolve, 10000));
+        await Promise.race([bgP, bgTimeout]);
+      }
       _setLoadingProgress(100, '완료!');
       initAutoVersion();
     } else {
@@ -83,7 +87,10 @@ async function init() {
         restoreBgImage(savedBg);
         _setLoadingProgress(60, '도면 이미지 불러오는 중...');
         const bgP = getBgLoadPromise();
-        if (bgP) await bgP;
+        if (bgP) {
+          const bgTimeout = new Promise(resolve => setTimeout(resolve, 10000));
+          await Promise.race([bgP, bgTimeout]);
+        }
       }
       _setLoadingProgress(100, '완료!');
     }

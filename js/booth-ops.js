@@ -1283,14 +1283,14 @@ let _bgLoadPromise = null;
 function getBgLoadPromise() { return _bgLoadPromise; }
 
 // 모바일에서 Supabase Storage URL을 이미지 transform 엔드포인트로 변환
-// width=1200, quality=65, format=webp → 수 MB PNG를 수백 KB로 축소
+// 해상도는 원본 유지(width 미지정), quality=70 + WebP 포맷으로 50~70% 크기 절감
 function _getMobileBgUrl(src) {
   if (!src || window.innerWidth > 768) return src;
   if (!src.includes('/storage/v1/object/public/')) return src;
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
-    + '?width=1200&quality=65&format=webp';
+    + '?quality=70&format=webp';
 }
 
 function restoreBgImage(src) {
