@@ -2,7 +2,14 @@
 // ═══════════════════════════════════════
 let spaceDown = false;
 
-// iOS Safari는 gesture 중 rAF를 억제하므로 touchmove에선 직접 render() 호출
+// touchmove 전용 rAF throttle — 한 프레임 안에 여러 touchmove 이벤트가 와도 render() 1회만 실행
+// (touch-action:none + passive:false로 브라우저 gesture handling이 완전히 차단되므로 rAF 정상 작동)
+let _touchRafPending = false;
+function scheduleRenderForTouch() {
+  if (_touchRafPending) return;
+  _touchRafPending = true;
+  requestAnimationFrame(() => { _touchRafPending = false; render(); });
+}
 
 canvas.addEventListener('mousedown', (e) => {
   if (VIEWER_MODE) {
@@ -1290,7 +1297,7 @@ canvas.addEventListener('touchmove', (e) => {
         state.panX += dx; state.panY += dy;
         adminTouchStartX = e.touches[0].clientX;
         adminTouchStartY = e.touches[0].clientY;
-        render();
+        scheduleRenderForTouch();
       }
     } else if (e.touches.length === 2) {
       const currentDistance = getDistance(e.touches[0], e.touches[1]);
@@ -1306,7 +1313,7 @@ canvas.addEventListener('touchmove', (e) => {
       state.panY = canvasMidY - (canvasMidY - state.panY) * zoomChange;
       state.zoom = newZoom;
       adminTouchStartDistance = currentDistance;
-      render();
+      scheduleRenderForTouch();
     }
     return;
   }
@@ -1326,7 +1333,7 @@ canvas.addEventListener('touchmove', (e) => {
       state.panY += dy;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
-      render();
+      scheduleRenderForTouch();
     }
   } else if (e.touches.length === 2) {
     // 두 손가락: 핀치줌
@@ -1352,7 +1359,7 @@ canvas.addEventListener('touchmove', (e) => {
     touchStartDistance = currentDistance;
     const vzd = document.getElementById('viewerZoomDisplay');
     if (vzd) vzd.textContent = Math.round(state.zoom * 100) + '%';
-    render();
+    scheduleRenderForTouch();
   }
 }, { passive: false });
 
