@@ -363,6 +363,9 @@ function openExportModal(mode) {
   }
 
   _syncExportModalUI();
+  // 모달 열리는 순간 버튼 비활성화 — 미리보기 렌더 완료 후 활성화
+  const confirmBtn = document.getElementById('btnExportConfirm');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.4'; }
   openModal('modalExport');
   // 모달 열린 후 캔버스 크기가 확정되므로 rAF 후 렌더
   requestAnimationFrame(() => {
