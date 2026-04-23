@@ -59,10 +59,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bd = document.getElementById('mobileBackdrop');
   if (bd) {
-    bd.addEventListener('click', () => {
+    const dismissBackdrop = () => {
       if (bd.dataset.target === 'drawer') closeMobileDrawer();
       else if (bd.dataset.target === 'sheet') closeMobileSheet();
-    });
+    };
+    bd.addEventListener('click', dismissBackdrop);
+    // iOS Safari에서 div의 click 이벤트가 불발할 수 있어 touchend도 등록
+    bd.addEventListener('touchend', (e) => { e.preventDefault(); dismissBackdrop(); });
   }
 
   // 드래그-투-디스미스 (핸들 스와이프 아래)

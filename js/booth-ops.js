@@ -1282,9 +1282,21 @@ document.getElementById('logoUpload').addEventListener('change', async (e) => {
 let _bgLoadPromise = null;
 function getBgLoadPromise() { return _bgLoadPromise; }
 
+// 모바일에서 Supabase Storage URL을 이미지 transform 엔드포인트로 변환
+// width=1200, quality=65, format=webp → 수 MB PNG를 수백 KB로 축소
+function _getMobileBgUrl(src) {
+  if (!src || window.innerWidth > 768) return src;
+  if (!src.includes('/storage/v1/object/public/')) return src;
+  return src
+    .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+    .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
+    + '?width=1200&quality=65&format=webp';
+}
+
 function restoreBgImage(src) {
+  const optimizedSrc = _getMobileBgUrl(src);
   const img = new Image();
-  if (src && src.startsWith('http')) img.crossOrigin = 'anonymous';
+  if (optimizedSrc && optimizedSrc.startsWith('http')) img.crossOrigin = 'anonymous';
   _bgLoadPromise = new Promise((resolve) => {
     img.onload = () => {
       state.bg.img = img;
@@ -1293,11 +1305,21 @@ function restoreBgImage(src) {
       resolve(true);
     };
     img.onerror = () => {
-      console.warn('BG image load failed:', src);
-      resolve(false);
+      if (optimizedSrc !== src) {
+        // transform 실패 → 원본 URL로 재시도
+        console.warn('BG transform load failed, retrying with original:', src);
+        const fallback = new Image();
+        if (src.startsWith('http')) fallback.crossOrigin = 'anonymous';
+        fallback.onload = () => { state.bg.img = fallback; render(); resolve(true); };
+        fallback.onerror = () => { console.warn('BG image load failed:', src); resolve(false); };
+        fallback.src = src;
+      } else {
+        console.warn('BG image load failed:', src);
+        resolve(false);
+      }
     };
   });
-  img.src = src;
+  img.src = optimizedSrc;
 }
 
 function restoreLogos(logoData) {

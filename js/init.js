@@ -29,12 +29,22 @@ function applyExhibitionBranding(expo) {
 function _showAppLoading() {
   const el = document.getElementById('appLoadingOverlay');
   if (el) el.style.display = 'flex';
+  _setLoadingProgress(0, '도면을 불러오는 중입니다...');
 }
 
 function _hideAppLoading() {
   const el = document.getElementById('appLoadingOverlay');
   if (!el) return;
   el.style.display = 'none';
+}
+
+function _setLoadingProgress(pct, label) {
+  const bar = document.getElementById('appLoadingBar');
+  const pctEl = document.getElementById('appLoadingPct');
+  const labelEl = document.getElementById('appLoadingLabel');
+  if (bar) bar.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+  if (label && labelEl) labelEl.textContent = label;
 }
 
 async function init() {
@@ -58,20 +68,24 @@ async function init() {
 
   try {
     if (initSupabase()) {
+      _setLoadingProgress(10, '서버에 연결 중...');
       await loadFromSupabase();
-      // BG 이미지가 완전히 로드된 후 오버레이 해제 (부스만 보이는 혼란 방지)
+      _setLoadingProgress(55, '부스 데이터 완료, 도면 불러오는 중...');
       const bgP = getBgLoadPromise();
       if (bgP) await bgP;
+      _setLoadingProgress(100, '완료!');
       initAutoVersion();
     } else {
-      // Supabase 없을 때 localStorage 폴백으로 bg 복원
+      _setLoadingProgress(20, '로컬 데이터 복원 중...');
       const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
       const savedBg = localStorage.getItem(bgKey);
       if (savedBg) {
         restoreBgImage(savedBg);
+        _setLoadingProgress(60, '도면 이미지 불러오는 중...');
         const bgP = getBgLoadPromise();
         if (bgP) await bgP;
       }
+      _setLoadingProgress(100, '완료!');
     }
   } finally {
     // 성공/실패 모두 오버레이 숨김
