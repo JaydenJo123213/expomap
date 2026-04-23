@@ -326,8 +326,15 @@ function _initExportPreviewEvents() {
   window.addEventListener('mouseup', () => { dragging = false; });
 }
 
+// BG 이미지가 존재해야 하는데 아직 로드 중인지 체크
+const _bgStillLoading = () => (state.bg.storageUrl || state.bg.dataUrl) && !state.bg.img;
+
 // ─── Export 모달 열기 ───
 function openExportModal(mode) {
+  if (_bgStillLoading()) {
+    alert('배경 이미지를 불러오는 중입니다.\n잠시 후 다시 시도해 주세요.');
+    return;
+  }
   _exportState.mode = mode || 'floorplan';
   _exportState.panX = 0; _exportState.panY = 0;
 
@@ -474,6 +481,10 @@ document.getElementById('btnAutoNumber').addEventListener('click', () => openMod
 document.getElementById('btnBaseNoNumber').addEventListener('click', () => openModal('modalBaseNoNum'));
 document.getElementById('btnImport').addEventListener('click', () => { _importStep = 1; setImportStep(1); _importRawData = null; document.getElementById('importFileInfo').textContent = ''; document.getElementById('importBtnNext').textContent = 'Next →'; openModal('modalImport'); });
 document.getElementById('btnExport').addEventListener('click', () => {
+  if (_bgStillLoading()) {
+    alert('배경 이미지를 불러오는 중입니다.\n잠시 후 다시 시도해 주세요.');
+    return;
+  }
   selectPreset(document.querySelector('.preset-card[data-preset="sales"]'));
   openModal('modalExport');
 });

@@ -1279,14 +1279,24 @@ document.getElementById('logoUpload').addEventListener('change', async (e) => {
   reader.readAsDataURL(file);
 });
 
+let _bgLoadPromise = null;
+function getBgLoadPromise() { return _bgLoadPromise; }
+
 function restoreBgImage(src) {
   const img = new Image();
   if (src && src.startsWith('http')) img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    state.bg.img = img;
-    if (!src.startsWith('http')) state.bg.dataUrl = src;
-    render();
-  };
+  _bgLoadPromise = new Promise((resolve) => {
+    img.onload = () => {
+      state.bg.img = img;
+      if (!src.startsWith('http')) state.bg.dataUrl = src;
+      render();
+      resolve(true);
+    };
+    img.onerror = () => {
+      console.warn('BG image load failed:', src);
+      resolve(false);
+    };
+  });
   img.src = src;
 }
 

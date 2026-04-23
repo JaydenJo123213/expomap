@@ -26,9 +26,18 @@ function applyExhibitionBranding(expo) {
   }
 }
 
+function _hideAppLoading() {
+  const el = document.getElementById('appLoadingOverlay');
+  if (!el) return;
+  el.style.transition = 'opacity 0.4s ease';
+  el.style.opacity = '0';
+  setTimeout(() => { el.style.display = 'none'; }, 400);
+}
+
 async function init() {
-  // 전시회 선택 화면
+  // 전시회 선택 화면 (BG 없으므로 즉시 오버레이 숨김)
   if (!EXPO_SLUG) {
+    _hideAppLoading();
     showExpoSelector();
     return;
   }
@@ -43,15 +52,28 @@ async function init() {
   resize();
   state.panX = 50;
   state.panY = 50;
-  if (initSupabase()) {
-    await loadFromSupabase();
-    initAutoVersion();
-  } else {
-    // Supabase 없을 때 localStorage 폴백으로 bg 복원
-    const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
-    const savedBg = localStorage.getItem(bgKey);
-    if (savedBg) restoreBgImage(savedBg);
+
+  try {
+    if (initSupabase()) {
+      await loadFromSupabase();
+      initAutoVersion();
+    } else {
+      // Supabase 없을 때 localStorage 폴백으로 bg 복원
+      const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
+      const savedBg = localStorage.getItem(bgKey);
+      if (savedBg) restoreBgImage(savedBg);
+    }
+
+    // BG 이미지가 있다면 완전히 로드될 때까지 대기 (최대 10초)
+    const bgProm = typeof getBgLoadPromise === 'function' ? getBgLoadPromise() : null;
+    if (bgProm) {
+      await Promise.race([bgProm, new Promise(r => setTimeout(r, 10000))]);
+    }
+  } finally {
+    // 성공/실패/타임아웃 모두 오버레이 숨김
+    _hideAppLoading();
   }
+
   // ─── Presence init ───
   initPresenceIdentity();
   if (_supaClient) {

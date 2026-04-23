@@ -781,7 +781,11 @@ canvas.addEventListener('mouseup', (e) => {
     state.exportRegionCurrent = null;
     hideStructHint();
     updateExportRegionUI();
-    openModal('modalExport');
+    if ((state.bg.storageUrl || state.bg.dataUrl) && !state.bg.img) {
+      alert('배경 이미지를 불러오는 중입니다.\n잠시 후 다시 시도해 주세요.');
+    } else {
+      openModal('modalExport');
+    }
     render();
     return;
   }

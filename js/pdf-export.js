@@ -299,6 +299,53 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
   ectx.restore();
 }
 
+// ─── SVG: 실측 레이어 벡터 출력 ───
+function _measureLinesToSVG() {
+  if (!state.showMeasure || !state.measureLines || !state.measureLines.length) return '';
+  const TICK = 8, OFFSET = 10, fz = 9;
+  const COLOR = '#1E88E5';
+  const pw = 3, ph = 2;
+  const parts = ['<g id="measure-lines">'];
+
+  for (const ml of state.measureLines) {
+    const { x1, y1, x2, y2 } = ml;
+    const isHoriz = Math.abs(y2 - y1) < 0.5;
+
+    // 본선
+    parts.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${COLOR}" stroke-width="1.5" stroke-linecap="round" fill="none"/>`);
+
+    // 끝점 tick
+    if (isHoriz) {
+      parts.push(`<line x1="${x1}" y1="${y1-TICK/2}" x2="${x1}" y2="${y1+TICK/2}" stroke="${COLOR}" stroke-width="1.5" fill="none"/>`);
+      parts.push(`<line x1="${x2}" y1="${y2-TICK/2}" x2="${x2}" y2="${y2+TICK/2}" stroke="${COLOR}" stroke-width="1.5" fill="none"/>`);
+    } else {
+      parts.push(`<line x1="${x1-TICK/2}" y1="${y1}" x2="${x1+TICK/2}" y2="${y1}" stroke="${COLOR}" stroke-width="1.5" fill="none"/>`);
+      parts.push(`<line x1="${x2-TICK/2}" y1="${y2}" x2="${x2+TICK/2}" y2="${y2}" stroke="${COLOR}" stroke-width="1.5" fill="none"/>`);
+    }
+
+    // 치수 라벨
+    const lmx = (x1 + x2) / 2;
+    const lmy = (y1 + y2) / 2;
+    const lenPx = isHoriz ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
+    const label = (typeof pxToM === 'function' ? pxToM(lenPx) : lenPx / 10).toFixed(1) + 'm';
+    const escLabel = typeof _escXml === 'function' ? _escXml(label) : label;
+    const tw = label.length * 5.2; // 글자 폭 추정 (fz=9 기준)
+
+    if (isHoriz) {
+      const ly = lmy - OFFSET;
+      parts.push(`<rect x="${lmx-tw/2-pw}" y="${ly-fz/2-ph}" width="${tw+pw*2}" height="${fz+ph*2}" fill="${COLOR}" fill-opacity="0.13" rx="1"/>`);
+      parts.push(`<text x="${lmx}" y="${ly+fz*0.35}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="600" fill="${COLOR}" text-anchor="middle">${escLabel}</text>`);
+    } else {
+      const lx = lmx - OFFSET;
+      parts.push(`<rect x="${lx-fz/2-ph}" y="${lmy-tw/2-pw}" width="${fz+ph*2}" height="${tw+pw*2}" fill="${COLOR}" fill-opacity="0.13" rx="1"/>`);
+      parts.push(`<text x="${lx}" y="${lmy}" font-family="'Spoqa Han Sans Neo',sans-serif" font-size="${fz}" font-weight="600" fill="${COLOR}" text-anchor="middle" dominant-baseline="central" transform="rotate(-90,${lx},${lmy})">${escLabel}</text>`);
+    }
+  }
+
+  parts.push('</g>');
+  return parts.join('\n');
+}
+
 // ─── SVG 문자열 생성 (bg 이미지 포함, 기존 exportSVG()는 수정 없음)
 function _buildSVGString(mode) {
   const booths = state.booths;
@@ -487,6 +534,10 @@ function _buildSVGString(mode) {
     }
     p.push('</g>');
   }
+
+  // ⑦ 실측 레이어 (벡터)
+  const _msvg = _measureLinesToSVG();
+  if (_msvg) p.push(_msvg);
 
   p.push('</g>');
   p.push('</svg>');
@@ -1142,13 +1193,86 @@ async function _buildPDFLibDocument(mode, options = {}) {
                     offY * mmToPx / MM_TO_PT - bounds.y1 * wScale);
       ctx.scale(wScale, wScale);
       if (typeof drawStructures === 'function') drawStructures(ctx, wScale, false);
-      if (typeof drawMeasureLayer === 'function') drawMeasureLayer(ctx, wScale);
       ctx.restore();
       const sPng = await _canvasToArrayBuffer(oc);
       const sImg = await pdfDoc.embedPng(sPng);
       page.drawImage(sImg, { x: 0, y: 0, width: pgWpt, height: pgHpt });
     }
   } catch(e) { console.warn('구조물 레이어 실패:', e.message); }
+
+  // Layer 4b: 실측 레이어 → 벡터 (pdf-lib)
+  if (state.showMeasure && state.measureLines && state.measureLines.length > 0) {
+    try {
+      const { rgb: _rgb } = PDFLib;
+      const pdfDeg = PDFLib.degrees || (n => ({ angle: n, type: 'degrees' }));
+      const mColor = _rgb(0.118, 0.533, 0.898); // #1E88E5
+      const font = fontBoldEmbed || fontRegEmbed;
+      const lineW    = Math.max(0.4, toS(1.5));
+      const tickH    = Math.max(3,   toS(8));
+      const OFFSET_PT = Math.max(6,  toS(10));
+      const fz       = Math.max(toS(9), 5);
+      const pw = 2, ph = 2;
+
+      for (const ml of state.measureLines) {
+        const { x1, y1, x2, y2 } = ml;
+        const isHoriz = Math.abs(y2 - y1) < 0.5;
+
+        // 본선
+        page.drawLine({
+          start: { x: toX(x1), y: toPageY(y1) },
+          end:   { x: toX(x2), y: toPageY(y2) },
+          thickness: lineW, color: mColor,
+        });
+
+        // 끝점 tick
+        if (isHoriz) {
+          for (const tx of [toX(x1), toX(x2)]) {
+            const ty = toPageY(y1);
+            page.drawLine({ start: { x: tx, y: ty - tickH/2 }, end: { x: tx, y: ty + tickH/2 }, thickness: lineW, color: mColor });
+          }
+        } else {
+          for (const ty of [toPageY(y1), toPageY(y2)]) {
+            const tx = toX(x1);
+            page.drawLine({ start: { x: tx - tickH/2, y: ty }, end: { x: tx + tickH/2, y: ty }, thickness: lineW, color: mColor });
+          }
+        }
+
+        // 치수 라벨
+        const lmx = (x1 + x2) / 2;
+        const lmy = (y1 + y2) / 2;
+        const lenPx = isHoriz ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
+        const label = (typeof pxToM === 'function' ? pxToM(lenPx) : lenPx / 10).toFixed(1) + 'm';
+
+        if (font) {
+          const tw = font.widthOfTextAtSize(label, fz);
+          if (isHoriz) {
+            // 수평선: 라벨을 선 위에
+            const lx = toX(lmx) - tw / 2;
+            const ly = toPageY(lmy) + OFFSET_PT; // PDF y축이 위로 향함
+            page.drawRectangle({ x: lx - pw, y: ly - ph, width: tw + pw*2, height: fz + ph*2, color: mColor, opacity: 0.15 });
+            page.drawText(label, { x: lx, y: ly, size: fz, font, color: mColor });
+          } else {
+            // 수직선: 라벨을 선 왼쪽에 90° 회전
+            // 90° CCW 회전 후 텍스트가 (px, py)에 중앙 정렬되려면:
+            //   text origin x = px + fz/2,  y = py - tw/2
+            const px = toX(lmx) - OFFSET_PT;
+            const py = toPageY(lmy);
+            // 배경 rect (회전된 텍스트 bounding box)
+            page.drawRectangle({
+              x: px - fz/2 - pw, y: py - tw/2 - pw,
+              width: fz + pw*2, height: tw + pw*2,
+              color: mColor, opacity: 0.15,
+            });
+            page.drawText(label, {
+              x: px + fz/2, y: py - tw/2,
+              size: fz, font, color: mColor,
+              rotate: pdfDeg(90),
+            });
+          }
+        }
+      }
+    } catch(e) { console.warn('실측 벡터 레이어 실패:', e.message); }
+  }
 
   // Layer 5: 배정논의 오버레이 (assignGuide 모드 전용, 벡터)
   if (mode === 'assignGuide') {
@@ -1555,6 +1679,10 @@ async function exportSVG(lang = 'ko') {
       }
       p.push('</g>');
     }
+
+    // ⑦ 실측 레이어 (벡터)
+    const _msvgEx = _measureLinesToSVG();
+    if (_msvgEx) p.push(_msvgEx);
 
     p.push('</g>');
     p.push('</svg>');
