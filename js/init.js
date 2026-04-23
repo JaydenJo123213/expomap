@@ -26,6 +26,11 @@ function applyExhibitionBranding(expo) {
   }
 }
 
+function _showAppLoading() {
+  const el = document.getElementById('appLoadingOverlay');
+  if (el) el.style.display = 'flex';
+}
+
 function _hideAppLoading() {
   const el = document.getElementById('appLoadingOverlay');
   if (!el) return;
@@ -33,12 +38,12 @@ function _hideAppLoading() {
 }
 
 async function init() {
-  // 전시회 선택 화면 (BG 없으므로 즉시 오버레이 숨김)
+  // 전시회 선택 화면: 오버레이는 기본 숨김(display:none)이므로 그냥 선택 화면 표시
   if (!EXPO_SLUG) {
-    _hideAppLoading();
     showExpoSelector();
     return;
   }
+  _showAppLoading();
   _currentExpo = resolveExhibition(EXPO_SLUG);
   applyExhibitionBranding(_currentExpo);
 

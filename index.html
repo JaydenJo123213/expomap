@@ -1767,8 +1767,8 @@ CREATE POLICY "anon_all" ON expomap_state
 <script src="js/ui.js"></script>
 <script src="js/init.js"></script>
 
-<!-- 앱 초기 로딩 오버레이 (JSON + BG 이미지 완전 로드까지 표시) -->
-<div id="appLoadingOverlay" style="display:flex;position:fixed;inset:0;z-index:99999;background:#0B1120;align-items:center;justify-content:center;">
+<!-- 앱 초기 로딩 오버레이 (전시회 데이터 로드 중에만 표시, 기본 숨김) -->
+<div id="appLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:#0B1120;align-items:center;justify-content:center;">
   <div style="text-align:center;">
     <div style="font-size:28px;margin-bottom:14px;animation:pdfSpin 1.2s linear infinite;display:inline-block">⏳</div>
     <div style="font-size:15px;font-weight:600;color:#ccc;margin-bottom:6px;">도면을 불러오는 중입니다...</div>
