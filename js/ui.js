@@ -188,28 +188,30 @@ function _doRenderExportPreview() {
   ctx.fillStyle = '#1A1D27';
   ctx.fillRect(0, 0, W, H);
 
-  // BG 이미지 로딩 중이면 대기 메시지 표시 + 내보내기 버튼 비활성화
+  // BG 이미지 로딩 중이면 오버레이 메시지 + 내보내기 버튼 비활성화
   const confirmBtn = document.getElementById('btnExportConfirm');
-  const exportHint = document.getElementById('exportBtnHint');
-  if (_bgStillLoading()) {
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.font = "bold 15px 'Spoqa Han Sans Neo', sans-serif";
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('배경 이미지를 불러오는 중입니다…', W / 2, H / 2 - 12);
-    ctx.font = "12px 'Spoqa Han Sans Neo', sans-serif";
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillText('잠시만 기다려 주세요', W / 2, H / 2 + 14);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
+  const previewHint    = document.getElementById('exportPreviewHint');
+  const previewHintTxt = document.getElementById('exportPreviewHintText');
+  const previewHintSub = document.getElementById('exportPreviewHintSub');
+
+  const _showPreviewHint = (main, sub) => {
+    if (previewHint)    { previewHint.style.display = 'flex'; }
+    if (previewHintTxt) previewHintTxt.textContent = main;
+    if (previewHintSub) previewHintSub.textContent = sub;
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.4'; }
-    if (exportHint) exportHint.style.display = '';
+  };
+  const _hidePreviewHint = () => {
+    if (previewHint) previewHint.style.display = 'none';
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.style.opacity = ''; }
+  };
+
+  if (_bgStillLoading()) {
+    _showPreviewHint('배경 이미지를 불러오는 중입니다…', '잠시만 기다려 주세요');
     // 500ms 후 재시도
     setTimeout(_doRenderExportPreview, 500);
     return;
   }
-  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.style.opacity = ''; }
-  if (exportHint) exportHint.style.display = 'none';
+  _hidePreviewHint();
 
   // 페이지 크기 (mm)
   let pgW = 420, pgH = 297; // A3 landscape default
@@ -366,8 +368,14 @@ function openExportModal(mode) {
   }
 
   _syncExportModalUI();
-  // 모달 열리는 순간 버튼 비활성화 — 미리보기 렌더 완료 후 활성화
-  const confirmBtn = document.getElementById('btnExportConfirm');
+  // 모달 열리는 순간 오버레이 표시 + 버튼 비활성화 — 미리보기 렌더 완료 후 해제
+  const confirmBtn   = document.getElementById('btnExportConfirm');
+  const previewHint  = document.getElementById('exportPreviewHint');
+  const previewHintTxt = document.getElementById('exportPreviewHintText');
+  const previewHintSub = document.getElementById('exportPreviewHintSub');
+  if (previewHint)    { previewHint.style.display = 'flex'; }
+  if (previewHintTxt) previewHintTxt.textContent = '미리보기를 불러오는 중…';
+  if (previewHintSub) previewHintSub.textContent = '잠시만 기다려 주세요';
   if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.4'; }
   openModal('modalExport');
   // 모달 열린 후 캔버스 크기가 확정되므로 rAF 후 렌더
