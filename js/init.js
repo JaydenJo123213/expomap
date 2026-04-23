@@ -64,14 +64,10 @@ async function init() {
       const savedBg = localStorage.getItem(bgKey);
       if (savedBg) restoreBgImage(savedBg);
     }
-
-    // BG 이미지가 있다면 완전히 로드될 때까지 대기 (최대 10초)
-    const bgProm = typeof getBgLoadPromise === 'function' ? getBgLoadPromise() : null;
-    if (bgProm) {
-      await Promise.race([bgProm, new Promise(r => setTimeout(r, 10000))]);
-    }
+    // BG 이미지는 백그라운드에서 계속 로드됨 (기다리지 않음)
+    // → JSON 로드 완료 즉시 오버레이를 숨겨 부스 데이터부터 표시
   } finally {
-    // 성공/실패/타임아웃 모두 오버레이 숨김
+    // 성공/실패 모두 오버레이 숨김 (BG는 onload 콜백으로 나중에 render)
     _hideAppLoading();
   }
 
