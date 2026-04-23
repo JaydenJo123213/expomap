@@ -823,8 +823,9 @@ function drawSearchMarker(c, zoom) {
 //  RENDER
 // ═══════════════════════════════════════
 function render() {
-  const w = canvas.width / (window.devicePixelRatio || 1);
-  const h = canvas.height / (window.devicePixelRatio || 1);
+  const dpr = getEffectiveDpr();
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
   if (VIEWER_MODE) { renderViewer(w, h); updateStats(); return; }
   ctx.clearRect(0, 0, w, h);
   ctx.save();
@@ -1155,6 +1156,17 @@ function render() {
   drawSearchMarker(ctx, state.zoom);
 
   ctx.restore();
+
+  // BG 아직 로딩 중이면 좌하단에 인디케이터 표시 (스크린 좌표 고정)
+  if (!state.bg.img && (state.bg.storageUrl || state.bg.dataUrl)) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = "12px 'Spoqa Han Sans Neo', sans-serif";
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('도면 로딩 중...', 12, h - 36);
+    ctx.restore();
+  }
 
   // Show/hide assignGuideMode hint
   const hintEl = document.getElementById('assignGuideModeHint');

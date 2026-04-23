@@ -6,6 +6,12 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const container = document.getElementById('canvasContainer');
 
+// 모바일 고DPR 기기에서 렌더 면적 축소 (3x → 2x 캡, 56% 감소)
+function getEffectiveDpr() {
+  const raw = window.devicePixelRatio || 1;
+  return (raw > 2 && window.innerWidth <= 768) ? 2 : raw;
+}
+
 // ─── URL 파라미터 ───
 const _urlParams = new URLSearchParams(window.location.search);
 const APP_MODE = _urlParams.get('mode') || 'view';

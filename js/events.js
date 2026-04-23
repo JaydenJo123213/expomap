@@ -2,6 +2,14 @@
 // ═══════════════════════════════════════
 let spaceDown = false;
 
+// touchmove 전용 rAF throttle — 다른 render() 호출에는 영향 없음
+let _touchRafPending = false;
+function scheduleRenderForTouch() {
+  if (_touchRafPending) return;
+  _touchRafPending = true;
+  requestAnimationFrame(() => { _touchRafPending = false; render(); });
+}
+
 canvas.addEventListener('mousedown', (e) => {
   if (VIEWER_MODE) {
     state.isPanning = true;
@@ -1274,7 +1282,7 @@ canvas.addEventListener('touchstart', (e) => {
     // 두 손가락: 핀치줌 준비
     touchStartDistance = getDistance(e.touches[0], e.touches[1]);
   }
-});
+}, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
   if (!VIEWER_MODE) {
@@ -1288,7 +1296,7 @@ canvas.addEventListener('touchmove', (e) => {
         state.panX += dx; state.panY += dy;
         adminTouchStartX = e.touches[0].clientX;
         adminTouchStartY = e.touches[0].clientY;
-        render();
+        scheduleRenderForTouch();
       }
     } else if (e.touches.length === 2) {
       const currentDistance = getDistance(e.touches[0], e.touches[1]);
@@ -1304,7 +1312,7 @@ canvas.addEventListener('touchmove', (e) => {
       state.panY = canvasMidY - (canvasMidY - state.panY) * zoomChange;
       state.zoom = newZoom;
       adminTouchStartDistance = currentDistance;
-      render();
+      scheduleRenderForTouch();
     }
     return;
   }
@@ -1324,7 +1332,7 @@ canvas.addEventListener('touchmove', (e) => {
       state.panY += dy;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
-      render();
+      scheduleRenderForTouch();
     }
   } else if (e.touches.length === 2) {
     // 두 손가락: 핀치줌
@@ -1350,9 +1358,9 @@ canvas.addEventListener('touchmove', (e) => {
     touchStartDistance = currentDistance;
     const vzd = document.getElementById('viewerZoomDisplay');
     if (vzd) vzd.textContent = Math.round(state.zoom * 100) + '%';
-    render();
+    scheduleRenderForTouch();
   }
-});
+}, { passive: false });
 
 canvas.addEventListener('touchend', (e) => {
   if (!VIEWER_MODE) {

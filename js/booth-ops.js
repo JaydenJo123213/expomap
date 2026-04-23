@@ -343,7 +343,7 @@ function showConnectionAlert(msg) {
 
 // ─── Resize ───
 function resize() {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = getEffectiveDpr();
   const rect = container.getBoundingClientRect();
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;
