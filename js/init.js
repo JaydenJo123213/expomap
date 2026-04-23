@@ -59,17 +59,22 @@ async function init() {
   try {
     if (initSupabase()) {
       await loadFromSupabase();
+      // BG 이미지 로드 완료까지 대기 (로딩 오버레이를 BG 나온 후에 숨김)
+      const bgPromise = getBgLoadPromise();
+      if (bgPromise) await bgPromise;
       initAutoVersion();
     } else {
       // Supabase 없을 때 localStorage 폴백으로 bg 복원
       const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
       const savedBg = localStorage.getItem(bgKey);
-      if (savedBg) restoreBgImage(savedBg);
+      if (savedBg) {
+        restoreBgImage(savedBg);
+        const bgPromise = getBgLoadPromise();
+        if (bgPromise) await bgPromise;
+      }
     }
-    // BG 이미지는 백그라운드에서 계속 로드됨 (기다리지 않음)
-    // → JSON 로드 완료 즉시 오버레이를 숨겨 부스 데이터부터 표시
   } finally {
-    // 성공/실패 모두 오버레이 숨김 (BG는 onload 콜백으로 나중에 render)
+    // 성공/실패 모두 오버레이 숨김
     _hideAppLoading();
   }
 
