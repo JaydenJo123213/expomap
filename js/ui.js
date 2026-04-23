@@ -188,6 +188,26 @@ function _doRenderExportPreview() {
   ctx.fillStyle = '#1A1D27';
   ctx.fillRect(0, 0, W, H);
 
+  // BG 이미지 로딩 중이면 대기 메시지 표시 + 내보내기 버튼 비활성화
+  const confirmBtn = document.getElementById('btnExportConfirm');
+  if (_bgStillLoading()) {
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.font = "bold 15px 'Spoqa Han Sans Neo', sans-serif";
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('배경 이미지를 불러오는 중입니다…', W / 2, H / 2 - 12);
+    ctx.font = "12px 'Spoqa Han Sans Neo', sans-serif";
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('잠시만 기다려 주세요', W / 2, H / 2 + 14);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.4'; }
+    // 500ms 후 재시도
+    setTimeout(_doRenderExportPreview, 500);
+    return;
+  }
+  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.style.opacity = ''; }
+
   // 페이지 크기 (mm)
   let pgW = 420, pgH = 297; // A3 landscape default
   if (_exportState.pageSize === 'A3') {
