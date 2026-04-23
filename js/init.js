@@ -95,11 +95,12 @@ async function init() {
       _setLoadingProgress(100, '완료!');
     }
   } finally {
-    // 성공/실패 모두 오버레이 숨김
+    // render() 먼저 → 오버레이 해제: 화면이 보이는 순간 캔버스가 이미 그려진 상태
+    render();
     _hideAppLoading();
   }
 
-  // ─── Presence init ───
+  // ─── Presence init (오버레이 해제 후 비동기 처리 — 인터랙션 블로킹 없음) ───
   initPresenceIdentity();
   if (_supaClient) {
     initPresenceChannel();
@@ -108,6 +109,5 @@ async function init() {
   window.addEventListener('beforeunload', () => { broadcastCursorLeave(); broadcastSelectionClear(); });
   updateLockButton();
   initBoothSearch();
-  render();
 }
 init();
