@@ -29,6 +29,7 @@ function applyExhibitionBranding(expo) {
 function _hideAppLoading() {
   const el = document.getElementById('appLoadingOverlay');
   if (!el) return;
+  el.style.pointerEvents = 'none'; // 즉시 이벤트 차단 해제 (opacity fade 중에도 클릭 통과)
   el.style.transition = 'opacity 0.4s ease';
   el.style.opacity = '0';
   setTimeout(() => { el.style.display = 'none'; }, 400);
