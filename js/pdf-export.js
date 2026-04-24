@@ -67,6 +67,10 @@ async function executeAssignGuideExport() {
   state._exporting = true;
   _showPdfLoading('📋 배정안내 PDF 생성 중...');
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // PDF용 원본 고화질 BG 로드 (화면용 WebP 압축본 대신 원본 PNG 사용)
+  const _prevBgImgAG = state.bg.img;
+  const _hiResAG = await loadHiResBgForPdf();
+  if (_hiResAG) state.bg.img = _hiResAG;
   const showNames = document.getElementById('assignShowNames').checked;
   const prevLang = state.lang;
   state.lang = assignLang;
@@ -87,6 +91,7 @@ async function executeAssignGuideExport() {
   } catch (e) {
     alert('PDF 생성 실패: ' + e.message);
   } finally {
+    state.bg.img = _prevBgImgAG; // 화면용 압축 이미지 복원
     _hidePdfLoading();
     state.lang = prevLang;
     state._exporting = false;
@@ -1401,6 +1406,10 @@ async function exportFloorplanPDF(options = {}) {
   state._exporting = true;
   const loadingMsg = mode === 'available' ? '📍 배정가능위치 PDF 생성 중...' : '🖨️ 도면출력 PDF 생성 중...';
   _showPdfLoading(loadingMsg);
+  // PDF용 원본 고화질 BG 로드
+  const _prevBgImgFP = state.bg.img;
+  const _hiResFP = await loadHiResBgForPdf();
+  if (_hiResFP) state.bg.img = _hiResFP;
   try {
     const pdfDoc = await _buildPDFLibDocument(mode, options);
     const pdfBytes = await pdfDoc.save();
@@ -1410,6 +1419,7 @@ async function exportFloorplanPDF(options = {}) {
     alert('PDF 생성 실패: ' + e.message);
     console.error(e);
   } finally {
+    state.bg.img = _prevBgImgFP; // 화면용 압축 이미지 복원
     _hidePdfLoading();
     state._exporting = false;
   }

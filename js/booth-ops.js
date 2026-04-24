@@ -1282,10 +1282,10 @@ document.getElementById('logoUpload').addEventListener('change', async (e) => {
 let _bgLoadPromise = null;
 function getBgLoadPromise() { return _bgLoadPromise; }
 
-// 모바일에서 Supabase Storage URL을 이미지 transform 엔드포인트로 변환
-// 해상도는 원본 유지(width 미지정), quality=70 + WebP 포맷으로 50~70% 크기 절감
-function _getMobileBgUrl(src) {
-  if (!src || window.innerWidth > 768) return src;
+// 화면 표시용 BG URL: web/mobile 모두 WebP quality 70으로 변환 (50~70% 크기 절감)
+// PDF export는 state.bg.storageUrl (원본)을 loadHiResBgForPdf()로 별도 로드
+function _getDisplayBgUrl(src) {
+  if (!src) return src;
   if (!src.includes('/storage/v1/object/public/')) return src;
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
@@ -1293,8 +1293,21 @@ function _getMobileBgUrl(src) {
     + '?quality=70&format=webp';
 }
 
+// PDF 내보내기 전 원본 고화질 BG 로드 (transform 미적용 원본 URL 사용)
+async function loadHiResBgForPdf() {
+  const url = state.bg.storageUrl;
+  if (!url || !state.bg.img) return null;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null); // 실패 시 null → 기존 압축본 그대로 사용
+    img.src = url;
+  });
+}
+
 function restoreBgImage(src) {
-  const optimizedSrc = _getMobileBgUrl(src);
+  const optimizedSrc = _getDisplayBgUrl(src);
   const img = new Image();
   if (optimizedSrc && optimizedSrc.startsWith('http')) img.crossOrigin = 'anonymous';
   _bgLoadPromise = new Promise((resolve) => {
