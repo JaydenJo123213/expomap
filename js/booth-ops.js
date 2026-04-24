@@ -1311,18 +1311,30 @@ function _bgCacheKey() {
   return 'expomap_bg_cache_v1_' + _supaProjectId;
 }
 
-function _saveBgCache(optimizedSrc, img) {
-  // canvas로 JPEG 변환 후 localStorage 저장 (crossOrigin 설정 필요)
+// BG 캐시 저장: fetch + FileReader (완전 비동기, 메인 스레드 blocking 없음)
+// canvas toDataURL 방식은 대형 이미지에서 수 초 blocking → 사용 금지
+async function _saveBgToCache(optimizedSrc) {
   try {
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth;
-    c.height = img.naturalHeight;
-    c.getContext('2d').drawImage(img, 0, 0);
-    const dataUrl = c.toDataURL('image/jpeg', 0.75);
-    localStorage.setItem(_bgCacheKey(), JSON.stringify({ url: optimizedSrc, dataUrl }));
+    if (typeof _dbg === 'function') _dbg('[BG cache] fetch 캐시 저장 시작...');
+    const resp = await fetch(optimizedSrc, { mode: 'cors' });
+    if (!resp.ok) { if (typeof _dbg === 'function') _dbg('[BG cache] fetch 실패 HTTP ' + resp.status, '#f66'); return; }
+    const blob = await resp.blob();
+    await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          localStorage.setItem(_bgCacheKey(), JSON.stringify({ url: optimizedSrc, dataUrl: reader.result }));
+          if (typeof _dbg === 'function') _dbg('[BG cache] 저장 완료 (' + Math.round(reader.result.length / 1024) + ' KB)');
+        } catch (e) {
+          if (typeof _dbg === 'function') _dbg('[BG cache] localStorage 저장 실패 (용량 초과?)', '#f66');
+        }
+        resolve();
+      };
+      reader.onerror = resolve;
+      reader.readAsDataURL(blob);
+    });
   } catch (e) {
-    // CORS taint 등 — 무시
-    console.warn('[BG cache] 저장 실패:', e);
+    if (typeof _dbg === 'function') _dbg('[BG cache] fetch 예외: ' + e.message, '#f66');
   }
 }
 
@@ -1361,15 +1373,7 @@ function restoreBgImage(src) {
         // rAF 5초 timeout (캐시 실패 대비)
         const _d = Date.now() + 5000;
         (function _raf() { if (_settled) return; if (Date.now() >= _d) { _settle(false); return; } requestAnimationFrame(_raf); })();
-        // 백그라운드에서 최신 버전 갱신 (캐시 stale 방지, 화면엔 영향 없음)
-        const refreshImg = new Image();
-        refreshImg.crossOrigin = 'anonymous';
-        refreshImg.onload = () => {
-          state.bg.img = refreshImg; render();
-          _saveBgCache(optimizedSrc, refreshImg);
-          if (typeof _dbg === 'function') _dbg('BG 백그라운드 갱신 완료');
-        };
-        refreshImg.src = optimizedSrc + '&_r=' + Date.now();
+        // 백그라운드 refresh 제거: storageUrl이 바뀌면 캐시 키 불일치로 자동 무효화됨
         return;
       } else {
         if (typeof _dbg === 'function') _dbg('BG 캐시 미스 → 네트워크 다운로드');
@@ -1389,8 +1393,8 @@ function restoreBgImage(src) {
     render();
     _settle(true);
     if (typeof _dbg === 'function') _dbg('BG 네트워크 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
-    // 로드 성공 → 캐시 저장 (다음 접속 즉시 로딩용)
-    if (src.startsWith('http')) _saveBgCache(optimizedSrc, img);
+    // 로드 성공 → 캐시 저장 (비동기, 메인 스레드 blocking 없음)
+    if (src.startsWith('http')) _saveBgToCache(optimizedSrc);
   };
   img.onerror = () => {
     if (optimizedSrc !== src) {

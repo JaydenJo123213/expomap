@@ -157,8 +157,9 @@ async function init() {
     // 2 rAF: 캔버스 렌더 완료 후 오버레이 시각 제거
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     _setLoadingProgress(100, '도면 불러오기 완료!');
-    _dbg('로딩 완료!');
     _hideAppLoading();
+    const _ov = document.getElementById('appLoadingOverlay');
+    _dbg('로딩 완료! overlay.display=' + (_ov ? _ov.style.display : 'null') + ' | overlay.pointerEvents=' + (_ov ? getComputedStyle(_ov).pointerEvents : 'null'));
   }
 }
 init();
