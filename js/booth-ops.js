@@ -1338,15 +1338,25 @@ function restoreBgImage(src) {
   };
   _bgLoadPromise = new Promise((resolve) => { _resolve = resolve; });
 
+  const _bgT0 = Date.now();
+  if (typeof _dbg === 'function') _dbg('restoreBgImage 시작 | optimizedSrc=' + optimizedSrc.slice(0, 80));
+
   // ── 캐시 확인 (Supabase URL인 경우만) ──
   if (src.startsWith('http')) {
     try {
       const cached = JSON.parse(localStorage.getItem(_bgCacheKey()) || 'null');
       if (cached && cached.url === optimizedSrc && cached.dataUrl) {
+        if (typeof _dbg === 'function') _dbg('BG 캐시 히트 → 즉시 로딩');
         // 캐시 히트: dataUrl로 즉시 로딩 (네트워크 0)
         const cachedImg = new Image();
-        cachedImg.onload = () => { state.bg.img = cachedImg; render(); _settle(true); };
-        cachedImg.onerror = () => { /* 캐시 손상 → 아래 네트워크 로드로 이어지지 않음, BG 없이 진행 */ _settle(false); };
+        cachedImg.onload = () => {
+          state.bg.img = cachedImg; render(); _settle(true);
+          if (typeof _dbg === 'function') _dbg('BG 캐시 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
+        };
+        cachedImg.onerror = () => {
+          if (typeof _dbg === 'function') _dbg('BG 캐시 손상 → BG 없이 진행', '#ff6');
+          _settle(false);
+        };
         cachedImg.src = cached.dataUrl;
         // rAF 5초 timeout (캐시 실패 대비)
         const _d = Date.now() + 5000;
@@ -1357,11 +1367,16 @@ function restoreBgImage(src) {
         refreshImg.onload = () => {
           state.bg.img = refreshImg; render();
           _saveBgCache(optimizedSrc, refreshImg);
+          if (typeof _dbg === 'function') _dbg('BG 백그라운드 갱신 완료');
         };
         refreshImg.src = optimizedSrc + '&_r=' + Date.now();
         return;
+      } else {
+        if (typeof _dbg === 'function') _dbg('BG 캐시 미스 → 네트워크 다운로드');
       }
-    } catch {}
+    } catch (e) {
+      if (typeof _dbg === 'function') _dbg('BG 캐시 읽기 오류: ' + e.message, '#f66');
+    }
   }
 
   // ── 캐시 미스: 네트워크에서 다운로드 ──
@@ -1373,6 +1388,7 @@ function restoreBgImage(src) {
     if (!src.startsWith('http')) state.bg.dataUrl = src;
     render();
     _settle(true);
+    if (typeof _dbg === 'function') _dbg('BG 네트워크 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
     // 로드 성공 → 캐시 저장 (다음 접속 즉시 로딩용)
     if (src.startsWith('http')) _saveBgCache(optimizedSrc, img);
   };
@@ -1380,13 +1396,22 @@ function restoreBgImage(src) {
     if (optimizedSrc !== src) {
       // transform 실패 → 원본 URL로 재시도
       console.warn('BG transform load failed, retrying with original:', src);
+      if (typeof _dbg === 'function') _dbg('BG transform 실패 → 원본 URL 재시도 (' + (Date.now() - _bgT0) + 'ms)', '#ff6');
       const fallback = new Image();
       if (src.startsWith('http')) fallback.crossOrigin = 'anonymous';
-      fallback.onload = () => { state.bg.img = fallback; render(); _settle(true); };
-      fallback.onerror = () => { console.warn('BG image load failed:', src); _settle(false); };
+      fallback.onload = () => {
+        state.bg.img = fallback; render(); _settle(true);
+        if (typeof _dbg === 'function') _dbg('BG 원본 URL 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
+      };
+      fallback.onerror = () => {
+        console.warn('BG image load failed:', src);
+        if (typeof _dbg === 'function') _dbg('BG 원본 URL도 실패 (' + (Date.now() - _bgT0) + 'ms)', '#f66');
+        _settle(false);
+      };
       fallback.src = src;
     } else {
       console.warn('BG image load failed:', src);
+      if (typeof _dbg === 'function') _dbg('BG 로딩 실패 (' + (Date.now() - _bgT0) + 'ms)', '#f66');
       _settle(false);
     }
   };
@@ -1397,7 +1422,10 @@ function restoreBgImage(src) {
   const _deadline = Date.now() + 6000;
   (function _rafTimeout() {
     if (_settled) return;
-    if (Date.now() >= _deadline) { _settle(false); return; }
+    if (Date.now() >= _deadline) {
+      if (typeof _dbg === 'function') _dbg('BG rAF timeout 6s 초과 → 강제 해제', '#ff6');
+      _settle(false); return;
+    }
     requestAnimationFrame(_rafTimeout);
   })();
 }
