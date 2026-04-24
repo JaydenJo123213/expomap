@@ -1366,22 +1366,22 @@ function restoreBgImage(src) {
     try {
       const cached = JSON.parse(localStorage.getItem(_bgCacheKey()) || 'null');
       if (cached && cached.url === optimizedSrc && cached.dataUrl) {
-        if (typeof _dbg === 'function') _dbg('BG 캐시 히트 → 즉시 로딩');
-        // 캐시 히트: dataUrl로 즉시 로딩 (네트워크 0)
+        if (typeof _dbg === 'function') _dbg('BG 캐시 히트 → img.decode() 비동기 디코딩');
+        // img.decode(): 완전 디코딩 후 resolve → 이후 ctx.drawImage 시 추가 디코딩 없음 (터치 차단 방지)
         const cachedImg = new Image();
-        cachedImg.onload = () => {
-          state.bg.img = cachedImg; render(); _settle(true);
-          if (typeof _dbg === 'function') _dbg('BG 캐시 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
-        };
-        cachedImg.onerror = () => {
-          if (typeof _dbg === 'function') _dbg('BG 캐시 손상 → BG 없이 진행', '#ff6');
-          _settle(false);
-        };
         cachedImg.src = cached.dataUrl;
-        // rAF 5초 timeout (캐시 실패 대비)
-        const _d = Date.now() + 5000;
-        (function _raf() { if (_settled) return; if (Date.now() >= _d) { _settle(false); return; } requestAnimationFrame(_raf); })();
-        // 백그라운드 refresh 제거: storageUrl이 바뀌면 캐시 키 불일치로 자동 무효화됨
+        const _dec = typeof cachedImg.decode === 'function'
+          ? cachedImg.decode()
+          : new Promise((resolve, reject) => { cachedImg.onload = resolve; cachedImg.onerror = reject; });
+        _dec.then(() => {
+          state.bg.img = cachedImg; render(); _settle(true);
+          if (typeof _dbg === 'function') _dbg('BG 캐시 디코딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
+        }).catch(() => {
+          if (typeof _dbg === 'function') _dbg('BG 캐시 decode 실패 → BG 없이 진행', '#ff6');
+          _settle(false);
+        });
+        // 30초 timeout (decode 장시간 대기 방지)
+        setTimeout(() => { if (!_settled) { if (typeof _dbg === 'function') _dbg('BG 캐시 decode timeout', '#ff6'); _settle(false); } }, 30000);
         return;
       } else {
         if (typeof _dbg === 'function') _dbg('BG 캐시 미스 → 네트워크 다운로드');
@@ -1391,45 +1391,55 @@ function restoreBgImage(src) {
     }
   }
 
-  // ── 캐시 미스: fetch + AbortSignal.timeout으로 네트워크 다운로드 ──
-  // img.src 방식은 iOS 화면 잠금 시 취소 불가 → TCP timeout(90s) 그대로 대기
-  // fetch + AbortSignal.timeout 은 브라우저 레벨 타임아웃 → JS 정지 중에도 8초 후 강제 취소
+  // ── 캐시 미스: fetch + img.decode() ──
+  // img.decode(): 완전 디코딩 후 resolve → 로딩 오버레이 중 디코딩 완료
+  // (img.src+onload는 다운로드만 기다림. 실제 디코딩은 ctx.drawImage 시점 → 메인 스레드 수십 초 점유 → 터치 차단)
   if (src.startsWith('http')) {
-    if (typeof _dbg === 'function') _dbg('BG fetch 시작 (AbortSignal.timeout 8s)');
-    // AbortSignal.timeout: iOS 16.4+, Chrome 103+, Firefox 100+ 지원
+    if (typeof _dbg === 'function') _dbg('BG fetch 시작 (AbortSignal.timeout 30s)');
     const _signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout)
-      ? AbortSignal.timeout(8000)
-      : (() => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; })();
+      ? AbortSignal.timeout(30000)
+      : (() => { const c = new AbortController(); setTimeout(() => c.abort(), 30000); return c.signal; })();
 
     fetch(optimizedSrc, { mode: 'cors', signal: _signal })
       .then(resp => {
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        if (typeof _dbg === 'function') _dbg('BG 다운로드 완료 → img.decode() 디코딩 시작');
         return resp.blob();
       })
-      .then(blob => {
+      .then(async blob => {
         const blobUrl = URL.createObjectURL(blob);
         const img = new Image();
-        img.onload = () => {
-          state.bg.img = img;
-          render();
-          _settle(true);
-          URL.revokeObjectURL(blobUrl);
-          if (typeof _dbg === 'function') _dbg('BG fetch 완료 (' + (Date.now() - _bgT0) + 'ms)');
-          // fetch로 받은 blob을 재사용해 캐시 저장 (단일 다운로드)
-          const reader = new FileReader();
-          reader.onload = () => {
-            try { localStorage.setItem(_bgCacheKey(), JSON.stringify({ url: optimizedSrc, dataUrl: reader.result }));
-              if (typeof _dbg === 'function') _dbg('[BG cache] 저장 완료 (' + Math.round(reader.result.length / 1024) + ' KB)');
-            } catch (e) { if (typeof _dbg === 'function') _dbg('[BG cache] 저장 실패 (용량?)', '#f66'); }
-          };
-          reader.readAsDataURL(blob);
-        };
-        img.onerror = () => { URL.revokeObjectURL(blobUrl); _settle(false); };
         img.src = blobUrl;
+        // img.decode(): 브라우저가 비동기로 완전 디코딩 → 메인 스레드 blocking 없음 (iOS 14+, Chrome 64+)
+        if (typeof img.decode === 'function') {
+          await img.decode();
+        } else {
+          await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+        }
+        URL.revokeObjectURL(blobUrl);
+        state.bg.img = img;
+        render();
+        _settle(true);
+        if (typeof _dbg === 'function') _dbg('BG 다운로드+디코딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
+        // 캐시 저장: 2MB 초과 시 생략 (localStorage.setItem 대용량 → blocking 방지)
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const dataUrl = reader.result;
+            if (dataUrl.length > 2 * 1024 * 1024) {
+              if (typeof _dbg === 'function') _dbg('[BG cache] 2MB 초과 → 생략 (' + Math.round(dataUrl.length / 1024) + 'KB)', '#ff6');
+              return;
+            }
+            localStorage.setItem(_bgCacheKey(), JSON.stringify({ url: optimizedSrc, dataUrl }));
+            if (typeof _dbg === 'function') _dbg('[BG cache] 저장 완료 (' + Math.round(dataUrl.length / 1024) + 'KB)');
+          } catch (e) {
+            if (typeof _dbg === 'function') _dbg('[BG cache] 저장 실패 (용량?)', '#f66');
+          }
+        };
+        reader.readAsDataURL(blob);
       })
       .catch(err => {
-        // 8초 AbortSignal timeout 또는 네트워크 오류 → BG 없이 진행
-        if (typeof _dbg === 'function') _dbg('BG fetch 실패/취소 (' + (Date.now() - _bgT0) + 'ms): ' + err.message, '#ff6');
+        if (typeof _dbg === 'function') _dbg('BG fetch/decode 실패 (' + (Date.now() - _bgT0) + 'ms): ' + err.message, '#ff6');
         _settle(false);
       });
     return;

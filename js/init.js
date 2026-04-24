@@ -113,24 +113,41 @@ async function init() {
     const supaOk = initSupabase();
     _dbg('initSupabase() → ' + (supaOk ? 'OK' : 'OFFLINE'));
     if (supaOk) {
-      _setLoadingProgress(10, '서버에 연결 중...');
+      _setLoadingProgress(5, '부스 블럭 로딩 중...');
       _dbg('loadFromSupabase() 시작');
       const _t0 = Date.now();
       await loadFromSupabase();
       _dbg('loadFromSupabase() 완료 (' + (Date.now() - _t0) + 'ms) | booths=' + state.booths.length + ' | hasBgUrl=' + !!state.bg.storageUrl);
-      // BG는 restoreBgImage()가 loadFromSupabase() 내에서 이미 시작했음
-      // await 없이 진행 — BG가 준비되면 img.onload → render()로 자동 표시
-      // (이전: await 대기 → iOS 화면 잠금 시 rAF 정지 → 최대 180초 대기)
-      _dbg('BG 백그라운드 로드 중 (차단 없음) | hasBgPromise=' + !!getBgLoadPromise());
-      _setLoadingProgress(75, '부스 데이터 완료!');
+      _setLoadingProgress(5, '부스 블럭 완료!');
       initAutoVersion();
+      // BG 로딩 + img.decode() 완전 디코딩 대기
+      // img.decode()는 메인 스레드를 차단하지 않으므로 오버레이 중 디코딩 완료
+      // → 오버레이 사라지면 ctx.drawImage 시 추가 디코딩 없음 → 즉시 터치 가능
+      const bgP = getBgLoadPromise();
+      if (bgP) {
+        _setLoadingProgress(10, '배경 도면 로딩 중...');
+        _dbg('BG 로딩+디코딩 대기 중 | hasBgPromise=true');
+        // 시각적 진행: 10→50% (500ms마다 1%, 최대 40초)
+        let _bgPct = 10;
+        const _bgTimer = setInterval(() => {
+          if (_bgPct < 50) { _bgPct++; _setLoadingProgress(_bgPct); }
+        }, 500);
+        await bgP;
+        clearInterval(_bgTimer);
+        _dbg('BG 로딩+디코딩 완료');
+        _setLoadingProgress(55, '배경 도면 완료!');
+      } else {
+        _setLoadingProgress(55, '부스 데이터 완료!');
+      }
     } else {
-      _setLoadingProgress(20, '로컬 데이터 복원 중...');
+      _setLoadingProgress(5, '오프라인 모드...');
       const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
       const savedBg = localStorage.getItem(bgKey);
       _dbg('오프라인 모드 | savedBg=' + (savedBg ? savedBg.slice(0, 40) + '...' : 'null'));
       if (savedBg) restoreBgImage(savedBg);
-      _setLoadingProgress(75, '도면 복원 중...');
+      const bgPOff = getBgLoadPromise();
+      if (bgPOff) { await bgPOff; }
+      _setLoadingProgress(55, '로컬 데이터 복원 완료!');
     }
   } finally {
     // 초기화 → 렌더 → 100% 완료 표시
@@ -142,7 +159,7 @@ async function init() {
     updateLockButton();
     initBoothSearch();
     render();
-    _setLoadingProgress(95);
+    _setLoadingProgress(95, '최적화 중...');
     // pointer-events: none → 터치가 오버레이 시각 제거 전에 캔버스로 즉시 통과
     // iOS Safari는 display:none 직후보다 pointer-events 변경 시 터치 대상을 더 빠르게 재평가
     const _overlay = document.getElementById('appLoadingOverlay');
@@ -169,16 +186,4 @@ async function init() {
     }, 1000);
   }
 }
-// ── 문서 레벨 터치 진단 (최초 5회만) ──
-// canvas touchstart가 안 불릴 때 원인 추적용: 문서까지 이벤트가 오는지 확인
-let _docTouchCount = 0;
-document.addEventListener('touchstart', (e) => {
-  _docTouchCount++;
-  if (_docTouchCount > 5 || typeof _dbg !== 'function') return;
-  const t = e.touches[0];
-  const el = document.elementFromPoint(t.clientX, t.clientY);
-  const tag = el ? (el.tagName + '#' + (el.id || '?') + ' z=' + getComputedStyle(el).zIndex) : 'null';
-  _dbg('[DOC-TOUCH] #' + _docTouchCount + ' xy=(' + Math.round(t.clientX) + ',' + Math.round(t.clientY) + ') → ' + tag, '#ffff00');
-}, { passive: true });
-
 init();
