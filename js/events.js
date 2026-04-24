@@ -1251,14 +1251,20 @@ document.addEventListener('keyup', (e) => {
 
 // ─── Touch Events (Viewer Mode) ───
 let touchStartX = 0, touchStartY = 0;
-let touchStartDistance = 0;
 let isTouchDragging = false;
+// 핀치줌 — touchstart 기준 relative 방식 (incremental 누적 오차 제거)
+let pinchStartDist = 0, pinchStartZoom = 1;
+let pinchStartPanX = 0, pinchStartPanY = 0;
+let pinchStartMidX = 0, pinchStartMidY = 0;
 
 // 어드민 모드 터치 상태
 let adminTouchStartX = 0, adminTouchStartY = 0;
-let adminTouchStartDistance = 0;
 let adminTouchDragging = false;
 let adminWasPinching = false;
+// 어드민 핀치줌 — touchstart 기준 relative 방식
+let adminPinchStartDist = 0, adminPinchStartZoom = 1;
+let adminPinchStartPanX = 0, adminPinchStartPanY = 0;
+let adminPinchStartMidX = 0, adminPinchStartMidY = 0;
 
 function getDistance(touch1, touch2) {
   const dx = touch1.clientX - touch2.clientX;

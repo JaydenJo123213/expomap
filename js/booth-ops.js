@@ -1310,29 +1310,47 @@ function restoreBgImage(src) {
   const optimizedSrc = _getDisplayBgUrl(src);
   const img = new Image();
   if (optimizedSrc && optimizedSrc.startsWith('http')) img.crossOrigin = 'anonymous';
-  _bgLoadPromise = new Promise((resolve) => {
-    img.onload = () => {
-      state.bg.img = img;
-      if (!src.startsWith('http')) state.bg.dataUrl = src;
-      render();
-      resolve(true);
-    };
-    img.onerror = () => {
-      if (optimizedSrc !== src) {
-        // transform 실패 → 원본 URL로 재시도
-        console.warn('BG transform load failed, retrying with original:', src);
-        const fallback = new Image();
-        if (src.startsWith('http')) fallback.crossOrigin = 'anonymous';
-        fallback.onload = () => { state.bg.img = fallback; render(); resolve(true); };
-        fallback.onerror = () => { console.warn('BG image load failed:', src); resolve(false); };
-        fallback.src = src;
-      } else {
-        console.warn('BG image load failed:', src);
-        resolve(false);
-      }
-    };
-  });
+
+  let _resolve;
+  let _settled = false;
+  const _settle = (val) => {
+    if (_settled) return;
+    _settled = true;
+    _resolve(val);
+  };
+
+  _bgLoadPromise = new Promise((resolve) => { _resolve = resolve; });
+
+  img.onload = () => {
+    state.bg.img = img;
+    if (!src.startsWith('http')) state.bg.dataUrl = src;
+    render();
+    _settle(true);
+  };
+  img.onerror = () => {
+    if (optimizedSrc !== src) {
+      // transform 실패 → 원본 URL로 재시도
+      console.warn('BG transform load failed, retrying with original:', src);
+      const fallback = new Image();
+      if (src.startsWith('http')) fallback.crossOrigin = 'anonymous';
+      fallback.onload = () => { state.bg.img = fallback; render(); _settle(true); };
+      fallback.onerror = () => { console.warn('BG image load failed:', src); _settle(false); };
+      fallback.src = src;
+    } else {
+      console.warn('BG image load failed:', src);
+      _settle(false);
+    }
+  };
   img.src = optimizedSrc;
+
+  // iOS-safe hard timeout: rAF 기반 (setTimeout은 대용량 리소스 로딩 중 iOS에서 throttle됨)
+  // 10초 후 강제 resolve — img/fallback은 계속 로드 중이므로 onload가 나중에 오면 BG 표시됨
+  const _deadline = Date.now() + 10000;
+  (function _rafTimeout() {
+    if (_settled) return;
+    if (Date.now() >= _deadline) { _settle(false); return; }
+    requestAnimationFrame(_rafTimeout);
+  })();
 }
 
 function restoreLogos(logoData) {
