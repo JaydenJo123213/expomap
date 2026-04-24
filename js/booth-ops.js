@@ -1290,7 +1290,7 @@ function _getDisplayBgUrl(src) {
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
-    + '?quality=70&format=webp&width=2500';  // width 제한: 서버 변환 부하·전송 크기 감소
+    + '?quality=70&format=webp';
 }
 
 // PDF 내보내기 전 원본 고화질 BG 로드 (transform 미적용 원본 URL 사용)
