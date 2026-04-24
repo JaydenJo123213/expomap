@@ -126,6 +126,9 @@ async function init() {
       const bgP = getBgLoadPromise();
       if (bgP) {
         _setLoadingProgress(10, '배경 도면 로딩 중...');
+        // 화면 꺼짐 경고 팁 표시
+        const _tip = document.getElementById('appLoadingTip');
+        if (_tip) _tip.style.display = '';
         _dbg('BG 로딩+디코딩 대기 중 | hasBgPromise=true');
         // 시각적 진행: 10→50% (500ms마다 1%, 최대 40초)
         let _bgPct = 10;
@@ -134,6 +137,7 @@ async function init() {
         }, 500);
         await bgP;
         clearInterval(_bgTimer);
+        if (_tip) _tip.style.display = 'none';
         _dbg('BG 로딩+디코딩 완료');
         _setLoadingProgress(55, '배경 도면 완료!');
       } else {
