@@ -1290,7 +1290,7 @@ function _getDisplayBgUrl(src) {
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
-    + '?quality=70&format=webp';
+    + '?quality=70&format=webp&width=2500';  // width 제한: 서버 변환 부하·전송 크기 감소
 }
 
 // PDF 내보내기 전 원본 고화질 BG 로드 (transform 미적용 원본 URL 사용)
@@ -1306,10 +1306,28 @@ async function loadHiResBgForPdf() {
   });
 }
 
+// BG 캐시: localStorage에 { url, dataUrl } 저장 → 두 번째 접속부터 즉시 로딩
+function _bgCacheKey() {
+  return 'expomap_bg_cache_v1_' + _supaProjectId;
+}
+
+function _saveBgCache(optimizedSrc, img) {
+  // canvas로 JPEG 변환 후 localStorage 저장 (crossOrigin 설정 필요)
+  try {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    const dataUrl = c.toDataURL('image/jpeg', 0.75);
+    localStorage.setItem(_bgCacheKey(), JSON.stringify({ url: optimizedSrc, dataUrl }));
+  } catch (e) {
+    // CORS taint 등 — 무시
+    console.warn('[BG cache] 저장 실패:', e);
+  }
+}
+
 function restoreBgImage(src) {
   const optimizedSrc = _getDisplayBgUrl(src);
-  const img = new Image();
-  if (optimizedSrc && optimizedSrc.startsWith('http')) img.crossOrigin = 'anonymous';
 
   let _resolve;
   let _settled = false;
@@ -1318,14 +1336,45 @@ function restoreBgImage(src) {
     _settled = true;
     _resolve(val);
   };
-
   _bgLoadPromise = new Promise((resolve) => { _resolve = resolve; });
+
+  // ── 캐시 확인 (Supabase URL인 경우만) ──
+  if (src.startsWith('http')) {
+    try {
+      const cached = JSON.parse(localStorage.getItem(_bgCacheKey()) || 'null');
+      if (cached && cached.url === optimizedSrc && cached.dataUrl) {
+        // 캐시 히트: dataUrl로 즉시 로딩 (네트워크 0)
+        const cachedImg = new Image();
+        cachedImg.onload = () => { state.bg.img = cachedImg; render(); _settle(true); };
+        cachedImg.onerror = () => { /* 캐시 손상 → 아래 네트워크 로드로 이어지지 않음, BG 없이 진행 */ _settle(false); };
+        cachedImg.src = cached.dataUrl;
+        // rAF 5초 timeout (캐시 실패 대비)
+        const _d = Date.now() + 5000;
+        (function _raf() { if (_settled) return; if (Date.now() >= _d) { _settle(false); return; } requestAnimationFrame(_raf); })();
+        // 백그라운드에서 최신 버전 갱신 (캐시 stale 방지, 화면엔 영향 없음)
+        const refreshImg = new Image();
+        refreshImg.crossOrigin = 'anonymous';
+        refreshImg.onload = () => {
+          state.bg.img = refreshImg; render();
+          _saveBgCache(optimizedSrc, refreshImg);
+        };
+        refreshImg.src = optimizedSrc + '&_r=' + Date.now();
+        return;
+      }
+    } catch {}
+  }
+
+  // ── 캐시 미스: 네트워크에서 다운로드 ──
+  const img = new Image();
+  if (optimizedSrc && optimizedSrc.startsWith('http')) img.crossOrigin = 'anonymous';
 
   img.onload = () => {
     state.bg.img = img;
     if (!src.startsWith('http')) state.bg.dataUrl = src;
     render();
     _settle(true);
+    // 로드 성공 → 캐시 저장 (다음 접속 즉시 로딩용)
+    if (src.startsWith('http')) _saveBgCache(optimizedSrc, img);
   };
   img.onerror = () => {
     if (optimizedSrc !== src) {
@@ -1344,8 +1393,8 @@ function restoreBgImage(src) {
   img.src = optimizedSrc;
 
   // iOS-safe hard timeout: rAF 기반 (setTimeout은 대용량 리소스 로딩 중 iOS에서 throttle됨)
-  // 10초 후 강제 resolve — img/fallback은 계속 로드 중이므로 onload가 나중에 오면 BG 표시됨
-  const _deadline = Date.now() + 10000;
+  // 6초 후 강제 resolve — img/fallback은 계속 로드 중이므로 onload가 나중에 오면 BG 표시됨
+  const _deadline = Date.now() + 6000;
   (function _rafTimeout() {
     if (_settled) return;
     if (Date.now() >= _deadline) { _settle(false); return; }
