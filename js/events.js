@@ -1252,6 +1252,20 @@ document.addEventListener('keyup', (e) => {
 // ─── Touch Events (Viewer Mode) ───
 let touchStartX = 0, touchStartY = 0;
 let isTouchDragging = false;
+
+// 터치 디버그 로그 (touchmove는 2초 throttle)
+let _dbgTouchLastMove = 0;
+function _dbgTouch(msg, color) {
+  if (typeof _dbg !== 'function') return;
+  _dbg('[touch] ' + msg, color);
+}
+function _dbgTouchMove(msg) {
+  if (typeof _dbg !== 'function') return;
+  const now = Date.now();
+  if (now - _dbgTouchLastMove < 2000) return;
+  _dbgTouchLastMove = now;
+  _dbg('[touch] ' + msg);
+}
 // 핀치줌 — touchstart 기준 relative 방식 (incremental 누적 오차 제거)
 let pinchStartDist = 0, pinchStartZoom = 1;
 let pinchStartPanX = 0, pinchStartPanY = 0;
@@ -1279,9 +1293,13 @@ function getTouchMidpoint(touches) {
 }
 
 canvas.addEventListener('touchstart', (e) => {
+  _dbgTouch('touchstart fingers=' + e.touches.length + ' mode=' + (VIEWER_MODE ? 'viewer' : 'admin'));
   if (!VIEWER_MODE) {
     // 어드민 모드: 패널/드로어 위 터치는 무시
-    if (e.target.closest('#panelRight, #sidebarPanel, #mobileBackdrop')) return;
+    if (e.target.closest('#panelRight, #sidebarPanel, #mobileBackdrop')) {
+      _dbgTouch('touchstart → 패널 위 터치 무시');
+      return;
+    }
     e.preventDefault();
     adminTouchDragging = false;
     if (e.touches.length === 1) {
@@ -1318,6 +1336,7 @@ canvas.addEventListener('touchmove', (e) => {
         state.panX += dx; state.panY += dy;
         adminTouchStartX = e.touches[0].clientX;
         adminTouchStartY = e.touches[0].clientY;
+        _dbgTouchMove('admin 패닝 panX=' + state.panX.toFixed(0) + ' panY=' + state.panY.toFixed(0));
         scheduleRenderForTouch();
       }
     } else if (e.touches.length === 2) {
@@ -1334,6 +1353,7 @@ canvas.addEventListener('touchmove', (e) => {
       state.panY = canvasMidY - (canvasMidY - state.panY) * zoomChange;
       state.zoom = newZoom;
       adminTouchStartDistance = currentDistance;
+      _dbgTouchMove('admin 핀치줌 zoom=' + state.zoom.toFixed(2));
       scheduleRenderForTouch();
     }
     return;
@@ -1354,6 +1374,7 @@ canvas.addEventListener('touchmove', (e) => {
       state.panY += dy;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+      _dbgTouchMove('viewer 패닝 panX=' + state.panX.toFixed(0) + ' panY=' + state.panY.toFixed(0));
       scheduleRenderForTouch();
     }
   } else if (e.touches.length === 2) {
@@ -1378,6 +1399,7 @@ canvas.addEventListener('touchmove', (e) => {
 
     state.zoom = newZoom;
     touchStartDistance = currentDistance;
+    _dbgTouchMove('viewer 핀치줌 zoom=' + state.zoom.toFixed(2));
     const vzd = document.getElementById('viewerZoomDisplay');
     if (vzd) vzd.textContent = Math.round(state.zoom * 100) + '%';
     scheduleRenderForTouch();
@@ -1389,6 +1411,7 @@ canvas.addEventListener('touchend', (e) => {
     if (e.target.closest('#panelRight, #sidebarPanel')) return;
     // 탭 감지 → 부스 선택 (드래그·핀치가 없었을 때만)
     if (!adminTouchDragging && !adminWasPinching && e.changedTouches.length === 1) {
+      _dbgTouch('touchend → 탭(tap) 감지 → mousedown/up 디스패치');
       const t = e.changedTouches[0];
       canvas.dispatchEvent(new MouseEvent('mousedown', {
         clientX: t.clientX, clientY: t.clientY,
@@ -1405,12 +1428,15 @@ canvas.addEventListener('touchend', (e) => {
         state.selectedDiscussIds.size > 0 ||
         state.selectedMeasureLineId !== null;
       if (!hasSelection && typeof closeMobileSheet === 'function') closeMobileSheet();
+    } else {
+      _dbgTouch('touchend → drag=' + adminTouchDragging + ' pinch=' + adminWasPinching);
     }
     adminTouchDragging = false;
     if (e.touches.length === 0) adminWasPinching = false;
     if (e.touches.length < 2) adminTouchStartDistance = 0;
     return;
   }
+  _dbgTouch('touchend viewer | wasDragging=' + isTouchDragging);
   isTouchDragging = false;
   if (e.touches.length < 2) touchStartDistance = 0;
 });
