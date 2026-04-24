@@ -73,6 +73,11 @@ function _hideAppLoading() {
   // (display:none만으로는 iOS에서 compositor가 늦게 처리되어 잠깐 터치를 가로채는 현상)
   el.style.pointerEvents = 'none';
   el.style.display = 'none';
+  // 터치 응답 지연 측정용 — 첫 터치까지 몇 초 걸리는지 디버그 패널에 표시
+  if (typeof _dbg === 'function') {
+    window._overlayHiddenAt = Date.now();
+    _dbg('오버레이 숨김 완료 — 이후 터치 대기 중...');
+  }
 }
 
 function _setLoadingProgress(pct, label) {

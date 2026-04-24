@@ -1255,6 +1255,7 @@ let isTouchDragging = false;
 
 // 터치 디버그 로그 (touchmove는 2초 throttle)
 let _dbgTouchLastMove = 0;
+let _firstMoveLogged = false;
 function _dbgTouch(msg, color) {
   if (typeof _dbg !== 'function') return;
   _dbg('[touch] ' + msg, color);
@@ -1293,6 +1294,12 @@ function getTouchMidpoint(touches) {
 }
 
 canvas.addEventListener('touchstart', (e) => {
+  // 오버레이 숨김 이후 첫 터치까지의 지연 측정
+  if (window._overlayHiddenAt && typeof _dbg === 'function') {
+    const _delay = ((Date.now() - window._overlayHiddenAt) / 1000).toFixed(2);
+    _dbgTouch('첫 터치 감지 (오버레이 숨김 후 ' + _delay + '초)');
+    window._overlayHiddenAt = null; // 이후 로그 안 남김
+  }
   _dbgTouch('touchstart fingers=' + e.touches.length + ' mode=' + (VIEWER_MODE ? 'viewer' : 'admin'));
   if (!VIEWER_MODE) {
     // 어드민 모드: 패널/드로어 위 터치는 무시
@@ -1386,6 +1393,10 @@ canvas.addEventListener('touchmove', (e) => {
       state.panY += dy;
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
+      if (!_firstMoveLogged && typeof _dbg === 'function') {
+        _firstMoveLogged = true;
+        _dbg('[touch] 첫 패닝 성공 (페이지 로드 후 ' + ((Date.now() - _dbgStart) / 1000).toFixed(2) + '초)');
+      }
       _dbgTouchMove('viewer 패닝 panX=' + state.panX.toFixed(0) + ' panY=' + state.panY.toFixed(0));
       scheduleRenderForTouch();
     }
