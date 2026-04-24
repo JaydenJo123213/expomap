@@ -78,7 +78,7 @@ async function init() {
         const bgTimeout = new Promise(resolve => setTimeout(resolve, 10000));
         await Promise.race([bgP, bgTimeout]);
       }
-      _setLoadingProgress(85, '최적화 중...');
+      _setLoadingProgress(75, '최적화 중입니다');
       initAutoVersion();
     } else {
       _setLoadingProgress(20, '로컬 데이터 복원 중...');
@@ -93,7 +93,7 @@ async function init() {
           await Promise.race([bgP, bgTimeout]);
         }
       }
-      _setLoadingProgress(85, '최적화 중...');
+      _setLoadingProgress(75, '최적화 중입니다');
     }
   } finally {
     // 초기화 → 렌더 → 100% 완료 표시
@@ -104,13 +104,14 @@ async function init() {
     updateLockButton();
     initBoothSearch();
     render();
-    _setLoadingProgress(100, '완료!');
+    _setLoadingProgress(95);
     // pointer-events: none → 터치가 오버레이 시각 제거 전에 캔버스로 즉시 통과
     // iOS Safari는 display:none 직후보다 pointer-events 변경 시 터치 대상을 더 빠르게 재평가
     const _overlay = document.getElementById('appLoadingOverlay');
     if (_overlay) _overlay.style.pointerEvents = 'none';
     // 2 rAF: 캔버스 렌더 완료 후 오버레이 시각 제거
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    _setLoadingProgress(100, '도면 불러오기 완료!');
     _hideAppLoading();
   }
 }
