@@ -251,6 +251,14 @@ async function loadFromSupabase({ preserveSelection = false } = {}) {
     if (error) throw error;
     if (!data) { console.log('No saved state, starting fresh.'); return; }
     if (data?.state_json) {
+      // 진단용: state_json 크기 로그 (1MB 이상이면 logos base64 미마이그레이션 의심)
+      if (typeof _dbg === 'function') {
+        try {
+          const _sz = JSON.stringify(data.state_json).length;
+          const s0 = data.state_json;
+          _dbg('state_json ' + Math.round(_sz / 1024) + ' KB | logos=' + (s0.logos||[]).length + ' | booths=' + (s0.booths||[]).length);
+        } catch {}
+      }
       const s = data.state_json;
       state.booths = (s.booths || []).map(b => ({ ...b, companyNameEn: b.companyNameEn || '' }));
       state.groups = s.groups || [];
@@ -1383,55 +1391,64 @@ function restoreBgImage(src) {
     }
   }
 
-  // ── 캐시 미스: 네트워크에서 다운로드 ──
-  const img = new Image();
-  if (optimizedSrc && optimizedSrc.startsWith('http')) img.crossOrigin = 'anonymous';
+  // ── 캐시 미스: fetch + AbortSignal.timeout으로 네트워크 다운로드 ──
+  // img.src 방식은 iOS 화면 잠금 시 취소 불가 → TCP timeout(90s) 그대로 대기
+  // fetch + AbortSignal.timeout 은 브라우저 레벨 타임아웃 → JS 정지 중에도 8초 후 강제 취소
+  if (src.startsWith('http')) {
+    if (typeof _dbg === 'function') _dbg('BG fetch 시작 (AbortSignal.timeout 8s)');
+    // AbortSignal.timeout: iOS 16.4+, Chrome 103+, Firefox 100+ 지원
+    const _signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout)
+      ? AbortSignal.timeout(8000)
+      : (() => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; })();
 
+    fetch(optimizedSrc, { mode: 'cors', signal: _signal })
+      .then(resp => {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.blob();
+      })
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          state.bg.img = img;
+          render();
+          _settle(true);
+          URL.revokeObjectURL(blobUrl);
+          if (typeof _dbg === 'function') _dbg('BG fetch 완료 (' + (Date.now() - _bgT0) + 'ms)');
+          // fetch로 받은 blob을 재사용해 캐시 저장 (단일 다운로드)
+          const reader = new FileReader();
+          reader.onload = () => {
+            try { localStorage.setItem(_bgCacheKey(), JSON.stringify({ url: optimizedSrc, dataUrl: reader.result }));
+              if (typeof _dbg === 'function') _dbg('[BG cache] 저장 완료 (' + Math.round(reader.result.length / 1024) + ' KB)');
+            } catch (e) { if (typeof _dbg === 'function') _dbg('[BG cache] 저장 실패 (용량?)', '#f66'); }
+          };
+          reader.readAsDataURL(blob);
+        };
+        img.onerror = () => { URL.revokeObjectURL(blobUrl); _settle(false); };
+        img.src = blobUrl;
+      })
+      .catch(err => {
+        // 8초 AbortSignal timeout 또는 네트워크 오류 → BG 없이 진행
+        if (typeof _dbg === 'function') _dbg('BG fetch 실패/취소 (' + (Date.now() - _bgT0) + 'ms): ' + err.message, '#ff6');
+        _settle(false);
+      });
+    return;
+  }
+
+  // ── 로컬 dataUrl (오프라인 모드) — img.src 방식 유지 ──
+  const img = new Image();
   img.onload = () => {
     state.bg.img = img;
-    if (!src.startsWith('http')) state.bg.dataUrl = src;
+    state.bg.dataUrl = src;
     render();
     _settle(true);
-    if (typeof _dbg === 'function') _dbg('BG 네트워크 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
-    // 로드 성공 → 캐시 저장 (비동기, 메인 스레드 blocking 없음)
-    if (src.startsWith('http')) _saveBgToCache(optimizedSrc);
+    if (typeof _dbg === 'function') _dbg('BG 로컬 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
   };
   img.onerror = () => {
-    if (optimizedSrc !== src) {
-      // transform 실패 → 원본 URL로 재시도
-      console.warn('BG transform load failed, retrying with original:', src);
-      if (typeof _dbg === 'function') _dbg('BG transform 실패 → 원본 URL 재시도 (' + (Date.now() - _bgT0) + 'ms)', '#ff6');
-      const fallback = new Image();
-      if (src.startsWith('http')) fallback.crossOrigin = 'anonymous';
-      fallback.onload = () => {
-        state.bg.img = fallback; render(); _settle(true);
-        if (typeof _dbg === 'function') _dbg('BG 원본 URL 로딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
-      };
-      fallback.onerror = () => {
-        console.warn('BG image load failed:', src);
-        if (typeof _dbg === 'function') _dbg('BG 원본 URL도 실패 (' + (Date.now() - _bgT0) + 'ms)', '#f66');
-        _settle(false);
-      };
-      fallback.src = src;
-    } else {
-      console.warn('BG image load failed:', src);
-      if (typeof _dbg === 'function') _dbg('BG 로딩 실패 (' + (Date.now() - _bgT0) + 'ms)', '#f66');
-      _settle(false);
-    }
+    if (typeof _dbg === 'function') _dbg('BG 로컬 로딩 실패', '#f66');
+    _settle(false);
   };
-  img.src = optimizedSrc;
-
-  // iOS-safe hard timeout: rAF 기반 (setTimeout은 대용량 리소스 로딩 중 iOS에서 throttle됨)
-  // 6초 후 강제 resolve — img/fallback은 계속 로드 중이므로 onload가 나중에 오면 BG 표시됨
-  const _deadline = Date.now() + 6000;
-  (function _rafTimeout() {
-    if (_settled) return;
-    if (Date.now() >= _deadline) {
-      if (typeof _dbg === 'function') _dbg('BG rAF timeout 6s 초과 → 강제 해제', '#ff6');
-      _settle(false); return;
-    }
-    requestAnimationFrame(_rafTimeout);
-  })();
+  img.src = src;
 }
 
 function restoreLogos(logoData) {

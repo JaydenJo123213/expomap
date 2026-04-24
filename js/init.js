@@ -111,33 +111,19 @@ async function init() {
       const _t0 = Date.now();
       await loadFromSupabase();
       _dbg('loadFromSupabase() 완료 (' + (Date.now() - _t0) + 'ms) | booths=' + state.booths.length + ' | hasBgUrl=' + !!state.bg.storageUrl);
-      _setLoadingProgress(55, '부스 데이터 완료, 도면 불러오는 중...');
-      const bgP = getBgLoadPromise();
-      _dbg('getBgLoadPromise() → ' + (bgP ? '진행중' : 'null (BG 없음)'));
-      if (bgP) {
-        // 최대 10초 대기 — 초과 시 오버레이 해제, BG는 백그라운드 계속 로드
-        const _t1 = Date.now();
-        const bgTimeout = new Promise(resolve => setTimeout(resolve, 10000));
-        await Promise.race([bgP, bgTimeout]);
-        _dbg('BG 대기 종료 (' + (Date.now() - _t1) + 'ms) | img=' + (state.bg.img ? '로드됨' : '없음'));
-      }
-      _setLoadingProgress(75, '최적화 중입니다');
+      // BG는 restoreBgImage()가 loadFromSupabase() 내에서 이미 시작했음
+      // await 없이 진행 — BG가 준비되면 img.onload → render()로 자동 표시
+      // (이전: await 대기 → iOS 화면 잠금 시 rAF 정지 → 최대 180초 대기)
+      _dbg('BG 백그라운드 로드 중 (차단 없음) | hasBgPromise=' + !!getBgLoadPromise());
+      _setLoadingProgress(75, '부스 데이터 완료!');
       initAutoVersion();
     } else {
       _setLoadingProgress(20, '로컬 데이터 복원 중...');
       const bgKey = 'expomap_bg_dataurl_' + _supaProjectId;
       const savedBg = localStorage.getItem(bgKey);
       _dbg('오프라인 모드 | savedBg=' + (savedBg ? savedBg.slice(0, 40) + '...' : 'null'));
-      if (savedBg) {
-        restoreBgImage(savedBg);
-        _setLoadingProgress(60, '도면 이미지 불러오는 중...');
-        const bgP = getBgLoadPromise();
-        if (bgP) {
-          const bgTimeout = new Promise(resolve => setTimeout(resolve, 10000));
-          await Promise.race([bgP, bgTimeout]);
-        }
-      }
-      _setLoadingProgress(75, '최적화 중입니다');
+      if (savedBg) restoreBgImage(savedBg);
+      _setLoadingProgress(75, '도면 복원 중...');
     }
   } finally {
     // 초기화 → 렌더 → 100% 완료 표시
