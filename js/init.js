@@ -62,14 +62,16 @@ function applyExhibitionBranding(expo) {
 
 function _showAppLoading() {
   const el = document.getElementById('appLoadingOverlay');
-  if (el) el.style.display = 'flex';
+  if (el) { el.style.display = 'flex'; el.style.pointerEvents = ''; }
   _setLoadingProgress(0, '도면을 불러오는 중입니다...');
 }
 
 function _hideAppLoading() {
   const el = document.getElementById('appLoadingOverlay');
   if (!el) return;
-  el.style.pointerEvents = '';
+  // pointer-events: none 유지 — display:none 후 iOS compositor 지연 기간 동안 터치 차단 방지
+  // (display:none만으로는 iOS에서 compositor가 늦게 처리되어 잠깐 터치를 가로채는 현상)
+  el.style.pointerEvents = 'none';
   el.style.display = 'none';
 }
 
