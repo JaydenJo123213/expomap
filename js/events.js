@@ -1445,12 +1445,21 @@ canvas.addEventListener('touchend', (e) => {
       _dbgTouch('touchend → drag=' + adminTouchDragging + ' pinch=' + adminWasPinching);
     }
     adminTouchDragging = false;
+    if (e.touches.length === 1) {
+      // 핀치 → 단일 손가락 전환: 남은 손가락 위치로 기준점 갱신
+      // 갱신 안 하면 핀치 시작 기준점과의 거리 차이로 touchmove가 의도치 않은 패닝을 유발
+      adminTouchStartX = e.touches[0].clientX;
+      adminTouchStartY = e.touches[0].clientY;
+    }
     if (e.touches.length === 0) adminWasPinching = false;
-    if (e.touches.length < 2) adminTouchStartDistance = 0;
     return;
   }
   _dbgTouch('touchend viewer | wasDragging=' + isTouchDragging);
   isTouchDragging = false;
-  if (e.touches.length < 2) touchStartDistance = 0;
+  if (e.touches.length === 1) {
+    // 핀치 → 단일 손가락 전환: 남은 손가락 위치로 기준점 갱신
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
 });
 
