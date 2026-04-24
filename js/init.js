@@ -169,4 +169,16 @@ async function init() {
     }, 1000);
   }
 }
+// ── 문서 레벨 터치 진단 (최초 5회만) ──
+// canvas touchstart가 안 불릴 때 원인 추적용: 문서까지 이벤트가 오는지 확인
+let _docTouchCount = 0;
+document.addEventListener('touchstart', (e) => {
+  _docTouchCount++;
+  if (_docTouchCount > 5 || typeof _dbg !== 'function') return;
+  const t = e.touches[0];
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  const tag = el ? (el.tagName + '#' + (el.id || '?') + ' z=' + getComputedStyle(el).zIndex) : 'null';
+  _dbg('[DOC-TOUCH] #' + _docTouchCount + ' xy=(' + Math.round(t.clientX) + ',' + Math.round(t.clientY) + ') → ' + tag, '#ffff00');
+}, { passive: true });
+
 init();
