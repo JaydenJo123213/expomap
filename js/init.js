@@ -160,6 +160,20 @@ async function init() {
     _hideAppLoading();
     const _ov = document.getElementById('appLoadingOverlay');
     _dbg('로딩 완료! overlay.display=' + (_ov ? _ov.style.display : 'null') + ' | overlay.pointerEvents=' + (_ov ? getComputedStyle(_ov).pointerEvents : 'null'));
+    // 캔버스 위에 실제로 어떤 요소가 있는지 확인 (첫 터치 불응 원인 추적)
+    try {
+      const _cx = window.innerWidth / 2, _cy = window.innerHeight / 2;
+      const _top = document.elementFromPoint(_cx, _cy);
+      _dbg('화면 중앙 최상위 요소: ' + (_top ? _top.tagName + '#' + (_top.id || '(no-id)') + '.' + (_top.className || '(no-class)').slice(0, 30) : 'null'));
+    } catch {}
+    // 1초 후 재확인 (애니메이션 완료 후 상태)
+    setTimeout(() => {
+      try {
+        const _cx = window.innerWidth / 2, _cy = window.innerHeight / 2;
+        const _top = document.elementFromPoint(_cx, _cy);
+        _dbg('1초 후 화면 중앙 최상위 요소: ' + (_top ? _top.tagName + '#' + (_top.id || '(no-id)') + '.' + (_top.className || '(no-class)').slice(0, 30) : 'null'));
+      } catch {}
+    }, 1000);
   }
 }
 init();

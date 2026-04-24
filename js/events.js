@@ -1307,7 +1307,14 @@ canvas.addEventListener('touchstart', (e) => {
       adminTouchStartY = e.touches[0].clientY;
     } else if (e.touches.length === 2) {
       adminWasPinching = true;
-      adminTouchStartDistance = getDistance(e.touches[0], e.touches[1]);
+      adminPinchStartDist = getDistance(e.touches[0], e.touches[1]);
+      adminPinchStartZoom = state.zoom;
+      adminPinchStartPanX = state.panX;
+      adminPinchStartPanY = state.panY;
+      const _am = getTouchMidpoint([e.touches[0], e.touches[1]]);
+      const _ar = canvas.getBoundingClientRect();
+      adminPinchStartMidX = _am.x - _ar.left;
+      adminPinchStartMidY = _am.y - _ar.top;
     }
     return;
   }
@@ -1319,8 +1326,15 @@ canvas.addEventListener('touchstart', (e) => {
     touchStartY = e.touches[0].clientY;
     isTouchDragging = false;
   } else if (e.touches.length === 2) {
-    // 두 손가락: 핀치줌 준비
-    touchStartDistance = getDistance(e.touches[0], e.touches[1]);
+    // 두 손가락: 핀치줌 준비 (touchstart 기준 relative — 누적 오차 없음)
+    pinchStartDist = getDistance(e.touches[0], e.touches[1]);
+    pinchStartZoom = state.zoom;
+    pinchStartPanX = state.panX;
+    pinchStartPanY = state.panY;
+    const _vm = getTouchMidpoint([e.touches[0], e.touches[1]]);
+    const _vr = canvas.getBoundingClientRect();
+    pinchStartMidX = _vm.x - _vr.left;
+    pinchStartMidY = _vm.y - _vr.top;
   }
 }, { passive: false });
 
@@ -1340,19 +1354,17 @@ canvas.addEventListener('touchmove', (e) => {
         scheduleRenderForTouch();
       }
     } else if (e.touches.length === 2) {
-      const currentDistance = getDistance(e.touches[0], e.touches[1]);
-      const distanceDelta = currentDistance - adminTouchStartDistance;
-      const zoomFactor = 1 + distanceDelta * 0.005;
-      const newZoom = Math.max(0.1, Math.min(state.zoom * zoomFactor, 10));
-      const midpoint = getTouchMidpoint(e.touches);
-      const rect = canvas.getBoundingClientRect();
-      const canvasMidX = midpoint.x - rect.left;
-      const canvasMidY = midpoint.y - rect.top;
-      const zoomChange = newZoom / state.zoom;
-      state.panX = canvasMidX - (canvasMidX - state.panX) * zoomChange;
-      state.panY = canvasMidY - (canvasMidY - state.panY) * zoomChange;
-      state.zoom = newZoom;
-      adminTouchStartDistance = currentDistance;
+      // touchstart 기준 relative 방식 — 누적 오차 없음
+      const _aCurDist = getDistance(e.touches[0], e.touches[1]);
+      const _aScale = _aCurDist / adminPinchStartDist;
+      const _aNewZoom = Math.max(0.1, Math.min(adminPinchStartZoom * _aScale, 10));
+      const _aMid = getTouchMidpoint([e.touches[0], e.touches[1]]);
+      const _aRect = canvas.getBoundingClientRect();
+      const _aCurMidX = _aMid.x - _aRect.left;
+      const _aCurMidY = _aMid.y - _aRect.top;
+      state.zoom = _aNewZoom;
+      state.panX = _aCurMidX - (adminPinchStartMidX - adminPinchStartPanX) * _aScale;
+      state.panY = _aCurMidY - (adminPinchStartMidY - adminPinchStartPanY) * _aScale;
       _dbgTouchMove('admin 핀치줌 zoom=' + state.zoom.toFixed(2));
       scheduleRenderForTouch();
     }
@@ -1378,27 +1390,17 @@ canvas.addEventListener('touchmove', (e) => {
       scheduleRenderForTouch();
     }
   } else if (e.touches.length === 2) {
-    // 두 손가락: 핀치줌
-    const currentDistance = getDistance(e.touches[0], e.touches[1]);
-    const distanceDelta = currentDistance - touchStartDistance;
-
-    // 핀치줌 민감도 조정 (0.005 = 적당함)
-    const zoomFactor = 1 + distanceDelta * 0.005;
-    const newZoom = Math.max(0.1, Math.min(state.zoom * zoomFactor, 10));
-
-    // 핀치 중심점을 기준으로 줌
-    const midpoint = getTouchMidpoint(e.touches);
-    const rect = canvas.getBoundingClientRect();
-    const canvasMidX = midpoint.x - rect.left;
-    const canvasMidY = midpoint.y - rect.top;
-
-    // 줌 중심 유지
-    const zoomChange = newZoom / state.zoom;
-    state.panX = canvasMidX - (canvasMidX - state.panX) * zoomChange;
-    state.panY = canvasMidY - (canvasMidY - state.panY) * zoomChange;
-
-    state.zoom = newZoom;
-    touchStartDistance = currentDistance;
+    // touchstart 기준 relative 방식 — 누적 오차 없음
+    const _vCurDist = getDistance(e.touches[0], e.touches[1]);
+    const _vScale = _vCurDist / pinchStartDist;
+    const _vNewZoom = Math.max(0.1, Math.min(pinchStartZoom * _vScale, 10));
+    const _vMid = getTouchMidpoint([e.touches[0], e.touches[1]]);
+    const _vRect = canvas.getBoundingClientRect();
+    const _vCurMidX = _vMid.x - _vRect.left;
+    const _vCurMidY = _vMid.y - _vRect.top;
+    state.zoom = _vNewZoom;
+    state.panX = _vCurMidX - (pinchStartMidX - pinchStartPanX) * _vScale;
+    state.panY = _vCurMidY - (pinchStartMidY - pinchStartPanY) * _vScale;
     _dbgTouchMove('viewer 핀치줌 zoom=' + state.zoom.toFixed(2));
     const vzd = document.getElementById('viewerZoomDisplay');
     if (vzd) vzd.textContent = Math.round(state.zoom * 100) + '%';
