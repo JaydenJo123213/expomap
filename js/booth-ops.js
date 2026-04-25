@@ -184,8 +184,11 @@ let _isLoading = false;
 
 async function saveToSupabase() {
   if (!_supaClient) return;
+  // base64 데이터 URL을 DB에 저장하지 않음 (state 블로트 방지)
+  // migration이 storage URL로 교체한 뒤 저장되도록 설계
+  const _noBase64 = (url) => (url && !url.startsWith('data:')) ? url : null;
   const data = {
-    booths: state.booths,
+    booths: state.booths.map(b => ({ ...b, companyLogoUrl: _noBase64(b.companyLogoUrl) })),
     groups: state.groups,
     structures: state.structures,
     logos: state.logos.map(l => ({
@@ -194,7 +197,7 @@ async function saveToSupabase() {
       // storageUrl 없으면 dataUrl 보존 (마이그레이션 전 안전망)
       dataUrl: l.storageUrl ? null : (l.dataUrl || null),
     })),
-    companies: state.companies,
+    companies: state.companies.map(c => ({ ...c, logo_url: _noBase64(c.logo_url) })),
     nextId: state.nextId,
     nextGroupId: state.nextGroupId,
     nextStructId: state.nextStructId,
@@ -858,7 +861,7 @@ async function _migrateDecorativeLogos() {
 // 페이지 로드 후 기존 base64 회사 로고 → Storage 마이그레이션 (백그라운드)
 async function _migrateCompanyLogos() {
   if (!_supaClient) return;
-  // 회사별로 중복 없이 수집
+  // 회사별로 중복 없이 수집 (booth.companyLogoUrl + company.logo_url 모두 처리)
   const companyLogoMap = new Map(); // companyUid → dataUrl
   for (const b of state.booths) {
     if (b.companyLogoUrl && b.companyLogoUrl.startsWith('data:') && b.companyUid) {
@@ -867,7 +870,16 @@ async function _migrateCompanyLogos() {
       }
     }
   }
+  // company.logo_url base64도 수집 (booth에 없는 경우 처리)
+  for (const c of state.companies) {
+    if (c.logo_url && c.logo_url.startsWith('data:') && c.company_uid) {
+      if (!companyLogoMap.has(c.company_uid)) {
+        companyLogoMap.set(c.company_uid, c.logo_url);
+      }
+    }
+  }
   if (companyLogoMap.size === 0) return;
+  console.log('[Company Logo Migration] base64 로고 발견:', companyLogoMap.size, '개 → Storage 업로드 시작');
   let migrated = 0;
   for (const [companyUid, dataUrl] of companyLogoMap) {
     try {
