@@ -1400,17 +1400,24 @@ function restoreBgImage(src) {
   // img.decode(): 완전 디코딩 후 resolve → 로딩 오버레이 중 디코딩 완료
   // (img.src+onload는 다운로드만 기다림. 실제 디코딩은 ctx.drawImage 시점 → 메인 스레드 수십 초 점유 → 터치 차단)
   if (src.startsWith('http')) {
-    if (typeof _dbg === 'function') _dbg('BG fetch 시작 (AbortSignal.timeout 30s)');
-    const _signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout)
-      ? AbortSignal.timeout(30000)
-      : (() => { const c = new AbortController(); setTimeout(() => c.abort(), 30000); return c.signal; })();
+    if (typeof _dbg === 'function') _dbg('BG fetch 시작 | optimized=' + optimizedSrc.slice(-60));
+    const _makeSignal = (ms) => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout)
+      ? AbortSignal.timeout(ms)
+      : (() => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; })();
 
-    fetch(optimizedSrc, { mode: 'cors', signal: _signal })
+    // transform URL 시도 → 실패 시 원본 URL fallback
+    const _fetchBg = () => fetch(optimizedSrc, { mode: 'cors', signal: _makeSignal(120000) })
       .then(resp => {
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        if (!resp.ok) {
+          if (typeof _dbg === 'function') _dbg('BG transform 실패 HTTP ' + resp.status + ' → 원본 URL fallback', '#ff6');
+          return fetch(src, { mode: 'cors', signal: _makeSignal(120000) })
+            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); });
+        }
         if (typeof _dbg === 'function') _dbg('BG 다운로드 완료 → img.decode() 디코딩 시작');
         return resp.blob();
-      })
+      });
+
+    _fetchBg()
       .then(async blob => {
         const blobUrl = URL.createObjectURL(blob);
         const img = new Image();
