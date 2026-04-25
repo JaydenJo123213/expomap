@@ -261,6 +261,9 @@ async function loadFromSupabase({ preserveSelection = false } = {}) {
           const _mSz = Math.round(JSON.stringify(s0.measureLines||[]).length / 1024);
           const _dSz = Math.round(JSON.stringify(s0.discussOverlays||[]).length / 1024);
           _dbg('state_json ' + Math.round(_sz / 1024) + ' KB | booths=' + (s0.booths||[]).length + '(' + _bSz + 'KB) | companies=' + (s0.companies||[]).length + '(' + _cSz + 'KB) | measure=' + _mSz + 'KB | discuss=' + _dSz + 'KB | logos=' + (s0.logos||[]).length);
+          // 샘플 로그: 첫 번째 company/booth 키 목록과 크기
+          if ((s0.companies||[]).length > 0) _dbg('company[0] keys: ' + Object.keys(s0.companies[0]).join(', ') + ' | size=' + JSON.stringify(s0.companies[0]).length + 'B');
+          if ((s0.booths||[]).length > 0) _dbg('booth[0] keys: ' + Object.keys(s0.booths[0]).join(', ') + ' | size=' + JSON.stringify(s0.booths[0]).length + 'B');
         } catch {}
       }
       const s = data.state_json;
