@@ -1290,15 +1290,20 @@ document.getElementById('logoUpload').addEventListener('change', async (e) => {
 let _bgLoadPromise = null;
 function getBgLoadPromise() { return _bgLoadPromise; }
 
-// 화면 표시용 BG URL: web/mobile 모두 WebP quality 70으로 변환 (50~70% 크기 절감)
+// 화면 표시용 BG URL: WebP quality 70 + 디바이스 해상도 기반 width 리사이즈
 // PDF export는 state.bg.storageUrl (원본)을 loadHiResBgForPdf()로 별도 로드
 function _getDisplayBgUrl(src) {
   if (!src) return src;
   if (!src.includes('/storage/v1/object/public/')) return src;
+  // 디바이스 픽셀 × 2 (줌 여분), 최대 3000px 캡
+  const maxW = Math.min(
+    Math.round((window.screen.width || 1280) * Math.min(window.devicePixelRatio || 1, 3) * 2),
+    3000
+  );
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
-    + '?quality=70&format=webp';
+    + '?quality=70&format=webp&width=' + maxW;
 }
 
 // PDF 내보내기 전 원본 고화질 BG 로드 (transform 미적용 원본 URL 사용)
