@@ -1295,16 +1295,24 @@ function getBgLoadPromise() { return _bgLoadPromise; }
 function _getDisplayBgUrl(src) {
   if (!src) return src;
   if (!src.includes('/storage/v1/object/public/')) return src;
-  // 디바이스 픽셀 × 1.5 (줌 여분), 최대 2000px 캡
-  // 캡을 낮출수록 Supabase 서버 변환 시간과 img 파싱 시간 단축
+  // 모바일만 width 리사이즈 적용: 데스크탑은 줌인 시 화질이 중요하므로 원본 해상도 유지
+  const isMobile = window.screen.width <= 768 || ('ontouchstart' in window && window.screen.width <= 1024);
+  const baseParams = 'quality=70&format=webp';
+  if (!isMobile) {
+    return src
+      .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+      .replace(/\?[^#]*/, '')
+      + '?' + baseParams;
+  }
+  // 모바일: 디바이스 픽셀 × 1.5 (줌 여분), 최대 2000px 캡
   const maxW = Math.min(
-    Math.round((window.screen.width || 1280) * Math.min(window.devicePixelRatio || 1, 3) * 1.5),
+    Math.round(window.screen.width * Math.min(window.devicePixelRatio || 1, 3) * 1.5),
     2000
   );
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
-    + '?quality=70&format=webp&width=' + maxW;
+    + '?' + baseParams + '&width=' + maxW;
 }
 
 // PDF 내보내기 전 원본 고화질 BG 로드 (transform 미적용 원본 URL 사용)
