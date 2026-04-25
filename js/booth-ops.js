@@ -1290,29 +1290,15 @@ document.getElementById('logoUpload').addEventListener('change', async (e) => {
 let _bgLoadPromise = null;
 function getBgLoadPromise() { return _bgLoadPromise; }
 
-// 화면 표시용 BG URL: WebP quality 70 + 디바이스 해상도 기반 width 리사이즈
+// 화면 표시용 BG URL: web/mobile 모두 WebP quality 70으로 변환 (50~70% 크기 절감)
 // PDF export는 state.bg.storageUrl (원본)을 loadHiResBgForPdf()로 별도 로드
 function _getDisplayBgUrl(src) {
   if (!src) return src;
   if (!src.includes('/storage/v1/object/public/')) return src;
-  // 모바일만 width 리사이즈 적용: 데스크탑은 줌인 시 화질이 중요하므로 원본 해상도 유지
-  const isMobile = window.screen.width <= 768 || ('ontouchstart' in window && window.screen.width <= 1024);
-  const baseParams = 'quality=70&format=webp';
-  if (!isMobile) {
-    return src
-      .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-      .replace(/\?[^#]*/, '')
-      + '?' + baseParams;
-  }
-  // 모바일: 디바이스 픽셀 × 1.5 (줌 여분), 최대 2000px 캡
-  const maxW = Math.min(
-    Math.round(window.screen.width * Math.min(window.devicePixelRatio || 1, 3) * 1.5),
-    2000
-  );
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
     .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
-    + '?' + baseParams + '&width=' + maxW;
+    + '?quality=70&format=webp';
 }
 
 // PDF 내보내기 전 원본 고화질 BG 로드 (transform 미적용 원본 URL 사용)
@@ -1409,37 +1395,32 @@ function restoreBgImage(src) {
   // img.decode(): 완전 디코딩 후 resolve → 로딩 오버레이 중 디코딩 완료
   // (img.src+onload는 다운로드만 기다림. 실제 디코딩은 ctx.drawImage 시점 → 메인 스레드 수십 초 점유 → 터치 차단)
   if (src.startsWith('http')) {
-    if (typeof _dbg === 'function') _dbg('BG fetch 시작 | optimized=' + optimizedSrc.slice(-60));
-    const _makeSignal = (ms) => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout)
-      ? AbortSignal.timeout(ms)
-      : (() => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; })();
+    if (typeof _dbg === 'function') _dbg('BG fetch 시작 (AbortSignal.timeout 30s)');
+    const _signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout)
+      ? AbortSignal.timeout(30000)
+      : (() => { const c = new AbortController(); setTimeout(() => c.abort(), 30000); return c.signal; })();
 
-    // transform URL 시도 → 실패 시 원본 URL fallback
-    const _fetchBg = () => fetch(optimizedSrc, { mode: 'cors', signal: _makeSignal(120000) })
+    fetch(optimizedSrc, { mode: 'cors', signal: _signal })
       .then(resp => {
-        if (!resp.ok) {
-          if (typeof _dbg === 'function') _dbg('BG transform 실패 HTTP ' + resp.status + ' → 원본 URL fallback', '#ff6');
-          return fetch(src, { mode: 'cors', signal: _makeSignal(120000) })
-            .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); });
-        }
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         if (typeof _dbg === 'function') _dbg('BG 다운로드 완료 → img.decode() 디코딩 시작');
         return resp.blob();
-      });
-
-    _fetchBg()
+      })
       .then(async blob => {
         const blobUrl = URL.createObjectURL(blob);
         const img = new Image();
         img.src = blobUrl;
-        // img.onload: 다운로드+파싱 완료 후 resolve (빠름)
-        // img.decode()는 iOS Safari에서 GPU 컴포지터 대기로 100초+ 걸리는 버그 → 사용 안 함
-        // 리사이즈된 이미지(~2500px, ~166KB)라 render()의 ctx.drawImage() 디코딩이 1초 미만
-        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+        // img.decode(): 브라우저가 비동기로 완전 디코딩 → 메인 스레드 blocking 없음 (iOS 14+, Chrome 64+)
+        if (typeof img.decode === 'function') {
+          await img.decode();
+        } else {
+          await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+        }
         URL.revokeObjectURL(blobUrl);
         state.bg.img = img;
         render();
         _settle(true);
-        if (typeof _dbg === 'function') _dbg('BG 다운로드 완료 (' + (Date.now() - _bgT0) + 'ms)');
+        if (typeof _dbg === 'function') _dbg('BG 다운로드+디코딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
         // 캐시 저장: 2MB 초과 시 생략 (localStorage.setItem 대용량 → blocking 방지)
         const reader = new FileReader();
         reader.onload = () => {
