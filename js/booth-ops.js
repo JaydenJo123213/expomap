@@ -1422,17 +1422,15 @@ function restoreBgImage(src) {
         const blobUrl = URL.createObjectURL(blob);
         const img = new Image();
         img.src = blobUrl;
-        // img.decode(): 브라우저가 비동기로 완전 디코딩 → 메인 스레드 blocking 없음 (iOS 14+, Chrome 64+)
-        if (typeof img.decode === 'function') {
-          await img.decode();
-        } else {
-          await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
-        }
+        // img.onload: 다운로드+파싱 완료 후 resolve (빠름)
+        // img.decode()는 iOS Safari에서 GPU 컴포지터 대기로 100초+ 걸리는 버그 → 사용 안 함
+        // 리사이즈된 이미지(~2500px, ~166KB)라 render()의 ctx.drawImage() 디코딩이 1초 미만
+        await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
         URL.revokeObjectURL(blobUrl);
         state.bg.img = img;
         render();
         _settle(true);
-        if (typeof _dbg === 'function') _dbg('BG 다운로드+디코딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
+        if (typeof _dbg === 'function') _dbg('BG 다운로드 완료 (' + (Date.now() - _bgT0) + 'ms)');
         // 캐시 저장: 2MB 초과 시 생략 (localStorage.setItem 대용량 → blocking 방지)
         const reader = new FileReader();
         reader.onload = () => {
