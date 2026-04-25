@@ -129,16 +129,6 @@ async function init() {
         // 화면 꺼짐 경고 팁 표시
         const _tip = document.getElementById('appLoadingTip');
         if (_tip) _tip.style.display = '';
-        // Screen Wake Lock: BG 로딩 중 화면 꺼짐 방지
-        let _wakeLock = null;
-        if (navigator.wakeLock) {
-          try {
-            _wakeLock = await navigator.wakeLock.request('screen');
-            _dbg('WakeLock 획득');
-          } catch (e) {
-            _dbg('WakeLock 실패: ' + e.message, '#ff6');
-          }
-        }
         _dbg('BG 로딩+디코딩 대기 중 | hasBgPromise=true');
         // 시각적 진행: 10→50% (500ms마다 1%, 최대 40초)
         let _bgPct = 10;
@@ -147,7 +137,6 @@ async function init() {
         }, 500);
         await bgP;
         clearInterval(_bgTimer);
-        if (_wakeLock) { _wakeLock.release(); _dbg('WakeLock 해제'); }
         if (_tip) _tip.style.display = 'none';
         _dbg('BG 로딩+디코딩 완료');
         _setLoadingProgress(55, '배경 도면 완료!');
