@@ -1295,10 +1295,11 @@ function getBgLoadPromise() { return _bgLoadPromise; }
 function _getDisplayBgUrl(src) {
   if (!src) return src;
   if (!src.includes('/storage/v1/object/public/')) return src;
-  // 디바이스 픽셀 × 2 (줌 여분), 최대 3000px 캡
+  // 디바이스 픽셀 × 1.5 (줌 여분), 최대 2000px 캡
+  // 캡을 낮출수록 Supabase 서버 변환 시간과 img 파싱 시간 단축
   const maxW = Math.min(
-    Math.round((window.screen.width || 1280) * Math.min(window.devicePixelRatio || 1, 3) * 2),
-    3000
+    Math.round((window.screen.width || 1280) * Math.min(window.devicePixelRatio || 1, 3) * 1.5),
+    2000
   );
   return src
     .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
