@@ -256,7 +256,11 @@ async function loadFromSupabase({ preserveSelection = false } = {}) {
         try {
           const _sz = JSON.stringify(data.state_json).length;
           const s0 = data.state_json;
-          _dbg('state_json ' + Math.round(_sz / 1024) + ' KB | logos=' + (s0.logos||[]).length + ' | booths=' + (s0.booths||[]).length);
+          const _bSz = Math.round(JSON.stringify(s0.booths||[]).length / 1024);
+          const _cSz = Math.round(JSON.stringify(s0.companies||[]).length / 1024);
+          const _mSz = Math.round(JSON.stringify(s0.measureLines||[]).length / 1024);
+          const _dSz = Math.round(JSON.stringify(s0.discussOverlays||[]).length / 1024);
+          _dbg('state_json ' + Math.round(_sz / 1024) + ' KB | booths=' + (s0.booths||[]).length + '(' + _bSz + 'KB) | companies=' + (s0.companies||[]).length + '(' + _cSz + 'KB) | measure=' + _mSz + 'KB | discuss=' + _dSz + 'KB | logos=' + (s0.logos||[]).length);
         } catch {}
       }
       const s = data.state_json;
