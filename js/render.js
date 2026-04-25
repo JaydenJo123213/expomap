@@ -152,14 +152,9 @@ function drawBoothContent(c, b, zoom, textColor, isConstruction, skipElec = fals
   c.fillStyle = textColor;
 
   // 로고 렌더링 (4부스 이상 & 로고 URL 있을 때 — EN 모드에서 영문명 없어도 로고는 표시)
-  // companyLogoUrl 없을 때 company.logo_url fallback (migration 후 storage URL로 교체된 경우)
-  const _bLogoCompany = !b.companyLogoUrl && b.companyUid
-    ? state.companies.find(c => c.company_uid === b.companyUid)
-    : null;
-  const _bLogoUrl = b.companyLogoUrl || _bLogoCompany?.logo_url || null;
-  const shouldDrawLogo = area >= 36 && hasAnyCompany && _bLogoUrl;
+  const shouldDrawLogo = area >= 36 && hasAnyCompany && b.companyLogoUrl;
   if (shouldDrawLogo && !isConstruction) {
-    const logoImg = getLogoImage(_bLogoUrl !== b.companyLogoUrl ? { ...b, companyLogoUrl: _bLogoUrl } : b, state.logoCache);
+    const logoImg = getLogoImage(b, state.logoCache);
     if (logoImg) {
       const scale = (b.logoScale ?? 100) / 100;
       const noReserve = hasBoothNo ? getBoothNoFontSize(c, b) + 4 : 0;
