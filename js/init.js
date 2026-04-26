@@ -53,10 +53,12 @@ function applyExhibitionBranding(expo) {
   if (topExpoName) topExpoName.textContent = expo.nameShort;
   const viewerLogo = document.querySelector('.viewer-logo');
   if (viewerLogo) viewerLogo.innerHTML = 'ExpoMap <span>' + expo.nameShort + ' 공개도면</span>';
-  // 전시회별 부스 색상 오버라이드
-  if (expo.boothColor) {
-    STATUS_COLORS.available = { fill: expo.boothColor, stroke: '#b0b8a0', text: '#555555' };
-    VIEWER_STATUS_COLORS.available = { fill: expo.boothColor, stroke: '#b0b8a0', text: '#555555', label: '배정가능' };
+  // 전시회별 부스 색상 오버라이드 — 공개모드·PDF 전용 (배정모드 STATUS_COLORS는 건드리지 않음)
+  if (expo.boothColor || expo.boothStrokeColor || expo.boothTextColor) {
+    const fill   = expo.boothColor       || VIEWER_STATUS_COLORS.available.fill;
+    const stroke = expo.boothStrokeColor || VIEWER_STATUS_COLORS.available.stroke;
+    const text   = expo.boothTextColor   || VIEWER_STATUS_COLORS.available.text;
+    VIEWER_STATUS_COLORS.available = { fill, stroke, text, label: '배정가능' };
   }
 }
 
@@ -90,8 +92,13 @@ function _setLoadingProgress(pct, label) {
 }
 
 async function init() {
-  // 전시회 선택 화면: 오버레이는 기본 숨김(display:none)이므로 그냥 선택 화면 표시
+  // 전시회 선택 화면: DB에서 목록 로드 후 표시 (폴백: EXHIBITIONS_FALLBACK)
   if (!EXPO_SLUG) {
+    const supaOk = initSupabase();
+    if (supaOk) {
+      const rows = await loadExhibitions();
+      if (rows?.length) setExhibitions(rows);
+    }
     showExpoSelector();
     return;
   }
@@ -113,6 +120,13 @@ async function init() {
     const supaOk = initSupabase();
     _dbg('initSupabase() → ' + (supaOk ? 'OK' : 'OFFLINE'));
     if (supaOk) {
+      // exhibitions 테이블에서 전시회 목록 로드 → 브랜딩 재적용
+      const _exRows = await loadExhibitions();
+      if (_exRows?.length) {
+        setExhibitions(_exRows);
+        _currentExpo = resolveExhibition(EXPO_SLUG);
+        applyExhibitionBranding(_currentExpo);
+      }
       _setLoadingProgress(5, '부스 블럭 로딩 중...');
       _dbg('loadFromSupabase() 시작');
       const _t0 = Date.now();

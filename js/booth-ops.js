@@ -232,22 +232,13 @@ async function loadFromSupabase({ preserveSelection = false } = {}) {
   if (_isLoading) return;
   _isLoading = true;
   try {
-    // 먼저 지정 ID로 시도, 없으면 가장 최근 행으로 폴백
+    // 지정 ID로만 조회 — 없으면 빈 캔버스로 시작 (다른 전시회 데이터 오염 방지)
     let data, error;
     ({ data, error } = await _supaClient
       .from('expomap_state')
       .select('state_json, updated_at')
       .eq('id', _supaProjectId)
       .maybeSingle());
-    if (!data && !error) {
-      // id로 못 찾으면 updated_at 기준 최신 행
-      ({ data, error } = await _supaClient
-        .from('expomap_state')
-        .select('state_json, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle());
-    }
     if (error) throw error;
     if (!data) { console.log('No saved state, starting fresh.'); return; }
     if (data?.state_json) {
@@ -376,7 +367,14 @@ function screenToWorld(sx, sy) {
 function worldToScreen(wx, wy) {
   return { x: wx * state.zoom + state.panX, y: wy * state.zoom + state.panY };
 }
+// 이동용 snap: half = 0.1m
 function snapValue(v) {
+  if (state.snap === 'grid') return Math.round(v / GRID_PX) * GRID_PX;
+  if (state.snap === 'half') return Math.round(v / FINE_GRID_PX) * FINE_GRID_PX;
+  return v;
+}
+// 그리기/배치용 snap: half = 0.5m (부스 크기 단위 유지)
+function snapValueDraw(v) {
   if (state.snap === 'grid') return Math.round(v / GRID_PX) * GRID_PX;
   if (state.snap === 'half') return Math.round(v / HALF_GRID_PX) * HALF_GRID_PX;
   return v;
@@ -1297,15 +1295,12 @@ document.getElementById('logoUpload').addEventListener('change', async (e) => {
 let _bgLoadPromise = null;
 function getBgLoadPromise() { return _bgLoadPromise; }
 
-// 화면 표시용 BG URL: web/mobile 모두 WebP quality 70으로 변환 (50~70% 크기 절감)
-// PDF export는 state.bg.storageUrl (원본)을 loadHiResBgForPdf()로 별도 로드
+// 화면 표시용 BG URL: ?t=... cache-bust 파라미터만 제거하여 안정적인 캐시 키 생성
+// render/image (Image Transform) 는 Supabase 유료 기능 → 사용 안 함
 function _getDisplayBgUrl(src) {
   if (!src) return src;
   if (!src.includes('/storage/v1/object/public/')) return src;
-  return src
-    .replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-    .replace(/\?[^#]*/, '')  // 기존 쿼리 파라미터 제거
-    + '?quality=70&format=webp';
+  return src.replace(/\?[^#]*/, '');
 }
 
 // PDF 내보내기 전 원본 고화질 BG 로드 (transform 미적용 원본 URL 사용)
@@ -1414,12 +1409,29 @@ function restoreBgImage(src) {
         return resp.blob();
       })
       .then(async blob => {
+        // createImageBitmap: decode + resize를 한 번에 처리 → 대형 이미지 메모리 한계 우회
+        // ctx.drawImage는 HTMLImageElement와 ImageBitmap 모두 지원
+        if (typeof createImageBitmap === 'function') {
+          try {
+            const bitmap = await createImageBitmap(blob);
+            state.bg.img = bitmap;
+            render();
+            _settle(true);
+            if (typeof _dbg === 'function') _dbg('BG createImageBitmap 완료 (' + (Date.now() - _bgT0) + 'ms)');
+            // 캐시는 blobUrl 없으므로 생략
+            return;
+          } catch (e) {
+            if (typeof _dbg === 'function') _dbg('createImageBitmap 실패 → img 폴백: ' + e.message, '#ff6');
+          }
+        }
         const blobUrl = URL.createObjectURL(blob);
         const img = new Image();
         img.src = blobUrl;
-        // img.decode(): 브라우저가 비동기로 완전 디코딩 → 메인 스레드 blocking 없음 (iOS 14+, Chrome 64+)
         if (typeof img.decode === 'function') {
-          await img.decode();
+          try { await img.decode(); } catch (e) {
+            if (typeof _dbg === 'function') _dbg('img.decode() 실패 → onload 폴백: ' + e.message, '#ff6');
+            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+          }
         } else {
           await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
         }

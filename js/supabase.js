@@ -41,6 +41,16 @@ function initSupabase() {
   return false;
 }
 
+async function loadExhibitions() {
+  if (!_supaClient) return null;
+  const { data, error } = await _supaClient
+    .from('exhibitions')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) { console.error('exhibitions 로드 실패:', error); return null; }
+  return data;
+}
+
 function saveSupaConfig() {
   const url = document.getElementById('supaUrl').value.trim();
   const key = document.getElementById('supaKey').value.trim();

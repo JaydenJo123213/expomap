@@ -1,5 +1,35 @@
 # ExpoMap — Claude Code Instructions
 
+## ⚠️ 환경 규칙 (반드시 준수)
+
+**이 디렉토리는 운영 환경(PROD)입니다.**
+- GitHub `JaydenJo123213/expomap`으로 배포 중인 git repo
+- **코드 수정은 `Expomap/expomap_dev`에서 진행 후 반영하세요.**
+
+### 운영 반영 절차
+
+`expomap_dev`에서 검증 완료 후, 변경 파일만 복사:
+
+```bash
+cp Expomap/expomap_dev/js/state.js    Expomap/expomap-starter/js/state.js
+cp Expomap/expomap_dev/js/supabase.js Expomap/expomap-starter/js/supabase.js
+cp Expomap/expomap_dev/js/init.js     Expomap/expomap-starter/js/init.js
+cp Expomap/expomap_dev/.claude/commands/expomap-add-expo.md \
+   Expomap/expomap-starter/.claude/commands/expomap-add-expo.md
+```
+
+그 다음 git push:
+
+```bash
+git add js/state.js js/supabase.js js/init.js .claude/commands/expomap-add-expo.md
+git commit -m "..."
+git push
+```
+
+> **절대 금지**: `cp -r expomap_dev expomap-starter` 폴더 전체 복사
+
+---
+
 ## 이 프로젝트는 뭔가
 전시회 도면 시각화 + 부스 배정 웹 플랫폼.
 "이미 있는 DB에 눈을 달아주는 것" — 엑셀 업로드 → 도면 위에서 배정 → PDF 출력.

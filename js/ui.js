@@ -686,7 +686,7 @@ function setMode(mode) {
 function setSnap(snap) {
   state.snap = snap;
   document.querySelectorAll('#snapGroup .tool-btn').forEach(b => b.classList.toggle('active', b.dataset.snap === snap));
-  const labels = { grid: '3m', half: '0.5m', free: 'Off' };
+  const labels = { grid: '3m', half: '0.1m', free: 'Off' };
   document.getElementById('gridInfo').textContent = `Grid: ${labels[snap]}`;
 }
 function fitAll() {

@@ -18,8 +18,8 @@ const APP_MODE = _urlParams.get('mode') || 'view';
 const EXPO_SLUG = _urlParams.get('expo');  // null이면 전시회 선택 화면
 const VIEWER_MODE = APP_MODE !== 'admin';
 
-// ─── 전시회 레지스트리 ───
-const EXHIBITIONS = {
+// ─── 전시회 레지스트리 (오프라인/DB 미생성 시 폴백) ───
+const EXHIBITIONS_FALLBACK = {
   'kimes-busan-2026': {
     id: 'kimes-busan-2026',
     name: 'KIMES BUSAN 2026',
@@ -32,10 +32,27 @@ const EXHIBITIONS = {
     nameShort: 'K-PRINT',
     pdfPrefix: 'K-PRINT 2026',
     boothColor: '#f6f9e8',
-    pdfMode: 'bgFill',  // BG 이미지를 A3에 꽉 채워서 출력 (방향은 BG 비율로 자동 결정)
+    pdfMode: 'bgFill',
   },
-  // 새 전시회 추가 시 여기에 한 블럭 추가
 };
+
+let EXHIBITIONS = { ...EXHIBITIONS_FALLBACK };
+
+function setExhibitions(rows) {
+  EXHIBITIONS = {};
+  rows.forEach(r => {
+    EXHIBITIONS[r.id] = {
+      id: r.id,
+      name: r.name,
+      nameShort: r.name_short,
+      pdfPrefix: r.pdf_prefix,
+      ...(r.booth_color        && { boothColor: r.booth_color }),
+      ...(r.booth_stroke_color && { boothStrokeColor: r.booth_stroke_color }),
+      ...(r.booth_text_color   && { boothTextColor: r.booth_text_color }),
+      ...(r.pdf_mode           && { pdfMode: r.pdf_mode }),
+    };
+  });
+}
 
 function resolveExhibition(slug) {
   if (!slug) return null;
@@ -48,7 +65,8 @@ let _currentExpo = null;
 
 const PX_PER_METER = 10;
 const GRID_PX = 30;
-const HALF_GRID_PX = 5;
+const HALF_GRID_PX = 5;   // 0.5m — resize/생성 최솟값용
+const FINE_GRID_PX = 1;   // 0.1m — half 스냅 이동 단계
 
 // ─── Presence / Anonymous Cursors ───
 const CURSOR_ADJECTIVES = [

@@ -1236,7 +1236,7 @@ function renderViewer(w, h) {
     ctx.fillStyle = fill;
     fillBoothShape(ctx, b);
 
-    ctx.strokeStyle = (isSelected || isHighlighted || isAvailableHighlight) ? stroke : '#000000';
+    ctx.strokeStyle = (isSelected || isHighlighted || isAvailableHighlight) ? stroke : _vAvail.stroke;
     ctx.lineWidth = (isSelected || isHighlighted) ? 2 / state.zoom : 0.5 / state.zoom;
     strokeBoothShape(ctx, b, state.zoom);
 
@@ -1312,16 +1312,27 @@ function closeViewerPopup() {
 function drawGrid(screenW, screenH) {
   const tl = screenToWorld(0, 0);
   const br = screenToWorld(screenW, screenH);
+  // 0.1m 세선 — 충분히 확대됐을 때만 표시 (너무 조밀해지면 off)
+  if (state.zoom > 3) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 0.5 / state.zoom;
+    const sf = Math.floor(tl.x / FINE_GRID_PX) * FINE_GRID_PX, sf2 = Math.floor(tl.y / FINE_GRID_PX) * FINE_GRID_PX;
+    ctx.beginPath();
+    for (let x = sf; x < br.x; x += FINE_GRID_PX) { ctx.moveTo(x, tl.y); ctx.lineTo(x, br.y); }
+    for (let y = sf2; y < br.y; y += FINE_GRID_PX) { ctx.moveTo(tl.x, y); ctx.lineTo(br.x, y); }
+    ctx.stroke();
+  }
+  // 0.5m 선
   if (state.zoom > 0.8) {
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth = 0.5 / state.zoom;
-    const step = HALF_GRID_PX;
-    const sx = Math.floor(tl.x / step) * step, sy = Math.floor(tl.y / step) * step;
+    const sx = Math.floor(tl.x / HALF_GRID_PX) * HALF_GRID_PX, sy = Math.floor(tl.y / HALF_GRID_PX) * HALF_GRID_PX;
     ctx.beginPath();
-    for (let x = sx; x < br.x; x += step) { ctx.moveTo(x, tl.y); ctx.lineTo(x, br.y); }
-    for (let y = sy; y < br.y; y += step) { ctx.moveTo(tl.x, y); ctx.lineTo(br.x, y); }
+    for (let x = sx; x < br.x; x += HALF_GRID_PX) { ctx.moveTo(x, tl.y); ctx.lineTo(x, br.y); }
+    for (let y = sy; y < br.y; y += HALF_GRID_PX) { ctx.moveTo(tl.x, y); ctx.lineTo(br.x, y); }
     ctx.stroke();
   }
+  // 3m 선
   ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = 0.5 / state.zoom;
   const sx2 = Math.floor(tl.x / GRID_PX) * GRID_PX, sy2 = Math.floor(tl.y / GRID_PX) * GRID_PX;
@@ -1329,6 +1340,7 @@ function drawGrid(screenW, screenH) {
   for (let x = sx2; x < br.x; x += GRID_PX) { ctx.moveTo(x, tl.y); ctx.lineTo(x, br.y); }
   for (let y = sy2; y < br.y; y += GRID_PX) { ctx.moveTo(tl.x, y); ctx.lineTo(br.x, y); }
   ctx.stroke();
+  // 원점 축
   ctx.strokeStyle = 'rgba(79,140,255,0.2)';
   ctx.lineWidth = 1 / state.zoom;
   ctx.beginPath();

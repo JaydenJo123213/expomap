@@ -82,7 +82,7 @@ canvas.addEventListener('mousedown', (e) => {
 
   // Structure placement
   if (state.structMode && e.button === 0) {
-    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    const snapped = { x: snapValueDraw(world.x), y: snapValueDraw(world.y) };
     if (state.structMode === 'column') {
       createStructure('column', { x: snapped.x, y: snapped.y, radius: 5 }); // 0.5m radius
     } else if (state.structMode === 'wall' || state.structMode === 'line' || state.structMode === 'arrow') {
@@ -125,7 +125,7 @@ canvas.addEventListener('mousedown', (e) => {
   }
 
   if (state.mode === 'draw' && e.button === 0) {
-    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    const snapped = { x: snapValueDraw(world.x), y: snapValueDraw(world.y) };
     state.isDrawing = true;
     state.drawStartX = snapped.x; state.drawStartY = snapped.y;
     state.drawCurrentX = snapped.x; state.drawCurrentY = snapped.y;
@@ -133,7 +133,7 @@ canvas.addEventListener('mousedown', (e) => {
   }
 
   if (state.mode === 'baseNo' && e.button === 0) {
-    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    const snapped = { x: snapValueDraw(world.x), y: snapValueDraw(world.y) };
     state.isBaseDrawing = true;
     state.baseDrawStartX = snapped.x; state.baseDrawStartY = snapped.y;
     state.baseDrawCurrentX = snapped.x; state.baseDrawCurrentY = snapped.y;
@@ -478,7 +478,8 @@ canvas.addEventListener('mousemove', (e) => {
   state.mouseX = world.x; state.mouseY = world.y;
   broadcastCursorPosition(world.x, world.y);
 
-  document.getElementById('cursorPos').textContent = `X: ${pxToM(world.x).toFixed(1)}m  Y: ${pxToM(world.y).toFixed(1)}m`;
+  const _sx = pxToM(snapValue(world.x)), _sy = pxToM(snapValue(world.y));
+  document.getElementById('cursorPos').textContent = `X: ${_sx.toFixed(1)}m  Y: ${_sy.toFixed(1)}m`;
 
   // Export region 드래그 프리뷰
   if (state.exportRegionMode && state.exportRegionStart) {
@@ -545,7 +546,7 @@ canvas.addEventListener('mousemove', (e) => {
 
   // Rect struct drawing preview
   if (state.structMode === 'rect' && state.structDrawStart) {
-    state.structDrawCurrent = { x: snapValue(world.x), y: snapValue(world.y) };
+    state.structDrawCurrent = { x: snapValueDraw(world.x), y: snapValueDraw(world.y) };
     render();
     return;
   }
@@ -565,7 +566,7 @@ canvas.addEventListener('mousemove', (e) => {
   }
 
   if (state.isDrawing) {
-    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    const snapped = { x: snapValueDraw(world.x), y: snapValueDraw(world.y) };
     state.drawCurrentX = snapped.x; state.drawCurrentY = snapped.y;
     render(); return;
   }
@@ -697,7 +698,7 @@ canvas.addEventListener('mousemove', (e) => {
 
   // BaseNo preview
   if (state.isBaseDrawing) {
-    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    const snapped = { x: snapValueDraw(world.x), y: snapValueDraw(world.y) };
     state.baseDrawCurrentX = snapped.x;
     state.baseDrawCurrentY = snapped.y;
     render(); return;
@@ -863,7 +864,7 @@ canvas.addEventListener('mouseup', (e) => {
 
   // Rect struct drawing end
   if (state.structMode === 'rect' && state.structDrawStart) {
-    const snapped = { x: snapValue(world.x), y: snapValue(world.y) };
+    const snapped = { x: snapValueDraw(world.x), y: snapValueDraw(world.y) };
     const sx = state.structDrawStart.x, sy = state.structDrawStart.y;
     const x = Math.min(sx, snapped.x), y = Math.min(sy, snapped.y);
     const w = Math.abs(snapped.x - sx), h = Math.abs(snapped.y - sy);
@@ -1190,7 +1191,7 @@ document.addEventListener('keydown', (e) => {
     const hasSelection = state.selectedIds.size || state.selectedBaseNoIds.size || state.selectedStructId;
     if (!hasSelection) return;
     e.preventDefault();
-    const step = state.snap === 'grid' ? GRID_PX : state.snap === 'half' ? HALF_GRID_PX : 0.5;
+    const step = state.snap === 'grid' ? GRID_PX : state.snap === 'half' ? FINE_GRID_PX : 0.5;
     const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
     const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
     saveUndo();

@@ -267,12 +267,13 @@ function renderForAssignGuideExport(ectx, W, H, _showNames) {
     const fill = isFacility ? '#EFEFEF' : VIEWER_STATUS_COLORS.available.fill;
     ectx.fillStyle = fill;
     fillBoothShape(ectx, b);
-    ectx.strokeStyle = '#000000';
+    ectx.strokeStyle = isFacility ? '#111111' : VIEWER_STATUS_COLORS.available.stroke;
     ectx.lineWidth = 0.5 / zoom;
     strokeBoothShape(ectx, b, zoom);
 
     // 업체명/부스번호 항상 표시 (배정 현황 확인용)
-    drawBoothContent(ectx, b, zoom, '#111111', false, false, false, '#000000');
+    const _vText = isFacility ? '#111111' : VIEWER_STATUS_COLORS.available.text;
+    drawBoothContent(ectx, b, zoom, _vText, false, false, false, _vText);
   }
 
   // 기본부스번호 렌더링 (도면출력과 동일 로직)
