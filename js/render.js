@@ -1120,7 +1120,7 @@ function render() {
       ctx.font = `600 ${11 / state.zoom}px 'Spoqa Han Sans Neo', sans-serif`;
       ctx.fillStyle = state.isDiscussDrawing ? '#FFD600' : '#4F8CFF';
       ctx.textAlign = 'center';
-      const label = state.isDrawing ? `${pxToM(rw)}m × ${pxToM(rh)}m` : (state.isBaseDrawing ? 'BaseNo' : '배정논의');
+      const label = state.isDiscussDrawing ? '배정논의' : `${pxToM(rw)}m × ${pxToM(rh)}m`;
       ctx.fillText(label, rx + rw / 2, ry - 8 / state.zoom);
     }
   }
