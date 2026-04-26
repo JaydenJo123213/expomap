@@ -1057,6 +1057,7 @@ function applyCalibration() {
   hideCalHint();
   state.bgCalPoints = [];
   scheduleSave();
+  updateBgFineTuneInputs();
   render();
 }
 
@@ -1415,6 +1416,7 @@ function restoreBgImage(src) {
           try {
             const bitmap = await createImageBitmap(blob);
             state.bg.img = bitmap;
+            updateBgFineTuneInputs();
             render();
             _settle(true);
             if (typeof _dbg === 'function') _dbg('BG createImageBitmap 완료 (' + (Date.now() - _bgT0) + 'ms)');
@@ -1437,6 +1439,7 @@ function restoreBgImage(src) {
         }
         URL.revokeObjectURL(blobUrl);
         state.bg.img = img;
+        updateBgFineTuneInputs();
         render();
         _settle(true);
         if (typeof _dbg === 'function') _dbg('BG 다운로드+디코딩 완료 (' + (Date.now() - _bgT0) + 'ms)');
